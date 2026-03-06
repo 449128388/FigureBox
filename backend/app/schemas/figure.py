@@ -9,6 +9,10 @@ class FigureBase(BaseModel):
     manufacturer: str | None = None
     attribute: str | None = None
     release_date: date | None = None
+    purchase_price: float | None = None
+    purchase_date: date | None = None
+    purchase_method: str | None = None
+    purchase_type: str | None = None
     scale: str | None = None
     prototype: str | None = None
     painting: str | None = None
@@ -30,6 +34,10 @@ class FigureUpdate(BaseModel):
     currency: str | None = None
     attribute: str | None = None
     release_date: date | None = None
+    purchase_price: float | None = None
+    purchase_date: date | None = None
+    purchase_method: str | None = None
+    purchase_type: str | None = None
     scale: str | None = None
     prototype: str | None = None
     painting: str | None = None

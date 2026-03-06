@@ -21,9 +21,24 @@
         </div>
         <h3>{{ figure.name }}</h3>
         <p>{{ figure.manufacturer }}</p>
-        <p>定价: {{ figure.price }} {{ getCurrencySymbol(figure.currency) }}</p>
-        <p v-if="figure.attribute">属性: {{ figure.attribute }}</p>
+        <p v-if="figure.purchase_price">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.currency) }}</p>
+        <p v-else>入手价格: 未设置</p>
+        <div v-if="figure.attribute" class="attributes-container">
+          <span class="attributes-label">属性:</span>
+          <el-tag
+            v-for="attr in figure.attribute.split(',')"
+            :key="attr"
+            size="small"
+            effect="light"
+            style="margin-right: 4px; margin-bottom: 4px;"
+          >
+            {{ attr }}
+          </el-tag>
+        </div>
         <p v-if="figure.release_date">出货日: {{ figure.release_date }}</p>
+        <p v-if="figure.purchase_date">入手时间: {{ figure.purchase_date }}</p>
+        <p v-if="figure.purchase_method">入手途径: {{ figure.purchase_method }}</p>
+        <p v-if="figure.purchase_type">入手形式: {{ figure.purchase_type }}</p>
         <p v-if="figure.scale">比例: {{ figure.scale }}</p>
         <p v-if="figure.prototype">原型: {{ figure.prototype }}</p>
         <p v-if="figure.painting">涂装: {{ figure.painting }}</p>
@@ -44,59 +59,107 @@
           <div class="form-grid">
             <div class="form-group">
               <label>名称</label>
-              <input type="text" v-model="newFigure.name" required>
+              <el-input v-model="newFigure.name" placeholder="请输入名称" required></el-input>
             </div>
             <div class="form-group">
               <label>属性</label>
-              <input type="text" v-model="newFigure.attribute">
+              <el-select
+                v-model="newFigure.attribute"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                placeholder="请选择或输入属性"
+                empty-text="暂无数据"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in attributeOptions"
+                  :key="item"
+                  :label="item"
+                  :value="item"
+                />
+              </el-select>
             </div>
             <div class="form-group">
               <label>定价</label>
               <div class="price-currency-container">
-                <input type="number" v-model.number="newFigure.price" required min="0" step="1">
-                <select v-model="newFigure.currency" class="currency-select">
-                  <option value="CNY">人民币</option>
-                  <option value="JPY">日元</option>
-                  <option value="USD">美元</option>
-                  <option value="EUR">欧元</option>
-                </select>
+                <el-input-number v-model="newFigure.price" placeholder="请输入定价" :min="0" :step="1" required style="width: 200px;"></el-input-number>
+                <el-select v-model="newFigure.currency" placeholder="选择币种" style="width: 120px;">
+                  <el-option value="CNY" label="人民币" />
+                  <el-option value="JPY" label="日元" />
+                  <el-option value="USD" label="美元" />
+                  <el-option value="EUR" label="欧元" />
+                </el-select>
               </div>
             </div>
             <div class="form-group">
               <label>出货日</label>
-              <input type="date" v-model="newFigure.release_date">
+              <el-date-picker v-model="newFigure.release_date" type="date" placeholder="选择出货日" style="width: 100%;"></el-date-picker>
+            </div>
+            <div class="form-group">
+              <label>入手价格</label>
+              <div class="price-currency-container">
+                <el-input-number v-model="newFigure.purchase_price" placeholder="请输入入手价格" :min="0" :step="1" style="width: 200px;"></el-input-number>
+                <el-select v-model="newFigure.currency" placeholder="选择币种" style="width: 120px;">
+                  <el-option value="CNY" label="人民币" />
+                  <el-option value="JPY" label="日元" />
+                  <el-option value="USD" label="美元" />
+                  <el-option value="EUR" label="欧元" />
+                </el-select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>入手时间</label>
+              <el-date-picker v-model="newFigure.purchase_date" type="date" placeholder="选择入手时间" style="width: 100%;"></el-date-picker>
+            </div>
+            <div class="form-group">
+              <label>入手途径</label>
+              <el-input v-model="newFigure.purchase_method" placeholder="请输入入手途径"></el-input>
+            </div>
+            <div class="form-group">
+              <label>入手形式</label>
+              <el-select v-model="newFigure.purchase_type" placeholder="请选择入手形式" style="width: 100%;">
+                <el-option value="" label="请选择" />
+                <el-option value="其他" label="其他" />
+                <el-option value="预定" label="预定" />
+                <el-option value="现货" label="现货" />
+                <el-option value="二手" label="二手" />
+                <el-option value="散货" label="散货" />
+                <el-option value="国产" label="国产" />
+              </el-select>
             </div>
             <div class="form-group">
               <label>制造商</label>
-              <input type="text" v-model="newFigure.manufacturer">
+              <el-input v-model="newFigure.manufacturer" placeholder="请输入制造商"></el-input>
             </div>   
             <div class="form-group">
               <label>比例</label>
-              <input type="text" v-model="newFigure.scale">
+              <el-input v-model="newFigure.scale" placeholder="请输入比例"></el-input>
             </div>
             <div class="form-group">
               <label>原型</label>
-              <input type="text" v-model="newFigure.prototype">
+              <el-input v-model="newFigure.prototype" placeholder="请输入原型"></el-input>
             </div>
             <div class="form-group">
               <label>涂装</label>
-              <input type="text" v-model="newFigure.painting">
+              <el-input v-model="newFigure.painting" placeholder="请输入涂装"></el-input>
             </div>
             <div class="form-group">
               <label>原画</label>
-              <input type="text" v-model="newFigure.original_art">
+              <el-input v-model="newFigure.original_art" placeholder="请输入原画"></el-input>
             </div>
             <div class="form-group">
               <label>作品</label>
-              <input type="text" v-model="newFigure.work">
+              <el-input v-model="newFigure.work" placeholder="请输入作品"></el-input>
             </div>
             <div class="form-group">
               <label>材质</label>
-              <input type="text" v-model="newFigure.material">
+              <el-input v-model="newFigure.material" placeholder="请输入材质"></el-input>
             </div>
             <div class="form-group">
               <label>尺寸</label>
-              <input type="text" v-model="newFigure.size">
+              <el-input v-model="newFigure.size" placeholder="请输入尺寸"></el-input>
             </div>
           </div>
           
@@ -126,8 +189,8 @@
           </div>
           
           <div class="form-actions">
-            <button type="button" class="btn btn-cancel" @click="showAddForm = false">取消</button>
-            <button type="submit" class="btn btn-submit">保存</button>
+            <el-button type="info" @click="showAddForm = false">取消</el-button>
+            <el-button type="primary" native-type="submit">保存</el-button>
           </div>
         </form>
       </div>
@@ -153,13 +216,18 @@ export default {
       showAddForm: false,
       showImagePreview: false,
       previewImage: '',
+      attributeOptions: ['PVC', 'ABS', '树脂', '合金', '可动', '限定', '特典', '初版', '再版'],
       newFigure: {
         name: '',
         manufacturer: '',
         price: 0,
         currency: 'CNY',
-        attribute: '',
+        attribute: [],
         release_date: '',
+        purchase_price: 0,
+        purchase_date: '',
+        purchase_method: '',
+        purchase_type: '',
         scale: '',
         prototype: '',
         painting: '',
@@ -185,8 +253,37 @@ export default {
     if (localStorage.getItem('token') && !this.userStore.currentUser) {
       this.userStore.fetchUser()
     }
+    // 从已存在的手办中提取所有属性值
+    this.updateAttributeOptions()
+  },
+  watch: {
+    'figureStore.figures': {
+      handler() {
+        this.updateAttributeOptions()
+      },
+      deep: true
+    }
   },
   methods: {
+    updateAttributeOptions() {
+      const defaultOptions = []
+      const allAttributes = new Set(defaultOptions)
+      
+      // 从已存在的手办中提取所有属性值
+      this.figureStore.figures.forEach(figure => {
+        if (figure.attribute) {
+          const attributes = figure.attribute.split(',')
+          attributes.forEach(attr => {
+            if (attr && attr.trim()) {
+              allAttributes.add(attr.trim())
+            }
+          })
+        }
+      })
+      
+      // 更新attributeOptions
+      this.attributeOptions = Array.from(allAttributes)
+    },
     triggerFileInput() {
       this.$refs.fileInput.click()
     },
@@ -228,10 +325,13 @@ export default {
     },
     async addFigure() {
       try {
-        // 处理空的日期字段
+        // 处理空的日期字段和价格字段
         const figureData = {
           ...this.newFigure,
-          release_date: this.newFigure.release_date || null
+          release_date: this.newFigure.release_date || null,
+          purchase_date: this.newFigure.purchase_date || null,
+          purchase_price: this.newFigure.purchase_price || null,
+          attribute: this.newFigure.attribute.length > 0 ? this.newFigure.attribute.join(',') : null
         }
         await this.figureStore.createFigure(figureData)
         this.showAddForm = false
@@ -240,8 +340,13 @@ export default {
           name: '',
           manufacturer: '',
           price: 0,
-          attribute: '',
+          currency: 'CNY',
+          attribute: [],
           release_date: '',
+          purchase_price: 0,
+          purchase_date: '',
+          purchase_method: '',
+          purchase_type: '',
           scale: '',
           prototype: '',
           painting: '',
@@ -401,6 +506,16 @@ export default {
 
 .figure-item p {
   margin-bottom: 5px;
+  color: #666;
+}
+
+.attributes-container {
+  margin-bottom: 10px;
+}
+
+.attributes-label {
+  font-weight: 500;
+  margin-right: 8px;
   color: #666;
 }
 
@@ -751,6 +866,24 @@ export default {
 
 .btn-close-preview:hover {
   background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 表单选择框样式 */
+.form-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
 }
 
 /* 响应式设计 */
