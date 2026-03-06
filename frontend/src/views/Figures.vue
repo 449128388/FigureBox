@@ -17,7 +17,12 @@
       </div>
       <div v-else class="figure-item" v-for="figure in figureStore.figures" :key="figure.id">
         <div class="figure-image">
-          <img :src="figure.images && figure.images.length > 0 ? figure.images[0] : '/imgs/no_image.png'" :alt="figure.name">
+          <img 
+            :src="figure.images && figure.images.length > 0 ? figure.images[0] : '/imgs/no_image.png'" 
+            :alt="figure.name"
+            loading="lazy"
+            decoding="async"
+          >
         </div>
         <h3>{{ figure.name }}</h3>
         <p>{{ figure.manufacturer }}</p>
@@ -26,7 +31,7 @@
         <div v-if="figure.attribute" class="attributes-container">
           <span class="attributes-label">属性:</span>
           <el-tag
-            v-for="attr in figure.attribute.split(',')"
+            v-for="attr in parseAttributes(figure.attribute)"
             :key="attr"
             size="small"
             effect="light"
@@ -56,136 +61,185 @@
       <div class="form-container">
         <h3>添加手办</h3>
         <form @submit.prevent="addFigure">
-          <div class="form-grid">
-            <div class="form-group">
-              <label>名称</label>
-              <el-input v-model="newFigure.name" placeholder="请输入名称" required></el-input>
-            </div>
-            <div class="form-group">
-              <label>属性</label>
-              <el-select
-                v-model="newFigure.attribute"
-                multiple
-                filterable
-                allow-create
-                default-first-option
-                placeholder="请选择或输入属性"
-                empty-text="暂无数据"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="item in attributeOptions"
-                  :key="item"
-                  :label="item"
-                  :value="item"
-                />
-              </el-select>
-            </div>
-            <div class="form-group">
-              <label>定价</label>
-              <div class="price-currency-container">
-                <el-input-number v-model="newFigure.price" placeholder="请输入定价" :min="0" :step="1" required style="width: 200px;"></el-input-number>
-                <el-select v-model="newFigure.currency" placeholder="选择币种" style="width: 120px;">
-                  <el-option value="CNY" label="人民币" />
-                  <el-option value="JPY" label="日元" />
-                  <el-option value="USD" label="美元" />
-                  <el-option value="EUR" label="欧元" />
-                </el-select>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>出货日</label>
-              <el-date-picker v-model="newFigure.release_date" type="date" placeholder="选择出货日" style="width: 100%;"></el-date-picker>
-            </div>
-            <div class="form-group">
-              <label>入手价格</label>
-              <div class="price-currency-container">
-                <el-input-number v-model="newFigure.purchase_price" placeholder="请输入入手价格" :min="0" :step="1" style="width: 200px;"></el-input-number>
-                <el-select v-model="newFigure.currency" placeholder="选择币种" style="width: 120px;">
-                  <el-option value="CNY" label="人民币" />
-                  <el-option value="JPY" label="日元" />
-                  <el-option value="USD" label="美元" />
-                  <el-option value="EUR" label="欧元" />
-                </el-select>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>入手时间</label>
-              <el-date-picker v-model="newFigure.purchase_date" type="date" placeholder="选择入手时间" style="width: 100%;"></el-date-picker>
-            </div>
-            <div class="form-group">
-              <label>入手途径</label>
-              <el-input v-model="newFigure.purchase_method" placeholder="请输入入手途径"></el-input>
-            </div>
-            <div class="form-group">
-              <label>入手形式</label>
-              <el-select v-model="newFigure.purchase_type" placeholder="请选择入手形式" style="width: 100%;">
-                <el-option value="" label="请选择" />
-                <el-option value="其他" label="其他" />
-                <el-option value="预定" label="预定" />
-                <el-option value="现货" label="现货" />
-                <el-option value="二手" label="二手" />
-                <el-option value="散货" label="散货" />
-                <el-option value="国产" label="国产" />
-              </el-select>
-            </div>
-            <div class="form-group">
-              <label>制造商</label>
-              <el-input v-model="newFigure.manufacturer" placeholder="请输入制造商"></el-input>
-            </div>   
-            <div class="form-group">
-              <label>比例</label>
-              <el-input v-model="newFigure.scale" placeholder="请输入比例"></el-input>
-            </div>
-            <div class="form-group">
-              <label>原型</label>
-              <el-input v-model="newFigure.prototype" placeholder="请输入原型"></el-input>
-            </div>
-            <div class="form-group">
-              <label>涂装</label>
-              <el-input v-model="newFigure.painting" placeholder="请输入涂装"></el-input>
-            </div>
-            <div class="form-group">
-              <label>原画</label>
-              <el-input v-model="newFigure.original_art" placeholder="请输入原画"></el-input>
-            </div>
-            <div class="form-group">
-              <label>作品</label>
-              <el-input v-model="newFigure.work" placeholder="请输入作品"></el-input>
-            </div>
-            <div class="form-group">
-              <label>材质</label>
-              <el-input v-model="newFigure.material" placeholder="请输入材质"></el-input>
-            </div>
-            <div class="form-group">
-              <label>尺寸</label>
-              <el-input v-model="newFigure.size" placeholder="请输入尺寸"></el-input>
-            </div>
-          </div>
-          
-          <!-- 图片上传 -->
-          <div class="form-group full-width">
-            <label>图片上传 (最多10张，每张不超过20MB)</label>
-            <div class="image-upload-container">
-              <div class="image-upload-list">
-                <div v-for="(image, index) in newFigure.images" :key="index" class="image-upload-item">
-                  <img :src="image" :alt="`图片 ${index + 1}`">
-                  <div class="image-actions">
-                    <button type="button" class="icon-btn view-btn" @click="viewImage(image)">
-                      <i class="fa-solid fa-eye"></i>
-                    </button>
-                    <button type="button" class="icon-btn delete-btn" @click="removeImage(index)">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
+          <div class="form-layout">
+            <el-tabs type="border-card" :tab-position="'left'" lazy>
+              <!-- 基础页面 -->
+              <el-tab-pane label="基础">
+                <template #label>
+                  <div class="tab-label">
+                    <i class="fa-solid fa-home"></i>
+                    <span>基础</span>
+                  </div>
+                </template>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>名称</label>
+                    <el-input v-model="newFigure.name" placeholder="请输入名称" required></el-input>
+                  </div>
+                  <div class="form-group">
+                    <label>定价</label>
+                    <div class="price-currency-container">
+                      <el-input-number v-model="newFigure.price" placeholder="请输入定价" :min="0" :step="1" required style="width: 200px;"></el-input-number>
+                      <el-select v-model="newFigure.currency" placeholder="选择币种" style="width: 120px;">
+                        <el-option value="CNY" label="人民币" />
+                        <el-option value="JPY" label="日元" />
+                        <el-option value="USD" label="美元" />
+                        <el-option value="EUR" label="欧元" />
+                      </el-select>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>出货日</label>
+                    <el-date-picker v-model="newFigure.release_date" type="date" placeholder="选择出货日" style="width: 100%;"></el-date-picker>
+                  </div>
+                  <div class="form-group">
+                    <label>入手价格</label>
+                    <div class="price-currency-container">
+                      <el-input-number v-model="newFigure.purchase_price" placeholder="请输入入手价格" :min="0" :step="1" style="width: 200px;"></el-input-number>
+                      <el-select v-model="newFigure.currency" placeholder="选择币种" style="width: 120px;">
+                        <el-option value="CNY" label="人民币" />
+                        <el-option value="JPY" label="日元" />
+                        <el-option value="USD" label="美元" />
+                        <el-option value="EUR" label="欧元" />
+                      </el-select>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>入手时间</label>
+                    <el-date-picker v-model="newFigure.purchase_date" type="date" placeholder="选择入手时间" style="width: 100%;"></el-date-picker>
+                  </div>
+                  <div class="form-group">
+                    <label>入手途径</label>
+                    <el-input v-model="newFigure.purchase_method" placeholder="请输入入手途径"></el-input>
+                  </div>
+                  <div class="form-group">
+                    <label>入手形式</label>
+                    <el-select v-model="newFigure.purchase_type" placeholder="请选择入手形式" style="width: 100%;">
+                      <el-option value="" label="请选择" />
+                      <el-option value="其他" label="其他" />
+                      <el-option value="预定" label="预定" />
+                      <el-option value="现货" label="现货" />
+                      <el-option value="二手" label="二手" />
+                      <el-option value="散货" label="散货" />
+                      <el-option value="国产" label="国产" />
+                    </el-select>
                   </div>
                 </div>
-                <div v-if="newFigure.images.length < 10" class="image-upload-placeholder" @click="triggerFileInput">
-                  <span>+</span>
-                  <p>添加图片</p>
+                
+                <!-- 图片上传 -->
+                <div class="form-group full-width">
+                  <label>图片上传 (最多10张，每张不超过20MB)</label>
+                  <div class="image-upload-container">
+                    <div class="image-upload-list">
+                      <div v-for="(image, index) in newFigure.images" :key="index" class="image-upload-item">
+                        <img :src="image" :alt="`图片 ${index + 1}`">
+                        <div class="image-actions">
+                          <button type="button" class="icon-btn view-btn" @click="viewImage(image)">
+                            <i class="fa-solid fa-eye"></i>
+                          </button>
+                          <button type="button" class="icon-btn delete-btn" @click="removeImage(index)">
+                            <i class="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+                      <div v-if="newFigure.images.length < 10" class="image-upload-placeholder" @click="triggerFileInput">
+                        <span>+</span>
+                        <p>添加图片</p>
+                      </div>
+                    </div>
+                    <input type="file" ref="fileInput" multiple accept="image/*" style="display: none" @change="handleFileUpload">
+                  </div>
                 </div>
-              </div>
-              <input type="file" ref="fileInput" multiple accept="image/*" style="display: none" @change="handleFileUpload">
-            </div>
+              </el-tab-pane>
+              
+              <!-- 作者页面 -->
+              <el-tab-pane label="作者">
+                <template #label>
+                  <div class="tab-label">
+                    <i class="fa-solid fa-user"></i>
+                    <span>作者</span>
+                  </div>
+                </template>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>原型</label>
+                    <el-input v-model="newFigure.prototype" placeholder="请输入原型"></el-input>
+                  </div>
+                  <div class="form-group">
+                    <label>涂装</label>
+                    <el-input v-model="newFigure.painting" placeholder="请输入涂装"></el-input>
+                  </div>
+                  <div class="form-group">
+                    <label>原画</label>
+                    <el-input v-model="newFigure.original_art" placeholder="请输入原画"></el-input>
+                  </div>
+                  <div class="form-group">
+                    <label>作品</label>
+                    <el-input v-model="newFigure.work" placeholder="请输入作品"></el-input>
+                  </div>
+                </div>
+              </el-tab-pane>
+              
+              <!-- 属性页面 -->
+              <el-tab-pane label="属性">
+                <template #label>
+                  <div class="tab-label">
+                    <i class="fa-solid fa-tags"></i>
+                    <span>属性</span>
+                  </div>
+                </template>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>属性</label>
+                    <el-select
+                      v-model="newFigure.attribute"
+                      multiple
+                      filterable
+                      allow-create
+                      default-first-option
+                      placeholder="请选择或输入属性"
+                      empty-text="暂无数据"
+                      style="width: 100%"
+                    >
+                      <el-option
+                        v-for="item in attributeOptions"
+                        :key="item"
+                        :label="item"
+                        :value="item"
+                      />
+                    </el-select>
+                  </div>
+                </div>
+              </el-tab-pane>
+              
+              <!-- 规格页面 -->
+              <el-tab-pane label="规格">
+                <template #label>
+                  <div class="tab-label">
+                    <i class="fa-solid fa-ruler"></i>
+                    <span>规格</span>
+                  </div>
+                </template>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>制造商</label>
+                    <el-input v-model="newFigure.manufacturer" placeholder="请输入制造商"></el-input>
+                  </div>   
+                  <div class="form-group">
+                    <label>比例</label>
+                    <el-input v-model="newFigure.scale" placeholder="请输入比例"></el-input>
+                  </div>
+                  <div class="form-group">
+                    <label>材质</label>
+                    <el-input v-model="newFigure.material" placeholder="请输入材质"></el-input>
+                  </div>
+                  <div class="form-group">
+                    <label>尺寸</label>
+                    <el-input v-model="newFigure.size" placeholder="请输入尺寸"></el-input>
+                  </div>
+                </div>
+              </el-tab-pane>
+            </el-tabs>
           </div>
           
           <div class="form-actions">
@@ -381,6 +435,16 @@ export default {
         case 'EUR': return '欧元'
         default: return '元'
       }
+    },
+    // 解析属性字符串为数组，使用缓存优化性能
+    parseAttributes(attributeStr) {
+      if (!attributeStr) return []
+      // 使用简单的缓存机制
+      if (!this._attrCache) this._attrCache = {}
+      if (this._attrCache[attributeStr]) return this._attrCache[attributeStr]
+      const result = attributeStr.split(',').filter(attr => attr.trim())
+      this._attrCache[attributeStr] = result
+      return result
     }
   }
 }
@@ -497,6 +561,8 @@ export default {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  contain: layout style paint;
+  will-change: transform;
 }
 
 .figure-item h3 {
@@ -575,20 +641,24 @@ export default {
 
 .form-container {
   background: white;
-  padding: 30px;
+  padding: 0;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   width: 100%;
-  max-width: 600px;
-  max-height: 80vh;
-  overflow-y: auto;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow: hidden;
   margin: 20px;
 }
 
 .form-container h3 {
-  margin-bottom: 20px;
+  margin-bottom: 0;
+  padding: 20px 24px;
   color: #333;
-  text-align: center;
+  text-align: left;
+  font-size: 20px;
+  font-weight: 600;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .form-grid {
@@ -604,25 +674,25 @@ export default {
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   color: #333;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .form-group input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   transition: border-color 0.3s;
 }
 
 /* 日期输入框样式，确保字体一致 */
 .form-group input[type="date"] {
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .form-group input:focus {
@@ -642,10 +712,10 @@ export default {
 }
 
 .currency-select {
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   background-color: white;
   cursor: pointer;
   transition: border-color 0.3s;
@@ -766,13 +836,13 @@ export default {
 }
 
 .image-upload-placeholder span {
-  font-size: 24px;
+  font-size: 32px;
   color: #999;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
 }
 
 .image-upload-placeholder p {
-  font-size: 12px;
+  font-size: 14px;
   color: #999;
   margin: 0;
 }
@@ -791,14 +861,17 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  content-visibility: auto;
 }
 
 .form-actions {
-  margin-top: 20px;
+  margin-top: 0;
+  padding: 16px 24px;
   display: flex;
   justify-content: flex-end;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
+  gap: 12px;
+  border-top: 1px solid #e0e0e0;
+  background-color: #fafafa;
 }
 
 .btn-cancel {
@@ -871,10 +944,10 @@ export default {
 /* 表单选择框样式 */
 .form-select {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   background-color: white;
   cursor: pointer;
   transition: border-color 0.3s;
@@ -907,5 +980,98 @@ export default {
     width: 80px;
     height: 80px;
   }
+}
+
+/* 表单布局样式 */
+.form-layout {
+  margin-bottom: 20px;
+}
+
+/* 标签页样式 - Komga风格 */
+.tab-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+  font-size: 15px;
+}
+
+.tab-label i {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+
+/* 调整表单容器宽度 */
+.form-container {
+  max-width: 900px;
+  padding: 0;
+}
+
+/* Komga风格的侧边栏 - 使用:deep()深度选择器覆盖Element Plus默认样式 */
+:deep(.form-container .el-tabs__header) {
+  background-color: #f5f5f5;
+  border-right: 1px solid #e0e0e0;
+}
+
+:deep(.form-container .el-tabs__item) {
+  height: 62px !important;
+  padding: 0 24px !important;
+  text-align: left;
+  justify-content: flex-start;
+  border-left: 3px solid transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  background-color: white !important;
+  will-change: background-color, color;
+}
+
+:deep(.form-container .el-tabs__item:hover) {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  color: #333 !important;
+}
+
+:deep(.form-container .el-tabs__item.is-active) {
+  background-color: white;
+  border-left-color: #2196F3;
+  color: #2196F3;
+  font-weight: 500;
+  position: relative;
+}
+
+/* 添加左侧滑动指示器 - 模拟v-tabs-slider-wrapper效果 */
+:deep(.form-container .el-tabs__item.is-active)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 19px;
+  width: 3px;
+  height: 24px;
+  background-color: #2196F3;
+  border-radius: 0 2px 2px 0;
+}
+
+:deep(.form-container .el-tabs__content) {
+  padding: 24px;
+  background-color: white;
+}
+
+:deep(.form-container .el-tabs--border-card) {
+  border: none;
+  box-shadow: none;
+}
+
+:deep(.form-container .el-tabs--border-card > .el-tabs__header) {
+  border: none;
+  background-color: #fafafa;
+}
+
+:deep(.form-container .el-tabs--border-card > .el-tabs__header .el-tabs__item) {
+  border: none;
+}
+
+:deep(.form-container .el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active) {
+  background-color: white;
 }
 </style>
