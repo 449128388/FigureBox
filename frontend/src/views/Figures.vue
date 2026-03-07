@@ -25,34 +25,27 @@
           >
         </div>
         <h3>{{ figure.name }}</h3>
-        <p>{{ figure.manufacturer }}</p>
+        <p>定价: {{ figure.price || '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
         <p v-if="figure.purchase_price">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.currency) }}</p>
         <p v-else>入手价格: 未设置</p>
-        <div v-if="figure.attribute" class="attributes-container">
-          <span class="attributes-label">属性:</span>
+        <p v-if="figure.purchase_date">入手时间: {{ figure.purchase_date }}</p>
+        <p v-else>入手时间: 未设置</p>
+        <div v-if="figure.tags" class="tags-container">
+          <span class="tags-label">标签:</span>
           <el-tag
-            v-for="attr in parseAttributes(figure.attribute)"
-            :key="attr"
+            v-for="tag in parseTags(figure.tags)"
+            :key="tag"
             size="small"
             effect="light"
             style="margin-right: 4px; margin-bottom: 4px;"
           >
-            {{ attr }}
+            {{ tag }}
           </el-tag>
         </div>
-        <p v-if="figure.release_date">出货日: {{ figure.release_date }}</p>
-        <p v-if="figure.purchase_date">入手时间: {{ figure.purchase_date }}</p>
-        <p v-if="figure.purchase_method">入手途径: {{ figure.purchase_method }}</p>
-        <p v-if="figure.purchase_type">入手形式: {{ figure.purchase_type }}</p>
-        <p v-if="figure.scale">比例: {{ figure.scale }}</p>
-        <p v-if="figure.prototype">原型: {{ figure.prototype }}</p>
-        <p v-if="figure.painting">涂装: {{ figure.painting }}</p>
-        <p v-if="figure.original_art">原画: {{ figure.original_art }}</p>
-        <p v-if="figure.work">作品: {{ figure.work }}</p>
-        <p v-if="figure.material">材质: {{ figure.material }}</p>
-        <p v-if="figure.size">尺寸: {{ figure.size }}</p>
-        <button class="btn btn-edit">编辑</button>
-        <button class="btn btn-delete" @click="deleteFigure(figure.id)">删除</button>
+        <div class="figure-actions">
+          <button class="btn btn-edit">编辑</button>
+          <button class="btn btn-delete" @click="deleteFigure(figure.id)">删除</button>
+        </div>
       </div>
     </div>
     
@@ -190,19 +183,19 @@
                 </template>
                 <div class="form-grid">
                   <div class="form-group">
-                    <label>属性</label>
+                    <label>标签</label>
                     <el-select
-                      v-model="newFigure.attribute"
+                      v-model="newFigure.tags"
                       multiple
                       filterable
                       allow-create
                       default-first-option
-                      placeholder="请选择或输入属性"
+                      placeholder="请选择或输入标签"
                       empty-text="暂无数据"
                       style="width: 100%"
                     >
                       <el-option
-                        v-for="item in attributeOptions"
+                        v-for="item in tagOptions"
                         :key="item"
                         :label="item"
                         :value="item"
@@ -270,13 +263,13 @@ export default {
       showAddForm: false,
       showImagePreview: false,
       previewImage: '',
-      attributeOptions: ['PVC', 'ABS', '树脂', '合金', '可动', '限定', '特典', '初版', '再版'],
+      tagOptions: ['PVC', 'ABS', '树脂', '合金', '可动', '限定', '特典', '初版', '再版'],
       newFigure: {
         name: '',
         manufacturer: '',
         price: 0,
         currency: 'CNY',
-        attribute: [],
+        tags: [],
         release_date: '',
         purchase_price: 0,
         purchase_date: '',
@@ -307,36 +300,36 @@ export default {
     if (localStorage.getItem('token') && !this.userStore.currentUser) {
       this.userStore.fetchUser()
     }
-    // 从已存在的手办中提取所有属性值
-    this.updateAttributeOptions()
+    // 从已存在的手办中提取所有标签值
+    this.updateTagOptions()
   },
   watch: {
     'figureStore.figures': {
       handler() {
-        this.updateAttributeOptions()
+        this.updateTagOptions()
       },
       deep: true
     }
   },
   methods: {
-    updateAttributeOptions() {
+    updateTagOptions() {
       const defaultOptions = []
-      const allAttributes = new Set(defaultOptions)
+      const allTags = new Set(defaultOptions)
       
-      // 从已存在的手办中提取所有属性值
+      // 从已存在的手办中提取所有标签值
       this.figureStore.figures.forEach(figure => {
-        if (figure.attribute) {
-          const attributes = figure.attribute.split(',')
-          attributes.forEach(attr => {
-            if (attr && attr.trim()) {
-              allAttributes.add(attr.trim())
+        if (figure.tags) {
+          const tags = figure.tags.split(',')
+          tags.forEach(tag => {
+            if (tag && tag.trim()) {
+              allTags.add(tag.trim())
             }
           })
         }
       })
       
-      // 更新attributeOptions
-      this.attributeOptions = Array.from(allAttributes)
+      // 更新tagOptions
+      this.tagOptions = Array.from(allTags)
     },
     triggerFileInput() {
       this.$refs.fileInput.click()
@@ -385,7 +378,7 @@ export default {
           release_date: this.newFigure.release_date || null,
           purchase_date: this.newFigure.purchase_date || null,
           purchase_price: this.newFigure.purchase_price || null,
-          attribute: this.newFigure.attribute.length > 0 ? this.newFigure.attribute.join(',') : null
+          tags: this.newFigure.tags.length > 0 ? this.newFigure.tags.join(',') : null
         }
         await this.figureStore.createFigure(figureData)
         this.showAddForm = false
@@ -395,7 +388,7 @@ export default {
           manufacturer: '',
           price: 0,
           currency: 'CNY',
-          attribute: [],
+          tags: [],
           release_date: '',
           purchase_price: 0,
           purchase_date: '',
@@ -436,14 +429,14 @@ export default {
         default: return '元'
       }
     },
-    // 解析属性字符串为数组，使用缓存优化性能
-    parseAttributes(attributeStr) {
-      if (!attributeStr) return []
+    // 解析标签字符串为数组，使用缓存优化性能
+    parseTags(tagStr) {
+      if (!tagStr) return []
       // 使用简单的缓存机制
-      if (!this._attrCache) this._attrCache = {}
-      if (this._attrCache[attributeStr]) return this._attrCache[attributeStr]
-      const result = attributeStr.split(',').filter(attr => attr.trim())
-      this._attrCache[attributeStr] = result
+      if (!this._tagCache) this._tagCache = {}
+      if (this._tagCache[tagStr]) return this._tagCache[tagStr]
+      const result = tagStr.split(',').filter(tag => tag.trim())
+      this._tagCache[tagStr] = result
       return result
     }
   }
@@ -454,7 +447,7 @@ export default {
 .figures-container {
   margin-top: 20px;
   width: 100%;
-  max-width: 1650px;
+  max-width: 1550px;
   margin-left: 50px;
   margin-right: 50px;
   padding: 20px;
@@ -575,11 +568,11 @@ export default {
   color: #666;
 }
 
-.attributes-container {
+.tags-container {
   margin-bottom: 10px;
 }
 
-.attributes-label {
+.tags-label {
   font-weight: 500;
   margin-right: 8px;
   color: #666;
@@ -611,6 +604,19 @@ export default {
 
 .btn-delete:hover {
   background-color: #da190b;
+}
+
+.figure-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.figure-actions .btn {
+  margin: 0;
+  flex: 1;
 }
 
 .btn-add {
