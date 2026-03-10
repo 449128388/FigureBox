@@ -3,7 +3,7 @@
     <div class="header">
       <h2>手办管理</h2>
       <div class="header-actions">
-        <button class="btn btn-add" @click="showAddForm = true">添加手办</button>
+        <button class="btn btn-add" @click="openAddForm">添加手办</button>
         <div class="user-info">
           <span v-if="userStore.isAuthenticated">当前用户：</span>
           <span v-if="userStore.isAuthenticated" class="username" @click="$router.push('/profile')" style="cursor: pointer; color: #2196F3; text-decoration: underline;">{{ userStore.currentUser?.username }}</span>
@@ -26,7 +26,7 @@
         </div>
         <h3>{{ figure.name }}</h3>
         <p>定价: {{ figure.price || '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
-        <p v-if="figure.purchase_price">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.currency) }}</p>
+        <p v-if="figure.purchase_price">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</p>
         <p v-else>入手价格: 未设置</p>
         <p v-if="figure.purchase_date">入手时间: {{ figure.purchase_date }}</p>
         <p v-else>入手时间: 未设置</p>
@@ -96,7 +96,7 @@
                     <label>入手价格</label>
                     <div class="price-currency-container">
                       <el-input-number v-model="newFigure.purchase_price" placeholder="请输入入手价格" :min="0" :step="1" style="width: 200px;"></el-input-number>
-                      <el-select v-model="newFigure.currency" placeholder="选择币种" style="width: 120px;">
+                      <el-select v-model="newFigure.purchase_currency" placeholder="选择币种" style="width: 120px;">
                         <el-option value="CNY" label="人民币" />
                         <el-option value="JPY" label="日元" />
                         <el-option value="USD" label="美元" />
@@ -121,7 +121,6 @@
                   <div class="form-group">
                     <label>入手形式</label>
                     <el-select v-model="newFigure.purchase_type" placeholder="请选择入手形式" style="width: 100%;">
-                      <el-option value="" label="请选择" />
                       <el-option value="其他" label="其他" />
                       <el-option value="预定" label="预定" />
                       <el-option value="现货" label="现货" />
@@ -169,19 +168,43 @@
                 <div class="form-grid">
                   <div class="form-group">
                     <label>原型</label>
-                    <el-input v-model="newFigure.prototype" placeholder="请输入原型"></el-input>
+                    <el-input 
+                      v-model="newFigure.prototype" 
+                      placeholder="请输入原型"
+                      :class="{ 'error-input': prototypeError }"
+                      @input="validatePrototypeOnInput"
+                    ></el-input>
+                    <div v-if="prototypeError" class="error-message">{{ prototypeError }}</div>
                   </div>
                   <div class="form-group">
                     <label>涂装</label>
-                    <el-input v-model="newFigure.painting" placeholder="请输入涂装"></el-input>
+                    <el-input 
+                      v-model="newFigure.painting" 
+                      placeholder="请输入涂装"
+                      :class="{ 'error-input': paintingError }"
+                      @input="validatePaintingOnInput"
+                    ></el-input>
+                    <div v-if="paintingError" class="error-message">{{ paintingError }}</div>
                   </div>
                   <div class="form-group">
                     <label>原画</label>
-                    <el-input v-model="newFigure.original_art" placeholder="请输入原画"></el-input>
+                    <el-input 
+                      v-model="newFigure.original_art" 
+                      placeholder="请输入原画"
+                      :class="{ 'error-input': originalArtError }"
+                      @input="validateOriginalArtOnInput"
+                    ></el-input>
+                    <div v-if="originalArtError" class="error-message">{{ originalArtError }}</div>
                   </div>
                   <div class="form-group">
                     <label>作品</label>
-                    <el-input v-model="newFigure.work" placeholder="请输入作品"></el-input>
+                    <el-input 
+                      v-model="newFigure.work" 
+                      placeholder="请输入作品"
+                      :class="{ 'error-input': workError }"
+                      @input="validateWorkOnInput"
+                    ></el-input>
+                    <div v-if="workError" class="error-message">{{ workError }}</div>
                   </div>
                 </div>
               </el-tab-pane>
@@ -229,19 +252,43 @@
                 <div class="form-grid">
                   <div class="form-group">
                     <label>制造商</label>
-                    <el-input v-model="newFigure.manufacturer" placeholder="请输入制造商"></el-input>
+                    <el-input 
+                      v-model="newFigure.manufacturer" 
+                      placeholder="请输入制造商"
+                      :class="{ 'error-input': manufacturerError }"
+                      @input="validateManufacturerOnInput"
+                    ></el-input>
+                    <div v-if="manufacturerError" class="error-message">{{ manufacturerError }}</div>
                   </div>   
                   <div class="form-group">
                     <label>比例</label>
-                    <el-input v-model="newFigure.scale" placeholder="请输入比例"></el-input>
+                    <el-input 
+                      v-model="newFigure.scale" 
+                      placeholder="请输入比例"
+                      :class="{ 'error-input': scaleError }"
+                      @input="validateScaleOnInput"
+                    ></el-input>
+                    <div v-if="scaleError" class="error-message">{{ scaleError }}</div>
                   </div>
                   <div class="form-group">
                     <label>材质</label>
-                    <el-input v-model="newFigure.material" placeholder="请输入材质"></el-input>
+                    <el-input 
+                      v-model="newFigure.material" 
+                      placeholder="请输入材质"
+                      :class="{ 'error-input': materialError }"
+                      @input="validateMaterialOnInput"
+                    ></el-input>
+                    <div v-if="materialError" class="error-message">{{ materialError }}</div>
                   </div>
                   <div class="form-group">
                     <label>尺寸</label>
-                    <el-input v-model="newFigure.size" placeholder="请输入尺寸"></el-input>
+                    <el-input 
+                      v-model="newFigure.size" 
+                      placeholder="请输入尺寸"
+                      :class="{ 'error-input': sizeError }"
+                      @input="validateSizeOnInput"
+                    ></el-input>
+                    <div v-if="sizeError" class="error-message">{{ sizeError }}</div>
                   </div>
                 </div>
               </el-tab-pane>
@@ -279,6 +326,14 @@ export default {
       tagOptions: ['PVC', 'ABS', '树脂', '合金', '可动', '限定', '特典', '初版', '再版'],
       nameError: '',
       purchaseMethodError: '',
+      prototypeError: '',
+      paintingError: '',
+      originalArtError: '',
+      workError: '',
+      manufacturerError: '',
+      scaleError: '',
+      materialError: '',
+      sizeError: '',
       activeTab: 'basic',
       newFigure: {
         name: '',
@@ -288,6 +343,7 @@ export default {
         tags: [],
         release_date: '',
         purchase_price: 0,
+        purchase_currency: 'CNY',
         purchase_date: '',
         purchase_method: '',
         purchase_type: '',
@@ -393,7 +449,7 @@ export default {
       }
       
       // 过滤 emoji
-      const emojiPattern = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}]/gu
+      const emojiPattern = /[\uD83C-\uDBFF\uDC00-\uDFFF]/g
       let cleanedValue = value.replace(emojiPattern, '')
       
       // 去除首尾空格
@@ -489,6 +545,182 @@ export default {
       }
     },
     
+    // 验证原型字段（实时验证）
+    validatePrototypeOnInput() {
+      const value = this.newFigure.prototype
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.prototypeError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '原型', 1, 40, true)
+      
+      if (!result.valid) {
+        this.prototypeError = result.error
+      } else {
+        this.prototypeError = ''
+        // 更新验证后的值
+        this.newFigure.prototype = result.value || ''
+      }
+    },
+    
+    // 验证涂装字段（实时验证）
+    validatePaintingOnInput() {
+      const value = this.newFigure.painting
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.paintingError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '涂装', 1, 40, true)
+      
+      if (!result.valid) {
+        this.paintingError = result.error
+      } else {
+        this.paintingError = ''
+        // 更新验证后的值
+        this.newFigure.painting = result.value || ''
+      }
+    },
+    
+    // 验证原画字段（实时验证）
+    validateOriginalArtOnInput() {
+      const value = this.newFigure.original_art
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.originalArtError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '原画', 1, 40, true)
+      
+      if (!result.valid) {
+        this.originalArtError = result.error
+      } else {
+        this.originalArtError = ''
+        // 更新验证后的值
+        this.newFigure.original_art = result.value || ''
+      }
+    },
+    
+    // 验证作品字段（实时验证）
+    validateWorkOnInput() {
+      const value = this.newFigure.work
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.workError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '作品', 1, 80, true)
+      
+      if (!result.valid) {
+        this.workError = result.error
+      } else {
+        this.workError = ''
+        // 更新验证后的值
+        this.newFigure.work = result.value || ''
+      }
+    },
+    
+    // 验证制造商字段（实时验证）
+    validateManufacturerOnInput() {
+      const value = this.newFigure.manufacturer
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.manufacturerError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '制造商', 1, 60, true)
+      
+      if (!result.valid) {
+        this.manufacturerError = result.error
+      } else {
+        this.manufacturerError = ''
+        // 更新验证后的值
+        this.newFigure.manufacturer = result.value || ''
+      }
+    },
+    
+    // 验证比例字段（实时验证）
+    validateScaleOnInput() {
+      const value = this.newFigure.scale
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.scaleError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '比例', 1, 20, true)
+      
+      if (!result.valid) {
+        this.scaleError = result.error
+      } else {
+        this.scaleError = ''
+        // 更新验证后的值
+        this.newFigure.scale = result.value || ''
+      }
+    },
+    
+    // 验证材质字段（实时验证）
+    validateMaterialOnInput() {
+      const value = this.newFigure.material
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.materialError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '材质', 1, 50, true)
+      
+      if (!result.valid) {
+        this.materialError = result.error
+      } else {
+        this.materialError = ''
+        // 更新验证后的值
+        this.newFigure.material = result.value || ''
+      }
+    },
+    
+    // 验证尺寸字段（实时验证）
+    validateSizeOnInput() {
+      const value = this.newFigure.size
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.sizeError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '尺寸', 1, 50, true)
+      
+      if (!result.valid) {
+        this.sizeError = result.error
+      } else {
+        this.sizeError = ''
+        // 更新验证后的值
+        this.newFigure.size = result.value || ''
+      }
+    },
+    
     // 验证表单
     validateForm() {
       // 先验证名称字段
@@ -503,16 +735,55 @@ export default {
         return false
       }
       
-      const validations = [
-        { field: 'prototype', label: '原型', min: 1, max: 40, required: false },
-        { field: 'painting', label: '涂装', min: 1, max: 40, required: false },
-        { field: 'original_art', label: '原画', min: 1, max: 40, required: false },
-        { field: 'work', label: '作品', min: 1, max: 80, required: false },
-        { field: 'manufacturer', label: '制造商', min: 1, max: 60, required: false },
-        { field: 'scale', label: '比例', min: 1, max: 20, required: false },
-        { field: 'material', label: '材质', min: 1, max: 50, required: false, simple: false },
-        { field: 'size', label: '尺寸', min: 1, max: 50, required: false, simple: false }
-      ]
+      // 验证原型字段
+      this.validatePrototypeOnInput()
+      if (this.prototypeError) {
+        return false
+      }
+      
+      // 验证涂装字段
+      this.validatePaintingOnInput()
+      if (this.paintingError) {
+        return false
+      }
+      
+      // 验证原画字段
+      this.validateOriginalArtOnInput()
+      if (this.originalArtError) {
+        return false
+      }
+      
+      // 验证作品字段
+      this.validateWorkOnInput()
+      if (this.workError) {
+        return false
+      }
+      
+      // 验证制造商字段
+      this.validateManufacturerOnInput()
+      if (this.manufacturerError) {
+        return false
+      }
+      
+      // 验证比例字段
+      this.validateScaleOnInput()
+      if (this.scaleError) {
+        return false
+      }
+      
+      // 验证材质字段
+      this.validateMaterialOnInput()
+      if (this.materialError) {
+        return false
+      }
+      
+      // 验证尺寸字段
+      this.validateSizeOnInput()
+      if (this.sizeError) {
+        return false
+      }
+      
+      const validations = []
       
       for (const item of validations) {
         const value = this.newFigure[item.field]
@@ -544,6 +815,55 @@ export default {
       return true
     },
     
+    // 重置表单
+    resetForm() {
+      // 重置错误信息
+      this.nameError = ''
+      this.purchaseMethodError = ''
+      this.prototypeError = ''
+      this.paintingError = ''
+      this.originalArtError = ''
+      this.workError = ''
+      this.manufacturerError = ''
+      this.scaleError = ''
+      this.materialError = ''
+      this.sizeError = ''
+      
+      // 重置表单数据
+      this.newFigure = {
+        name: '',
+        manufacturer: '',
+        price: 0,
+        currency: 'CNY',
+        tags: [],
+        release_date: '',
+        purchase_price: 0,
+        purchase_currency: 'CNY',
+        purchase_date: '',
+        purchase_method: '',
+        purchase_type: '',
+        scale: '',
+        prototype: '',
+        painting: '',
+        original_art: '',
+        work: '',
+        material: '',
+        size: '',
+        images: []
+      }
+      
+      // 重置标签页
+      this.activeTab = 'basic'
+    },
+    
+    // 打开添加手办表单
+    openAddForm() {
+      // 重置表单
+      this.resetForm()
+      // 显示表单
+      this.showAddForm = true
+    },
+    
     async addFigure() {
       try {
         // 表单验证
@@ -557,31 +877,13 @@ export default {
           release_date: this.newFigure.release_date || null,
           purchase_date: this.newFigure.purchase_date || null,
           purchase_price: this.newFigure.purchase_price || null,
+          purchase_currency: this.newFigure.purchase_currency || 'CNY',
           tags: this.newFigure.tags.length > 0 ? this.newFigure.tags.join(',') : null
         }
         await this.figureStore.createFigure(figureData)
         this.showAddForm = false
         // 重置表单
-        this.newFigure = {
-          name: '',
-          manufacturer: '',
-          price: 0,
-          currency: 'CNY',
-          tags: [],
-          release_date: '',
-          purchase_price: 0,
-          purchase_date: '',
-          purchase_method: '',
-          purchase_type: '',
-          scale: '',
-          prototype: '',
-          painting: '',
-          original_art: '',
-          work: '',
-          material: '',
-          size: '',
-          images: []
-        }
+        this.resetForm()
       } catch (error) {
         console.error('Failed to add figure:', error)
       }

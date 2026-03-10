@@ -9,7 +9,7 @@ ALLOWED_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u
 # 材质和尺寸允许更少的特殊字符
 SIMPLE_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312fa-zA-Z0-9\s]*$')
 # Emoji 过滤模式
-EMOJI_PATTERN = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+')
+EMOJI_PATTERN = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002600-\U000026FF\U00002700-\U000027BF\U0001F900-\U0001F9FF]+')
 
 
 def validate_field(value: str | None, field_name: str, min_length: int, max_length: int, allow_special_chars: bool = True) -> str | None:
@@ -22,6 +22,10 @@ def validate_field(value: str | None, field_name: str, min_length: int, max_leng
     
     # 去除首尾空格
     value = value.strip()
+    
+    # 检查过滤后是否为空（如果原始值不为空但过滤后为空，说明输入的全是emoji）
+    if len(value) == 0:
+        raise ValueError(f'{field_name}不能只包含特殊字符')
     
     # 长度验证
     if len(value) < min_length:
@@ -48,6 +52,7 @@ class FigureBase(BaseModel):
     tags: str | None = None
     release_date: date | None = None
     purchase_price: float | None = None
+    purchase_currency: str = "CNY"
     purchase_date: date | None = None
     purchase_method: str | None = None
     purchase_type: str | None = None
@@ -160,6 +165,7 @@ class FigureUpdate(BaseModel):
     tags: str | None = None
     release_date: date | None = None
     purchase_price: float | None = None
+    purchase_currency: str | None = None
     purchase_date: date | None = None
     purchase_method: str | None = None
     purchase_type: str | None = None

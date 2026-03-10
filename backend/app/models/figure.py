@@ -12,6 +12,7 @@ class Figure(Base):
     tags = Column(String(100))
     release_date = Column(Date)
     purchase_price = Column(Float)
+    purchase_currency = Column(String(10), default="CNY")
     purchase_date = Column(Date)
     purchase_method = Column(String(100))
     purchase_type = Column(String(50))
