@@ -15,7 +15,7 @@
       <div v-if="figureStore.figures.length === 0" class="empty-state">
         <p>暂无数据</p>
       </div>
-      <div v-else class="figure-item" v-for="figure in figureStore.figures" :key="figure.id">
+      <div v-else class="figure-item" v-for="figure in paginatedFigures" :key="figure.id">
         <div class="figure-image">
           <img 
             :src="figure.images && figure.images.length > 0 ? figure.images[0] : '/imgs/no_image.png'" 
@@ -303,6 +303,19 @@
       </div>
     </div>
     
+    <!-- 分页组件 -->
+    <div v-if="totalFigures > 0" class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="pageSizes"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="totalFigures"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
+    
     <!-- 图片预览模态框 -->
     <div v-if="showImagePreview" class="image-preview-modal" @click="closeImagePreview">
       <div class="image-preview-content" @click.stop>
@@ -335,6 +348,9 @@ export default {
       materialError: '',
       sizeError: '',
       activeTab: 'basic',
+      currentPage: 1,
+      pageSize: 15,
+      pageSizes: [15, 30, 45, 60],
       newFigure: {
         name: '',
         manufacturer: '',
@@ -364,6 +380,23 @@ export default {
     },
     userStore() {
       return useUserStore()
+    },
+    
+    // 分页处理
+    paginatedFigures() {
+      // 按id排序，最新添加的在前面（id自增）
+      const sortedFigures = [...this.figureStore.figures].sort((a, b) => {
+        return b.id - a.id
+      })
+      
+      const startIndex = (this.currentPage - 1) * this.pageSize
+      const endIndex = startIndex + this.pageSize
+      return sortedFigures.slice(startIndex, endIndex)
+    },
+    
+    // 总数据量
+    totalFigures() {
+      return this.figureStore.figures.length
     }
   },
   mounted() {
@@ -919,6 +952,17 @@ export default {
       const result = tagStr.split(',').filter(tag => tag.trim())
       this._tagCache[tagStr] = result
       return result
+    },
+    
+    // 处理每页条数变化
+    handleSizeChange(val) {
+      this.pageSize = val
+      this.currentPage = 1 // 重置为第一页
+    },
+    
+    // 处理页码变化
+    handleCurrentChange(val) {
+      this.currentPage = val
     }
   }
 }
@@ -1581,4 +1625,11 @@ export default {
   line-height: 1;
   padding-top: 4px;
 }
+  /* 分页组件样式 */
+  .pagination-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-right: 20px;
+  }
 </style>
