@@ -55,9 +55,9 @@
         <h3>添加手办</h3>
         <form @submit.prevent="addFigure">
           <div class="form-layout">
-            <el-tabs type="border-card" :tab-position="'left'" lazy>
+            <el-tabs type="border-card" :tab-position="'left'" lazy v-model="activeTab" ref="formTabs">
               <!-- 基础页面 -->
-              <el-tab-pane label="基础">
+              <el-tab-pane label="基础" name="basic">
                 <template #label>
                   <div class="tab-label">
                     <i class="fa-solid fa-home"></i>
@@ -67,7 +67,14 @@
                 <div class="form-grid">
                   <div class="form-group">
                     <label>名称</label>
-                    <el-input v-model="newFigure.name" placeholder="请输入名称" required></el-input>
+                    <el-input 
+                      v-model="newFigure.name" 
+                      placeholder="请输入名称" 
+                      :class="{ 'error-input': nameError }"
+                      @input="validateNameOnInput"
+                      ref="nameInput"
+                    ></el-input>
+                    <div v-if="nameError" class="error-message">{{ nameError }}</div>
                   </div>
                   <div class="form-group">
                     <label>定价</label>
@@ -103,7 +110,13 @@
                   </div>
                   <div class="form-group">
                     <label>入手途径</label>
-                    <el-input v-model="newFigure.purchase_method" placeholder="请输入入手途径"></el-input>
+                    <el-input 
+                      v-model="newFigure.purchase_method" 
+                      placeholder="请输入入手途径"
+                      :class="{ 'error-input': purchaseMethodError }"
+                      @input="validatePurchaseMethodOnInput"
+                    ></el-input>
+                    <div v-if="purchaseMethodError" class="error-message">{{ purchaseMethodError }}</div>
                   </div>
                   <div class="form-group">
                     <label>入手形式</label>
@@ -146,7 +159,7 @@
               </el-tab-pane>
               
               <!-- 作者页面 -->
-              <el-tab-pane label="作者">
+              <el-tab-pane label="作者" name="author">
                 <template #label>
                   <div class="tab-label">
                     <i class="fa-solid fa-user"></i>
@@ -174,7 +187,7 @@
               </el-tab-pane>
               
               <!-- 属性页面 -->
-              <el-tab-pane label="属性">
+              <el-tab-pane label="属性" name="tags">
                 <template #label>
                   <div class="tab-label">
                     <i class="fa-solid fa-tags"></i>
@@ -206,7 +219,7 @@
               </el-tab-pane>
               
               <!-- 规格页面 -->
-              <el-tab-pane label="规格">
+              <el-tab-pane label="规格" name="specs">
                 <template #label>
                   <div class="tab-label">
                     <i class="fa-solid fa-ruler"></i>
@@ -264,6 +277,9 @@ export default {
       showImagePreview: false,
       previewImage: '',
       tagOptions: ['PVC', 'ABS', '树脂', '合金', '可动', '限定', '特典', '初版', '再版'],
+      nameError: '',
+      purchaseMethodError: '',
+      activeTab: 'basic',
       newFigure: {
         name: '',
         manufacturer: '',
@@ -370,8 +386,171 @@ export default {
       this.showImagePreview = false
       this.previewImage = ''
     },
+    // 验证字段
+    validateField(value, fieldName, minLength, maxLength, allowSpecialChars = true) {
+      if (!value || value.trim() === '') {
+        return { valid: true, value: null } // 空值允许通过（可选字段）
+      }
+      
+      // 过滤 emoji
+      const emojiPattern = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}]/gu
+      let cleanedValue = value.replace(emojiPattern, '')
+      
+      // 去除首尾空格
+      cleanedValue = cleanedValue.trim()
+      
+      // 检查过滤后是否为空（如果原始值不为空但过滤后为空，说明输入的全是emoji）
+      if (cleanedValue.length === 0) {
+        return { valid: false, error: `${fieldName}不能只包含特殊字符` }
+      }
+      
+      // 长度验证
+      if (cleanedValue.length < minLength) {
+        return { valid: false, error: `${fieldName}长度不能少于${minLength}个字符` }
+      }
+      if (cleanedValue.length > maxLength) {
+        return { valid: false, error: `${fieldName}长度不能超过${maxLength}个字符` }
+      }
+      
+      // 字符类型验证
+      let pattern
+      if (allowSpecialChars) {
+        // 允许中文、英文、日文、数字、空格，常见符号
+        pattern = /^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312fa-zA-Z0-9\s\/\×\(\)\&\-\.\,\:\;\!\?\#\@\$\%\*\+\=\[\]\{\}\|\<\>\~\`\"\'\\]*$/
+      } else {
+        // 只允许中文、英文、日文、数字、空格
+        pattern = /^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312fa-zA-Z0-9\s]*$/
+      }
+      
+      if (!pattern.test(cleanedValue)) {
+        return { valid: false, error: `${fieldName}包含不允许的字符` }
+      }
+      
+      return { valid: true, value: cleanedValue }
+    },
+    
+    // 验证名称字段（实时验证）
+    validateNameOnInput() {
+      const value = this.newFigure.name
+      
+      // 必填检查
+      if (!value || value.trim() === '') {
+        this.nameError = '名称不能为空'
+        // 如果不在基础页，自动跳转并聚焦
+        this.focusToNameField()
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '名称', 1, 100, true)
+      
+      if (!result.valid) {
+        this.nameError = result.error
+        // 如果不在基础页，自动跳转并聚焦
+        this.focusToNameField()
+      } else {
+        this.nameError = ''
+        // 更新验证后的值
+        this.newFigure.name = result.value || ''
+      }
+    },
+    
+    // 跳转到名称字段并聚焦
+    focusToNameField() {
+      // 切换到基础标签页
+      this.activeTab = 'basic'
+      // 使用nextTick等待DOM更新后聚焦
+      this.$nextTick(() => {
+        if (this.$refs.nameInput) {
+          this.$refs.nameInput.focus()
+        }
+      })
+    },
+    
+    // 验证入手途径字段（实时验证）
+    validatePurchaseMethodOnInput() {
+      const value = this.newFigure.purchase_method
+      
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.purchaseMethodError = ''
+        return
+      }
+      
+      // 调用通用验证方法
+      const result = this.validateField(value, '入手途径', 1, 50, true)
+      
+      if (!result.valid) {
+        this.purchaseMethodError = result.error
+      } else {
+        this.purchaseMethodError = ''
+        // 更新验证后的值
+        this.newFigure.purchase_method = result.value || ''
+      }
+    },
+    
+    // 验证表单
+    validateForm() {
+      // 先验证名称字段
+      this.validateNameOnInput()
+      if (this.nameError) {
+        return false
+      }
+      
+      // 验证入手途径字段
+      this.validatePurchaseMethodOnInput()
+      if (this.purchaseMethodError) {
+        return false
+      }
+      
+      const validations = [
+        { field: 'prototype', label: '原型', min: 1, max: 40, required: false },
+        { field: 'painting', label: '涂装', min: 1, max: 40, required: false },
+        { field: 'original_art', label: '原画', min: 1, max: 40, required: false },
+        { field: 'work', label: '作品', min: 1, max: 80, required: false },
+        { field: 'manufacturer', label: '制造商', min: 1, max: 60, required: false },
+        { field: 'scale', label: '比例', min: 1, max: 20, required: false },
+        { field: 'material', label: '材质', min: 1, max: 50, required: false, simple: false },
+        { field: 'size', label: '尺寸', min: 1, max: 50, required: false, simple: false }
+      ]
+      
+      for (const item of validations) {
+        const value = this.newFigure[item.field]
+        
+        // 必填字段检查
+        if (item.required && (!value || value.trim() === '')) {
+          alert(`${item.label}不能为空`)
+          return false
+        }
+        
+        // 字段验证
+        const result = this.validateField(
+          value, 
+          item.label, 
+          item.min, 
+          item.max, 
+          !item.simple
+        )
+        
+        if (!result.valid) {
+          alert(result.error)
+          return false
+        }
+        
+        // 更新验证后的值
+        this.newFigure[item.field] = result.value || ''
+      }
+      
+      return true
+    },
+    
     async addFigure() {
       try {
+        // 表单验证
+        if (!this.validateForm()) {
+          return
+        }
+        
         // 处理空的日期字段和价格字段
         const figureData = {
           ...this.newFigure,
@@ -447,7 +626,7 @@ export default {
 .figures-container {
   margin-top: 20px;
   width: 100%;
-  max-width: 1550px;
+  max-width: 1650px;
   margin-left: 50px;
   margin-right: 50px;
   padding: 20px;
@@ -1079,5 +1258,25 @@ export default {
 
 :deep(.form-container .el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active) {
   background-color: white;
+}
+
+/* 错误输入样式 */
+:deep(.error-input .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+.error-message {
+  color: #f56c6c;
+  font-size: 12px;
+  line-height: 1;
+  padding-top: 4px;
 }
 </style>
