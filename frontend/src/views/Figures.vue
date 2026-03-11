@@ -209,12 +209,12 @@
                 </div>
               </el-tab-pane>
               
-              <!-- 属性页面 -->
-              <el-tab-pane label="属性" name="tags">
+              <!-- 标签页面 -->
+              <el-tab-pane label="标签" name="tags">
                 <template #label>
                   <div class="tab-label">
                     <i class="fa-solid fa-tags"></i>
-                    <span>属性</span>
+                    <span>标签</span>
                   </div>
                 </template>
                 <div class="form-grid">
@@ -296,8 +296,8 @@
           </div>
           
           <div class="form-actions">
-            <el-button type="info" @click="showAddForm = false">取消</el-button>
-            <el-button type="primary" native-type="submit">保存</el-button>
+            <el-button class="btn-cancel" @click="showAddForm = false">取消</el-button>
+            <el-button class="btn-submit" native-type="submit">保存</el-button>
           </div>
         </form>
       </div>
@@ -1406,22 +1406,34 @@ export default {
 }
 
 .btn-cancel {
-  background-color: #9e9e9e;
-  color: white;
-  margin-right: 10px;
+  background-color: transparent;
+  color: #005ed3;
+  border: 1px solid #005ed3;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 .btn-cancel:hover {
-  background-color: #757575;
+  background-color: rgba(0, 94, 211, 0.08);
+  color: #004bb5;
+  border-color: #004bb5;
 }
 
 .btn-submit {
-  background-color: #4CAF50;
+  background-color: #005ed3;
   color: white;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-weight: 500;
+  border: none;
+  transition: all 0.2s;
 }
 
 .btn-submit:hover {
-  background-color: #45a049;
+  background-color: #004bb5;
+  color: white;
 }
 
 /* 图片预览模态框样式 */
