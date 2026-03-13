@@ -32,12 +32,7 @@ def create_figure(figure: FigureCreate, db: Session = Depends(get_db)):
     return db_figure
 
 @router.put("/{figure_id}", response_model=FigureSchema)
-def update_figure(figure_id: int, figure: FigureUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
+def update_figure(figure_id: int, figure: FigureUpdate, db: Session = Depends(get_db)):
     db_figure = db.query(Figure).filter(Figure.id == figure_id).first()
     if not db_figure:
         raise HTTPException(
@@ -58,6 +53,16 @@ def delete_figure(figure_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Figure not found"
         )
+    
+    # 检查是否有关联的订单
+    from app.models.order import Order
+    associated_orders = db.query(Order).filter(Order.figure_id == figure_id).first()
+    if associated_orders:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="无法删除有关联尾款的手办"
+        )
+    
     db.delete(db_figure)
     db.commit()
     return {"message": "Figure deleted successfully"}

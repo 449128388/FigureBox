@@ -3,6 +3,7 @@ import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import Home from '../views/Home.vue'
 import Figures from '../views/Figures.vue'
+import FigureDetail from '../views/FigureDetail.vue'
 import Orders from '../views/Orders.vue'
 import Profile from '../views/Profile.vue'
 
@@ -30,6 +31,12 @@ const routes = [
     path: '/figures',
     name: 'Figures',
     component: Figures,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/figures/:id',
+    name: 'FigureDetail',
+    component: FigureDetail,
     meta: { requiresAuth: true }
   },
   {

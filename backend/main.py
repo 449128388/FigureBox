@@ -4,9 +4,7 @@ from fastapi import Request
 from app.api import auth, figures, orders, users
 from app.models.database import engine, Base
 
-# 删除所有表
-Base.metadata.drop_all(bind=engine)
-# 创建数据库表
+# 创建数据库表（如果不存在）
 Base.metadata.create_all(bind=engine)
 
 # 增加请求体大小限制到300MB

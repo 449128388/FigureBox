@@ -3,12 +3,34 @@
     <div class="header">
       <h2>手办管理</h2>
       <div class="header-actions">
-        <button class="btn btn-add" @click="openAddForm">添加手办</button>
+        <div class="action-buttons">
+          <button class="btn btn-add" @click="openAddForm">添加手办</button>
+          <button class="btn btn-refresh" @click="fetchFigures">
+            <i class="fa-solid fa-refresh"></i>
+          </button>
+        </div>
         <div class="user-info">
           <span v-if="userStore.isAuthenticated">当前用户：</span>
           <span v-if="userStore.isAuthenticated" class="username" @click="$router.push('/profile')" style="cursor: pointer; color: #2196F3; text-decoration: underline;">{{ userStore.currentUser?.username }}</span>
           <button v-if="userStore.isAuthenticated" class="btn btn-logout" @click="logout">退出</button>
         </div>
+      </div>
+    </div>
+    <div class="search-section">
+      <div class="search-form">
+        <el-input v-model="searchName" placeholder="搜索名称" style="width: 200px; margin-right: 10px;"></el-input>
+        <el-select v-model="searchPurchaseType" placeholder="选择入手形式" style="width: 200px; margin-right: 10px;">
+          <el-option value="" label="全部" />
+          <el-option value="其他" label="其他" />
+          <el-option value="预定" label="预定" />
+          <el-option value="现货" label="现货" />
+          <el-option value="二手" label="二手" />
+          <el-option value="散货" label="散货" />
+          <el-option value="国产" label="国产" />
+        </el-select>
+        <el-date-picker v-model="searchPurchaseDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width: 250px; margin-right: 10px;"></el-date-picker>
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button @click="resetSearch">重置</el-button>
       </div>
     </div>
     <div class="figures-list">
@@ -24,7 +46,7 @@
             decoding="async"
           >
         </div>
-        <h3>{{ figure.name }}</h3>
+        <h3><router-link :to="`/figures/${figure.id}`" class="figure-name-link">{{ figure.name }}</router-link></h3>
         <p>定价: {{ figure.price || '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
         <p v-if="figure.purchase_price">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</p>
         <p v-else>入手价格: 未设置</p>
@@ -43,7 +65,7 @@
           </el-tag>
         </div>
         <div class="figure-actions">
-          <button class="btn btn-edit">编辑</button>
+          <button class="btn btn-edit" @click="editFigure(figure)">编辑</button>
           <button class="btn btn-delete" @click="deleteFigure(figure.id)">删除</button>
         </div>
       </div>
@@ -52,7 +74,7 @@
     <!-- 添加手办表单 -->
     <div class="form-overlay" v-if="showAddForm">
       <div class="form-container">
-        <h3>添加手办</h3>
+        <h3>{{ isEditing ? '编辑手办' : '添加手办' }}</h3>
         <form @submit.prevent="addFigure">
           <div class="form-layout">
             <el-tabs type="border-card" :tab-position="'left'" lazy v-model="activeTab" ref="formTabs">
@@ -297,7 +319,7 @@
           
           <div class="form-actions">
             <el-button class="btn-cancel" @click="showAddForm = false">取消</el-button>
-            <el-button class="btn-submit" native-type="submit">保存</el-button>
+            <el-button class="btn-submit" type="primary" native-type="submit">保存</el-button>
           </div>
         </form>
       </div>
@@ -351,6 +373,12 @@ export default {
       currentPage: 1,
       pageSize: 15,
       pageSizes: [15, 30, 45, 60],
+      isEditing: false,
+      currentEditFigureId: null,
+      // 搜索相关
+      searchName: '',
+      searchPurchaseDateRange: [],
+      searchPurchaseType: '',
       newFigure: {
         name: '',
         manufacturer: '',
@@ -385,18 +413,66 @@ export default {
     // 分页处理
     paginatedFigures() {
       // 按id排序，最新添加的在前面（id自增）
-      const sortedFigures = [...this.figureStore.figures].sort((a, b) => {
+      let filteredFigures = [...this.figureStore.figures].sort((a, b) => {
         return b.id - a.id
       })
       
+      // 搜索过滤
+      if (this.searchName) {
+        const searchLower = this.searchName.toLowerCase()
+        filteredFigures = filteredFigures.filter(figure => 
+          figure.name && figure.name.toLowerCase().includes(searchLower)
+        )
+      }
+      
+      if (this.searchPurchaseDateRange && this.searchPurchaseDateRange.length === 2) {
+        const [startDate, endDate] = this.searchPurchaseDateRange
+        filteredFigures = filteredFigures.filter(figure => {
+          if (!figure.purchase_date) return false
+          const purchaseDate = new Date(figure.purchase_date)
+          return purchaseDate >= startDate && purchaseDate <= endDate
+        })
+      }
+      
+      if (this.searchPurchaseType) {
+        filteredFigures = filteredFigures.filter(figure => 
+          figure.purchase_type === this.searchPurchaseType
+        )
+      }
+      
       const startIndex = (this.currentPage - 1) * this.pageSize
       const endIndex = startIndex + this.pageSize
-      return sortedFigures.slice(startIndex, endIndex)
+      return filteredFigures.slice(startIndex, endIndex)
     },
     
     // 总数据量
     totalFigures() {
-      return this.figureStore.figures.length
+      let filteredFigures = [...this.figureStore.figures]
+      
+      // 搜索过滤
+      if (this.searchName) {
+        const searchLower = this.searchName.toLowerCase()
+        filteredFigures = filteredFigures.filter(figure => 
+          figure.name && figure.name.toLowerCase().includes(searchLower)
+        )
+      }
+      
+      if (this.searchPurchaseDateRange && this.searchPurchaseDateRange.length === 2) {
+        const [startDate, endDate] = this.searchPurchaseDateRange
+        filteredFigures = filteredFigures.filter(figure => {
+          if (!figure.purchase_date) return false
+          const purchaseDate = new Date(figure.purchase_date)
+          return purchaseDate >= startDate && purchaseDate <= endDate
+        })
+      }
+      
+      if (this.searchPurchaseType) {
+        filteredFigures = filteredFigures.filter(figure => 
+          figure.purchase_type === this.searchPurchaseType
+        )
+      }
+      
+      return filteredFigures.length
     }
   },
   mounted() {
@@ -862,6 +938,10 @@ export default {
       this.materialError = ''
       this.sizeError = ''
       
+      // 重置编辑状态
+      this.isEditing = false
+      this.currentEditFigureId = null
+      
       // 重置表单数据
       this.newFigure = {
         name: '',
@@ -905,15 +985,31 @@ export default {
         }
         
         // 处理空的日期字段和价格字段
+        // 确保日期格式正确，只保留日期部分，去除时间部分
+        const formatDate = (date) => {
+          if (!date) return null
+          if (typeof date === 'string') return date
+          // 转换为YYYY-MM-DD格式
+          return date.toISOString().split('T')[0]
+        }
+        
         const figureData = {
           ...this.newFigure,
-          release_date: this.newFigure.release_date || null,
-          purchase_date: this.newFigure.purchase_date || null,
+          release_date: formatDate(this.newFigure.release_date),
+          purchase_date: formatDate(this.newFigure.purchase_date),
           purchase_price: this.newFigure.purchase_price || null,
           purchase_currency: this.newFigure.purchase_currency || 'CNY',
           tags: this.newFigure.tags.length > 0 ? this.newFigure.tags.join(',') : null
         }
-        await this.figureStore.createFigure(figureData)
+        
+        if (this.isEditing) {
+          // 编辑模式
+          await this.figureStore.updateFigure(this.currentEditFigureId, figureData)
+        } else {
+          // 添加模式
+          await this.figureStore.createFigure(figureData)
+        }
+        
         this.showAddForm = false
         // 重置表单
         this.resetForm()
@@ -925,14 +1021,49 @@ export default {
       if (confirm('确定要删除这个手办吗？')) {
         try {
           await this.figureStore.deleteFigure(id)
+          alert('手办删除成功')
         } catch (error) {
           console.error('Failed to delete figure:', error)
+          if (error.response && error.response.status === 400) {
+            alert('无法删除有关联尾款的手办')
+          } else {
+            alert('删除失败，请稍后重试')
+          }
         }
       }
     },
     logout() {
       this.userStore.logout()
       this.$router.push('/login')
+    },
+    editFigure(figure) {
+      // 打开编辑表单
+      this.showAddForm = true
+      this.isEditing = true
+      this.currentEditFigureId = figure.id
+      
+      // 填充表单数据
+      this.newFigure = {
+        ...figure,
+        tags: figure.tags ? figure.tags.split(',').filter(tag => tag.trim()) : [],
+        price: figure.price || 0,
+        purchase_price: figure.purchase_price || 0
+      }
+      
+      // 重置错误信息
+      this.resetErrors()
+    },
+    resetErrors() {
+      this.nameError = ''
+      this.purchaseMethodError = ''
+      this.prototypeError = ''
+      this.paintingError = ''
+      this.originalArtError = ''
+      this.workError = ''
+      this.manufacturerError = ''
+      this.scaleError = ''
+      this.materialError = ''
+      this.sizeError = ''
     },
     getCurrencySymbol(currency) {
       switch(currency) {
@@ -963,6 +1094,24 @@ export default {
     // 处理页码变化
     handleCurrentChange(val) {
       this.currentPage = val
+    },
+    
+    // 刷新数据
+    async fetchFigures() {
+      await this.figureStore.fetchFigures()
+    },
+    
+    // 处理搜索
+    handleSearch() {
+      this.currentPage = 1 // 搜索时重置到第一页
+    },
+    
+    // 重置搜索
+    resetSearch() {
+      this.searchName = ''
+      this.searchPurchaseDateRange = []
+      this.searchPurchaseType = ''
+      this.currentPage = 1 // 重置到第一页
     }
   }
 }
@@ -985,8 +1134,8 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
   border-bottom: 2px solid #e0e0e0;
 }
 
@@ -1001,6 +1150,28 @@ export default {
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.search-form {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .user-info {
@@ -1045,6 +1216,22 @@ export default {
   background-color: #45a049;
 }
 
+.btn-refresh {
+  background-color: #2196F3;
+  color: white;
+  padding: 10px 12px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.btn-refresh:hover {
+  background-color: #0b7dda;
+}
+
 .btn-logout {
   background-color: #f44336;
   color: white;
@@ -1086,6 +1273,17 @@ export default {
 .figure-item h3 {
   margin-bottom: 10px;
   color: #333;
+}
+
+.figure-name-link {
+  color: #2196F3;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.figure-name-link:hover {
+  color: #0b7dda;
+  text-decoration: underline;
 }
 
 .figure-item p {

@@ -5,7 +5,10 @@
       <div v-if="!isEditing">
         <p><strong>用户名:</strong> {{ userStore.currentUser.username }}</p>
         <p><strong>邮箱:</strong> {{ userStore.currentUser.email }}</p>
-        <button class="btn btn-edit" @click="startEditing">编辑资料</button>
+        <div class="profile-actions">
+          <button class="btn btn-edit" @click="startEditing">编辑资料</button>
+          <button class="btn btn-logout" @click="logout">退出</button>
+        </div>
       </div>
       <div v-else class="edit-form">
         <div class="form-group">
@@ -70,6 +73,10 @@ export default {
       } catch (error) {
         console.error('保存失败:', error)
       }
+    },
+    logout() {
+      this.userStore.logout()
+      this.$router.push('/login')
     }
   }
 }
@@ -106,6 +113,12 @@ h2 {
   margin-top: 10px;
 }
 
+.profile-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .btn-edit {
   background-color: #2196F3;
   color: white;
@@ -113,6 +126,15 @@ h2 {
 
 .btn-edit:hover {
   background-color: #0b7dda;
+}
+
+.btn-logout {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-logout:hover {
+  background-color: #da190b;
 }
 
 .edit-form {

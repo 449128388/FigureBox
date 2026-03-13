@@ -72,22 +72,22 @@ export const useOrderStore = defineStore('order', {
   }),
   actions: {
     async fetchOrders() {
-      const response = await axios.get('/orders')
+      const response = await axios.get('/orders/')
       this.orders = response
     },
     async createOrder(order) {
-      const response = await axios.post('/orders', order)
+      const response = await axios.post('/orders/', order)
       this.orders.push(response)
     },
     async updateOrder(id, order) {
-      const response = await axios.put(`/orders/${id}`, order)
+      const response = await axios.put(`/orders/${id}/`, order)
       const index = this.orders.findIndex(o => o.id === id)
       if (index !== -1) {
         this.orders[index] = response
       }
     },
     async deleteOrder(id) {
-      await axios.delete(`/orders/${id}`)
+      await axios.delete(`/orders/${id}/`)
       this.orders = this.orders.filter(o => o.id !== id)
     }
   }
