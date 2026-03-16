@@ -7,15 +7,19 @@ class OrderBase(BaseModel):
     deposit: float
     balance: float
     due_date: date
+    shop_name: str | None = None
+    shop_contact: str | None = None
 
 class OrderCreate(OrderBase):
-    pass
+    status: str
 
 class OrderUpdate(BaseModel):
     deposit: float | None = None
     balance: float | None = None
     due_date: date | None = None
     status: str | None = None
+    shop_name: str | None = None
+    shop_contact: str | None = None
 
 class Order(OrderBase):
     id: int

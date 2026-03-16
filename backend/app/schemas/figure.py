@@ -46,6 +46,7 @@ def validate_field(value: str | None, field_name: str, min_length: int, max_leng
 
 class FigureBase(BaseModel):
     name: str
+    japanese_name: str | None = None
     price: float | None = None
     currency: str = "CNY"
     manufacturer: str | None = None
@@ -57,7 +58,6 @@ class FigureBase(BaseModel):
     purchase_method: str | None = None
     purchase_type: str | None = None
     scale: str | None = None
-    prototype: str | None = None
     painting: str | None = None
     original_art: str | None = None
     work: str | None = None
@@ -89,19 +89,19 @@ class FigureBase(BaseModel):
             raise ValueError('名称不能为空')
         return validate_field(v, '名称', 1, 100)
 
+    @field_validator('japanese_name', mode='before')
+    @classmethod
+    def validate_japanese_name(cls, v):
+        if v is None or v == '':
+            return None
+        return validate_field(v, '日文名', 1, 100)
+
     @field_validator('purchase_method', mode='before')
     @classmethod
     def validate_purchase_method(cls, v):
         if v is None or v == '':
             return None
         return validate_field(v, '入手途径', 1, 50)
-
-    @field_validator('prototype', mode='before')
-    @classmethod
-    def validate_prototype(cls, v):
-        if v is None or v == '':
-            return None
-        return validate_field(v, '原型', 1, 40)
 
     @field_validator('painting', mode='before')
     @classmethod
@@ -159,6 +159,7 @@ class FigureCreate(FigureBase):
 
 class FigureUpdate(BaseModel):
     name: str | None = None
+    japanese_name: str | None = None
     manufacturer: str | None = None
     price: float | None = None
     currency: str | None = None
@@ -170,7 +171,6 @@ class FigureUpdate(BaseModel):
     purchase_method: str | None = None
     purchase_type: str | None = None
     scale: str | None = None
-    prototype: str | None = None
     painting: str | None = None
     original_art: str | None = None
     work: str | None = None
@@ -186,19 +186,19 @@ class FigureUpdate(BaseModel):
             return None
         return validate_field(v, '名称', 1, 100)
 
+    @field_validator('japanese_name', mode='before')
+    @classmethod
+    def validate_japanese_name(cls, v):
+        if v is None or v == '':
+            return None
+        return validate_field(v, '日文名', 1, 100)
+
     @field_validator('purchase_method', mode='before')
     @classmethod
     def validate_purchase_method(cls, v):
         if v is None or v == '':
             return None
         return validate_field(v, '入手途径', 1, 50)
-
-    @field_validator('prototype', mode='before')
-    @classmethod
-    def validate_prototype(cls, v):
-        if v is None or v == '':
-            return None
-        return validate_field(v, '原型', 1, 40)
 
     @field_validator('painting', mode='before')
     @classmethod

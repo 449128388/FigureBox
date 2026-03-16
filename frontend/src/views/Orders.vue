@@ -15,15 +15,30 @@
       <div v-if="orderStore.orders.length === 0" class="empty-state">
         <p>暂无数据</p>
       </div>
-      <div v-else class="order-item" v-for="order in orderStore.orders" :key="order.id">
-        <h3>{{ order.figure.name }}</h3>
+      <div v-else class="order-item" v-for="order in paginatedOrders" :key="order.id">
+        <h3><router-link :to="`/figures/${order.figure.id}`" class="figure-name-link">{{ order.figure.name }}</router-link><span class="countdown-tag" :class="getCountdownClass(order.due_date)">{{ getCountdownText(order.due_date) }}</span></h3>
         <p>定金: ¥{{ order.deposit }}</p>
         <p>尾款: ¥{{ order.balance }}</p>
-        <p>到期日期: {{ order.due_date }}</p>
+        <p>出荷日期: {{ order.due_date }}</p>
         <p>状态: {{ order.status }}</p>
+        <p v-if="order.shop_name">购买店铺: {{ order.shop_name }}</p>
+        <p v-if="order.shop_contact">店铺联系方式: {{ order.shop_contact }}</p>
         <button class="btn btn-edit" @click="editOrder(order)">编辑</button>
         <button class="btn btn-delete" @click="deleteOrder(order.id)">删除</button>
       </div>
+    </div>
+    
+    <!-- 分页组件 -->
+    <div v-if="totalOrders > 0" class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="pageSizes"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="totalOrders"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
     </div>
     
     <!-- 添加订单表单 -->
@@ -34,14 +49,21 @@
           <div class="form-grid">
             <div class="form-group">
               <label>手办</label>
-              <el-select v-model="newOrder.figure_id" placeholder="请选择手办" style="width: 100%;">
+              <el-select 
+                v-model="newOrder.figure_id" 
+                placeholder="请选择手办" 
+                style="width: 100%;"
+                :class="{ 'error-input': figureError }"
+                @change="validateFigureOnChange"
+              >
                 <el-option 
-                  v-for="figure in figureStore.figures" 
+                  v-for="figure in availableFigures" 
                   :key="figure.id" 
                   :label="figure.name" 
                   :value="figure.id" 
                 />
               </el-select>
+              <div v-if="figureError" class="error-message">{{ figureError }}</div>
             </div>
             <div class="form-group">
               <label>定金</label>
@@ -52,8 +74,16 @@
               <el-input-number v-model="newOrder.balance" placeholder="请输入尾款" :min="0" :step="1" style="width: 100%;"></el-input-number>
             </div>
             <div class="form-group">
-              <label>到期日期</label>
-              <el-date-picker v-model="newOrder.due_date" type="date" placeholder="选择到期日期" style="width: 100%;"></el-date-picker>
+              <label>出荷日期</label>
+              <el-date-picker 
+                v-model="newOrder.due_date" 
+                type="date" 
+                placeholder="选择出荷日期" 
+                style="width: 100%;"
+                :class="{ 'error-input': dueDateError }"
+                @change="validateDueDateOnChange"
+              ></el-date-picker>
+              <div v-if="dueDateError" class="error-message">{{ dueDateError }}</div>
             </div>
             <div class="form-group">
               <label>状态</label>
@@ -63,8 +93,16 @@
                 <el-option value="已取消" label="已取消" />
               </el-select>
             </div>
+            <div class="form-group">
+              <label>购买店铺</label>
+              <el-input v-model="newOrder.shop_name" placeholder="请输入购买店铺" style="width: 100%;"></el-input>
+            </div>
+            <div class="form-group">
+              <label>店铺联系方式</label>
+              <el-input v-model="newOrder.shop_contact" placeholder="请输入店铺联系方式" style="width: 100%;"></el-input>
+            </div>
           </div>
-          
+
           <div class="form-actions">
             <el-button class="btn-cancel" @click="showAddForm = false">取消</el-button>
             <el-button class="btn-submit" type="primary" native-type="submit">保存</el-button>
@@ -85,12 +123,19 @@ export default {
       showAddForm: false,
       isEditing: false,
       currentEditOrderId: null,
+      currentPage: 1,
+      pageSize: 15,
+      pageSizes: [15, 30, 45, 60],
+      figureError: '',
+      dueDateError: '',
       newOrder: {
         figure_id: '',
         deposit: 0,
         balance: 0,
         due_date: '',
-        status: '未支付'
+        status: '未支付',
+        shop_name: '',
+        shop_contact: ''
       }
     }
   },
@@ -103,6 +148,40 @@ export default {
     },
     figureStore() {
       return useFigureStore()
+    },
+    
+    // 分页处理
+    paginatedOrders() {
+      // 按出荷日期倒计时升序排序（即将出荷的排在前面）
+      let sortedOrders = [...this.orderStore.orders].sort((a, b) => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        const dueA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31')
+        const dueB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31')
+        dueA.setHours(0, 0, 0, 0)
+        dueB.setHours(0, 0, 0, 0)
+        
+        // 升序排序：即将出荷的排在前面
+        return dueA - dueB
+      })
+      
+      const startIndex = (this.currentPage - 1) * this.pageSize
+      const endIndex = startIndex + this.pageSize
+      return sortedOrders.slice(startIndex, endIndex)
+    },
+    
+    // 总数据量
+    totalOrders() {
+      return this.orderStore.orders.length
+    },
+    
+    // 可选手办列表（过滤掉已有订单的手办）
+    availableFigures() {
+      // 获取已有订单的手办ID列表
+      const orderedFigureIds = this.orderStore.orders.map(order => order.figure.id)
+      // 过滤掉已有订单的手办
+      return this.figureStore.figures.filter(figure => !orderedFigureIds.includes(figure.id))
     }
   },
   mounted() {
@@ -123,14 +202,20 @@ export default {
       // 重置编辑状态
       this.isEditing = false
       this.currentEditOrderId = null
-      
+
+      // 重置错误状态
+      this.figureError = ''
+      this.dueDateError = ''
+
       // 重置表单数据
       this.newOrder = {
         figure_id: '',
         deposit: 0,
         balance: 0,
         due_date: '',
-        status: '未支付'
+        status: '未支付',
+        shop_name: '',
+        shop_contact: ''
       }
     },
     // 打开添加订单表单
@@ -140,8 +225,54 @@ export default {
       // 显示表单
       this.showAddForm = true
     },
+    // 验证手办字段
+    validateFigureOnChange() {
+      if (!this.newOrder.figure_id) {
+        this.figureError = '请选择手办'
+      } else {
+        this.figureError = ''
+      }
+    },
+    
+    // 验证出荷日期字段
+    validateDueDateOnChange() {
+      if (!this.newOrder.due_date) {
+        this.dueDateError = '请选择出荷日期'
+      } else {
+        this.dueDateError = ''
+      }
+    },
+    
+    // 验证整个表单
+    validateForm() {
+      let isValid = true
+      
+      // 验证手办
+      if (!this.newOrder.figure_id) {
+        this.figureError = '请选择手办'
+        isValid = false
+      } else {
+        this.figureError = ''
+      }
+      
+      // 验证出荷日期
+      if (!this.newOrder.due_date) {
+        this.dueDateError = '请选择出荷日期'
+        isValid = false
+      } else {
+        this.dueDateError = ''
+      }
+      
+      return isValid
+    },
+    
     async addOrder() {
       try {
+        // 先验证表单
+        if (!this.validateForm()) {
+          return
+        }
+        
         // 处理空的日期字段
         const formatDate = (date) => {
           if (!date) return null
@@ -189,6 +320,65 @@ export default {
       this.newOrder = {
         ...order,
         figure_id: order.figure.id
+      }
+    },
+    
+    // 处理每页条数变化
+    handleSizeChange(val) {
+      this.pageSize = val
+      this.currentPage = 1 // 重置为第一页
+    },
+    
+    // 处理页码变化
+    handleCurrentChange(val) {
+      this.currentPage = val
+    },
+    
+    // 获取倒计时文本
+    getCountdownText(dueDate) {
+      if (!dueDate) return ''
+      
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      const due = new Date(dueDate)
+      due.setHours(0, 0, 0, 0)
+      
+      const diffTime = due - today
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays < 0) {
+        return `已出荷 ${Math.abs(diffDays)} 天`
+      } else if (diffDays === 0) {
+        return '今天出荷'
+      } else {
+        return `还有 ${diffDays} 天`
+      }
+    },
+    
+    // 获取倒计时样式类
+    getCountdownClass(dueDate) {
+      if (!dueDate) return ''
+      
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      const due = new Date(dueDate)
+      due.setHours(0, 0, 0, 0)
+      
+      const diffTime = due - today
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays < 0) {
+        return 'countdown-overdue'
+      } else if (diffDays === 0) {
+        return 'countdown-today'
+      } else if (diffDays <= 7) {
+        return 'countdown-urgent'
+      } else if (diffDays <= 30) {
+        return 'countdown-warning'
+      } else {
+        return 'countdown-normal'
       }
     }
   }
@@ -318,6 +508,72 @@ export default {
   color: #666;
 }
 
+.figure-name-link {
+  color: #333;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.figure-name-link:hover {
+  color: #2196F3;
+}
+
+.countdown-tag {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 2px solid transparent;
+}
+
+.countdown-normal {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #4caf50;
+}
+
+.countdown-warning {
+  background-color: #fff3e0;
+  color: #e65100;
+  border-color: #ff9800;
+}
+
+.countdown-urgent {
+  background-color: #ffebee;
+  color: #c62828;
+  border-color: #f44336;
+  animation: pulse 2s infinite;
+}
+
+.countdown-today {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border-color: #2196f3;
+  animation: pulse 2s infinite;
+}
+
+.countdown-overdue {
+  background-color: #f5f5f5;
+  color: #616161;
+  border-color: #9e9e9e;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+  }
+}
+
 .btn {
   padding: 8px 16px;
   border: none;
@@ -410,6 +666,38 @@ export default {
   color: #333;
 }
 
+/* 错误提示样式 */
+:deep(.error-input .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-select .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-select .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-select .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+.error-message {
+  color: #f56c6c;
+  font-size: 12px;
+  line-height: 1;
+  padding-top: 4px;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -455,6 +743,14 @@ export default {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid #e0e0e0;
+}
+
 @media (max-width: 768px) {
   .form-grid {
     grid-template-columns: 1fr;
@@ -463,6 +759,10 @@ export default {
   .form-container {
     width: 95%;
     padding: 20px;
+  }
+  
+  .pagination-container {
+    justify-content: center;
   }
 }
 </style>

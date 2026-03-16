@@ -46,6 +46,10 @@
             <span class="label">名称:</span>
             <span class="value">{{ figure.name }}</span>
           </div>
+          <div v-if="figure.japanese_name" class="info-item">
+            <span class="label">日文名:</span>
+            <span class="value">{{ figure.japanese_name }}</span>
+          </div>
           <div class="info-item">
             <span class="label">制造商:</span>
             <span class="value">{{ figure.manufacturer || '未设置' }}</span>
@@ -76,39 +80,35 @@
           </div>
         </div>
         
-        <div class="info-section">
+        <div class="info-section" v-if="figure.painting || figure.original_art || figure.work">
           <h2>作者信息</h2>
-          <div class="info-item">
-            <span class="label">原型:</span>
-            <span class="value">{{ figure.prototype || '未设置' }}</span>
-          </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.painting">
             <span class="label">涂装:</span>
-            <span class="value">{{ figure.painting || '未设置' }}</span>
+            <span class="value">{{ figure.painting }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.original_art">
             <span class="label">原画:</span>
-            <span class="value">{{ figure.original_art || '未设置' }}</span>
+            <span class="value">{{ figure.original_art }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.work">
             <span class="label">作品:</span>
-            <span class="value">{{ figure.work || '未设置' }}</span>
+            <span class="value">{{ figure.work }}</span>
           </div>
         </div>
         
-        <div class="info-section">
+        <div class="info-section" v-if="figure.scale || figure.material || figure.size">
           <h2>规格信息</h2>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.scale">
             <span class="label">比例:</span>
-            <span class="value">{{ figure.scale || '未设置' }}</span>
+            <span class="value">{{ figure.scale }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.material">
             <span class="label">材质:</span>
-            <span class="value">{{ figure.material || '未设置' }}</span>
+            <span class="value">{{ figure.material }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.size">
             <span class="label">尺寸:</span>
-            <span class="value">{{ figure.size || '未设置' }}</span>
+            <span class="value">{{ figure.size }}</span>
           </div>
         </div>
         

@@ -16,7 +16,7 @@ def get_orders(current_user: User = Depends(get_current_user), db: Session = Dep
         orders = db.query(Order).filter(Order.user_id == current_user.id).all()
     return orders
 
-@router.get("/{order_id}", response_model=OrderSchema)
+@router.get("/{order_id}/", response_model=OrderSchema)
 def get_order(order_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -42,7 +42,7 @@ def create_order(order: OrderCreate, current_user: User = Depends(get_current_us
     db.refresh(db_order)
     return db_order
 
-@router.put("/{order_id}", response_model=OrderSchema)
+@router.put("/{order_id}/", response_model=OrderSchema)
 def update_order(order_id: int, order: OrderUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db_order = db.query(Order).filter(Order.id == order_id).first()
     if not db_order:
@@ -61,7 +61,7 @@ def update_order(order_id: int, order: OrderUpdate, current_user: User = Depends
     db.refresh(db_order)
     return db_order
 
-@router.delete("/{order_id}")
+@router.delete("/{order_id}/")
 def delete_order(order_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db_order = db.query(Order).filter(Order.id == order_id).first()
     if not db_order:

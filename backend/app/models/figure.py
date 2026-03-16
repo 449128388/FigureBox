@@ -6,6 +6,7 @@ class Figure(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    japanese_name = Column(String(100))
     manufacturer = Column(String(100))
     price = Column(Float)
     currency = Column(String(10), default="CNY")
@@ -17,7 +18,6 @@ class Figure(Base):
     purchase_method = Column(String(100))
     purchase_type = Column(String(50))
     scale = Column(String(50))
-    prototype = Column(String(100))
     painting = Column(String(100))
     original_art = Column(String(100))
     work = Column(String(100))

@@ -111,8 +111,16 @@
                     </div>
                   </div>
                   <div class="form-group">
-                    <label>出货日</label>
-                    <el-date-picker v-model="newFigure.release_date" type="date" placeholder="选择出货日" style="width: 100%;"></el-date-picker>
+                    <label>日文名</label>
+                    <el-input
+                      v-model="newFigure.japanese_name"
+                      placeholder="请输入日文名"
+                      :class="{ 'error-input': japaneseNameError }"
+                      @input="validateJapaneseNameOnInput"
+                      maxlength="100"
+                      show-word-limit
+                    ></el-input>
+                    <div v-if="japaneseNameError" class="error-message">{{ japaneseNameError }}</div>
                   </div>
                   <div class="form-group">
                     <label>入手价格</label>
@@ -125,6 +133,10 @@
                         <el-option value="EUR" label="欧元" />
                       </el-select>
                     </div>
+                  </div>
+                  <div class="form-group">
+                    <label>出货日</label>
+                    <el-date-picker v-model="newFigure.release_date" type="date" placeholder="选择出货日" style="width: 100%;"></el-date-picker>
                   </div>
                   <div class="form-group">
                     <label>入手时间</label>
@@ -188,16 +200,6 @@
                   </div>
                 </template>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label>原型</label>
-                    <el-input 
-                      v-model="newFigure.prototype" 
-                      placeholder="请输入原型"
-                      :class="{ 'error-input': prototypeError }"
-                      @input="validatePrototypeOnInput"
-                    ></el-input>
-                    <div v-if="prototypeError" class="error-message">{{ prototypeError }}</div>
-                  </div>
                   <div class="form-group">
                     <label>涂装</label>
                     <el-input 
@@ -360,8 +362,8 @@ export default {
       previewImage: '',
       tagOptions: ['PVC', 'ABS', '树脂', '合金', '可动', '限定', '特典', '初版', '再版'],
       nameError: '',
+      japaneseNameError: '',
       purchaseMethodError: '',
-      prototypeError: '',
       paintingError: '',
       originalArtError: '',
       workError: '',
@@ -381,6 +383,7 @@ export default {
       searchPurchaseType: '',
       newFigure: {
         name: '',
+        japanese_name: '',
         manufacturer: '',
         price: 0,
         currency: 'CNY',
@@ -392,7 +395,6 @@ export default {
         purchase_method: '',
         purchase_type: '',
         scale: '',
-        prototype: '',
         painting: '',
         original_art: '',
         work: '',
@@ -597,7 +599,7 @@ export default {
     // 验证名称字段（实时验证）
     validateNameOnInput() {
       const value = this.newFigure.name
-      
+
       // 必填检查
       if (!value || value.trim() === '') {
         this.nameError = '名称不能为空'
@@ -605,10 +607,10 @@ export default {
         this.focusToNameField()
         return
       }
-      
+
       // 调用通用验证方法
       const result = this.validateField(value, '名称', 1, 100, true)
-      
+
       if (!result.valid) {
         this.nameError = result.error
         // 如果不在基础页，自动跳转并聚焦
@@ -617,6 +619,28 @@ export default {
         this.nameError = ''
         // 更新验证后的值
         this.newFigure.name = result.value || ''
+      }
+    },
+
+    // 验证日文名字段（实时验证）
+    validateJapaneseNameOnInput() {
+      const value = this.newFigure.japanese_name
+
+      // 空值允许通过（非必填字段）
+      if (!value || value.trim() === '') {
+        this.japaneseNameError = ''
+        return
+      }
+
+      // 调用通用验证方法
+      const result = this.validateField(value, '日文名', 1, 100, true)
+
+      if (!result.valid) {
+        this.japaneseNameError = result.error
+      } else {
+        this.japaneseNameError = ''
+        // 更新验证后的值
+        this.newFigure.japanese_name = result.value || ''
       }
     },
     
@@ -651,28 +675,6 @@ export default {
         this.purchaseMethodError = ''
         // 更新验证后的值
         this.newFigure.purchase_method = result.value || ''
-      }
-    },
-    
-    // 验证原型字段（实时验证）
-    validatePrototypeOnInput() {
-      const value = this.newFigure.prototype
-      
-      // 空值允许通过（非必填字段）
-      if (!value || value.trim() === '') {
-        this.prototypeError = ''
-        return
-      }
-      
-      // 调用通用验证方法
-      const result = this.validateField(value, '原型', 1, 40, true)
-      
-      if (!result.valid) {
-        this.prototypeError = result.error
-      } else {
-        this.prototypeError = ''
-        // 更新验证后的值
-        this.newFigure.prototype = result.value || ''
       }
     },
     
@@ -837,16 +839,16 @@ export default {
       if (this.nameError) {
         return false
       }
-      
+
+      // 验证日文名字段
+      this.validateJapaneseNameOnInput()
+      if (this.japaneseNameError) {
+        return false
+      }
+
       // 验证入手途径字段
       this.validatePurchaseMethodOnInput()
       if (this.purchaseMethodError) {
-        return false
-      }
-      
-      // 验证原型字段
-      this.validatePrototypeOnInput()
-      if (this.prototypeError) {
         return false
       }
       
@@ -928,8 +930,8 @@ export default {
     resetForm() {
       // 重置错误信息
       this.nameError = ''
+      this.japaneseNameError = ''
       this.purchaseMethodError = ''
-      this.prototypeError = ''
       this.paintingError = ''
       this.originalArtError = ''
       this.workError = ''
@@ -937,14 +939,15 @@ export default {
       this.scaleError = ''
       this.materialError = ''
       this.sizeError = ''
-      
+
       // 重置编辑状态
       this.isEditing = false
       this.currentEditFigureId = null
-      
+
       // 重置表单数据
       this.newFigure = {
         name: '',
+        japanese_name: '',
         manufacturer: '',
         price: 0,
         currency: 'CNY',
@@ -956,7 +959,6 @@ export default {
         purchase_method: '',
         purchase_type: '',
         scale: '',
-        prototype: '',
         painting: '',
         original_art: '',
         work: '',
@@ -1056,7 +1058,6 @@ export default {
     resetErrors() {
       this.nameError = ''
       this.purchaseMethodError = ''
-      this.prototypeError = ''
       this.paintingError = ''
       this.originalArtError = ''
       this.workError = ''
@@ -1283,7 +1284,6 @@ export default {
 
 .figure-name-link:hover {
   color: #0b7dda;
-  text-decoration: underline;
 }
 
 .figure-item p {
