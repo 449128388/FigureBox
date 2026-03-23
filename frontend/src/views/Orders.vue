@@ -11,8 +11,40 @@
         </div>
       </div>
     </div>
+    <!-- 状态筛选 Tab -->
+    <div class="status-tabs">
+      <div 
+        class="status-tab" 
+        :class="{ active: currentStatus === 'all' }"
+        @click="currentStatus = 'all'"
+      >
+        全部 ({{ statusCounts.all }})
+      </div>
+      <div 
+        class="status-tab" 
+        :class="{ active: currentStatus === '未支付' }"
+        @click="currentStatus = '未支付'"
+      >
+        未支付 ({{ statusCounts['未支付'] }})
+      </div>
+      <div 
+        class="status-tab" 
+        :class="{ active: currentStatus === '已支付' }"
+        @click="currentStatus = '已支付'"
+      >
+        已支付 ({{ statusCounts['已支付'] }})
+      </div>
+      <div 
+        class="status-tab" 
+        :class="{ active: currentStatus === '已取消' }"
+        @click="currentStatus = '已取消'"
+      >
+        已取消 ({{ statusCounts['已取消'] }})
+      </div>
+    </div>
+
     <div class="orders-list">
-      <div v-if="orderStore.orders.length === 0" class="empty-state">
+      <div v-if="filteredOrders.length === 0" class="empty-state">
         <p>暂无数据</p>
       </div>
       <div v-else class="order-item" v-for="order in paginatedOrders" :key="order.id">
@@ -20,7 +52,7 @@
         <p>定金: ¥{{ order.deposit }}</p>
         <p>尾款: ¥{{ order.balance }}</p>
         <p>出荷日期: {{ order.due_date }}</p>
-        <p>状态: {{ order.status }}</p>
+        <p>尾款状态: {{ order.status }}</p>
         <p v-if="order.shop_name">购买店铺: {{ order.shop_name }}</p>
         <p v-if="order.shop_contact">店铺联系方式: {{ order.shop_contact }}</p>
         <button class="btn btn-edit" @click="editOrder(order)">编辑</button>
@@ -54,6 +86,7 @@
                 placeholder="请选择手办" 
                 style="width: 100%;"
                 :class="{ 'error-input': figureError }"
+                :disabled="isEditing"
                 @change="validateFigureOnChange"
               >
                 <el-option 
@@ -86,8 +119,8 @@
               <div v-if="dueDateError" class="error-message">{{ dueDateError }}</div>
             </div>
             <div class="form-group">
-              <label>状态</label>
-              <el-select v-model="newOrder.status" placeholder="请选择状态" style="width: 100%;">
+              <label>尾款状态</label>
+              <el-select v-model="newOrder.status" placeholder="请选择尾款状态" style="width: 100%;">
                 <el-option value="未支付" label="未支付" />
                 <el-option value="已支付" label="已支付" />
                 <el-option value="已取消" label="已取消" />
@@ -126,6 +159,7 @@ export default {
       currentPage: 1,
       pageSize: 15,
       pageSizes: [15, 30, 45, 60],
+      currentStatus: 'all', // 当前筛选状态：all, 未支付, 已支付, 已取消
       figureError: '',
       dueDateError: '',
       newOrder: {
@@ -150,10 +184,17 @@ export default {
       return useFigureStore()
     },
     
-    // 分页处理
-    paginatedOrders() {
+    // 根据状态筛选订单
+    filteredOrders() {
+      let orders = this.orderStore.orders
+      
+      // 按状态筛选
+      if (this.currentStatus !== 'all') {
+        orders = orders.filter(order => order.status === this.currentStatus)
+      }
+      
       // 按出荷日期倒计时升序排序（即将出荷的排在前面）
-      let sortedOrders = [...this.orderStore.orders].sort((a, b) => {
+      return orders.sort((a, b) => {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
         
@@ -165,23 +206,51 @@ export default {
         // 升序排序：即将出荷的排在前面
         return dueA - dueB
       })
-      
+    },
+    
+    // 分页处理
+    paginatedOrders() {
       const startIndex = (this.currentPage - 1) * this.pageSize
       const endIndex = startIndex + this.pageSize
-      return sortedOrders.slice(startIndex, endIndex)
+      return this.filteredOrders.slice(startIndex, endIndex)
     },
     
-    // 总数据量
+    // 总数据量（根据筛选状态）
     totalOrders() {
-      return this.orderStore.orders.length
+      return this.filteredOrders.length
     },
     
-    // 可选手办列表（过滤掉已有订单的手办）
+    // 各状态订单数量统计
+    statusCounts() {
+      const counts = {
+        all: this.orderStore.orders.length,
+        '未支付': 0,
+        '已支付': 0,
+        '已取消': 0
+      }
+      
+      this.orderStore.orders.forEach(order => {
+        if (counts[order.status] !== undefined) {
+          counts[order.status]++
+        }
+      })
+      
+      return counts
+    },
+    
+    // 可选手办列表（过滤掉已有订单的手办，但编辑模式下包含当前订单的手办）
     availableFigures() {
       // 获取已有订单的手办ID列表
       const orderedFigureIds = this.orderStore.orders.map(order => order.figure.id)
-      // 过滤掉已有订单的手办
-      return this.figureStore.figures.filter(figure => !orderedFigureIds.includes(figure.id))
+      // 过滤掉已有订单的手办，但编辑模式下保留当前订单的手办
+      return this.figureStore.figures.filter(figure => {
+        // 如果是编辑模式且是当前订单的手办，则保留
+        if (this.isEditing && this.newOrder.figure_id === figure.id) {
+          return true
+        }
+        // 否则过滤掉已有订单的手办
+        return !orderedFigureIds.includes(figure.id)
+      })
     }
   },
   mounted() {
@@ -381,6 +450,13 @@ export default {
         return 'countdown-normal'
       }
     }
+  },
+  
+  watch: {
+    // 当切换状态筛选时，重置页码到第一页
+    currentStatus() {
+      this.currentPage = 1
+    }
   }
 }
 </script>
@@ -418,6 +494,45 @@ export default {
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+/* 状态筛选 Tab 样式 */
+.status-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.status-tab {
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  background-color: #f5f5f5;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.status-tab:hover {
+  background-color: #e8e8e8;
+  transform: translateY(-1px);
+}
+
+.status-tab.active {
+  background-color: #2196F3;
+  color: white;
+  border-color: #1976D2;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+.status-tab.active:hover {
+  background-color: #1976D2;
 }
 
 .user-info {

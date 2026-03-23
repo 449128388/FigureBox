@@ -22,6 +22,11 @@ instance.interceptors.request.use(
 // 响应拦截器
 instance.interceptors.response.use(
   response => {
+    // 检查是否有新的 token，有则更新（实现 token 自动续期）
+    const newToken = response.headers['x-refresh-token']
+    if (newToken) {
+      localStorage.setItem('token', newToken)
+    }
     return response.data
   },
   error => {

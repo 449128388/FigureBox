@@ -47,11 +47,10 @@
           >
         </div>
         <h3><router-link :to="`/figures/${figure.id}`" class="figure-name-link">{{ figure.name }}</router-link></h3>
-        <p>定价: {{ figure.price || '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
-        <p v-if="figure.purchase_price">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</p>
+        <p>定价: {{ figure.price !== null && figure.price !== undefined ? figure.price : '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
+        <p v-if="figure.purchase_price !== null && figure.purchase_price !== undefined">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</p>
         <p v-else>入手价格: 未设置</p>
         <p v-if="figure.purchase_date">入手时间: {{ figure.purchase_date }}</p>
-        <p v-else>入手时间: 未设置</p>
         <div v-if="figure.tags" class="tags-container">
           <span class="tags-label">标签:</span>
           <el-tag
@@ -999,7 +998,6 @@ export default {
           ...this.newFigure,
           release_date: formatDate(this.newFigure.release_date),
           purchase_date: formatDate(this.newFigure.purchase_date),
-          purchase_price: this.newFigure.purchase_price || null,
           purchase_currency: this.newFigure.purchase_currency || 'CNY',
           tags: this.newFigure.tags.length > 0 ? this.newFigure.tags.join(',') : null
         }

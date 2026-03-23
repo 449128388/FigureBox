@@ -12,7 +12,7 @@ security = HTTPBearer()
 # 获取当前用户
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     token = credentials.credentials
-    user_id = verify_token(token)
+    user_id, _ = verify_token(token)
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

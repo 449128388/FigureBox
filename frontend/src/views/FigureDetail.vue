@@ -1,7 +1,7 @@
 <template>
   <div class="figure-detail-container">
     <div class="header">
-      <h1>{{ figure.name }}</h1>
+      <h1>中文名称：{{ figure.name }}</h1>
       <button class="btn btn-back" @click="goBack">返回列表</button>
     </div>
     
@@ -42,41 +42,37 @@
       <div class="figure-info">
         <div class="info-section">
           <h2>基本信息</h2>
-          <div class="info-item">
-            <span class="label">名称:</span>
-            <span class="value">{{ figure.name }}</span>
-          </div>
           <div v-if="figure.japanese_name" class="info-item">
             <span class="label">日文名:</span>
             <span class="value">{{ figure.japanese_name }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.manufacturer">
             <span class="label">制造商:</span>
-            <span class="value">{{ figure.manufacturer || '未设置' }}</span>
+            <span class="value">{{ figure.manufacturer }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.price !== null && figure.price !== undefined">
             <span class="label">定价:</span>
-            <span class="value">{{ figure.price || '未设置' }} {{ getCurrencySymbol(figure.currency) }}</span>
+            <span class="value">{{ figure.price }} {{ getCurrencySymbol(figure.currency) }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.release_date">
             <span class="label">出货日:</span>
-            <span class="value">{{ figure.release_date || '未设置' }}</span>
+            <span class="value">{{ figure.release_date }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.purchase_price !== null && figure.purchase_price !== undefined">
             <span class="label">入手价格:</span>
-            <span class="value">{{ figure.purchase_price || '未设置' }} {{ getCurrencySymbol(figure.purchase_currency) }}</span>
+            <span class="value">{{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.purchase_date">
             <span class="label">入手时间:</span>
-            <span class="value">{{ figure.purchase_date || '未设置' }}</span>
+            <span class="value">{{ figure.purchase_date }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.purchase_method">
             <span class="label">入手途径:</span>
-            <span class="value">{{ figure.purchase_method || '未设置' }}</span>
+            <span class="value">{{ figure.purchase_method }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" v-if="figure.purchase_type">
             <span class="label">入手形式:</span>
-            <span class="value">{{ figure.purchase_type || '未设置' }}</span>
+            <span class="value">{{ figure.purchase_type }}</span>
           </div>
         </div>
         
