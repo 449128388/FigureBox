@@ -55,6 +55,7 @@
         <p>尾款状态: {{ order.status }}</p>
         <p v-if="order.shop_name">购买店铺: {{ order.shop_name }}</p>
         <p v-if="order.shop_contact">店铺联系方式: {{ order.shop_contact }}</p>
+        <p v-if="order.tracking_number">物流订单: {{ order.tracking_number }}</p>
         <button class="btn btn-edit" @click="editOrder(order)">编辑</button>
         <button class="btn btn-delete" @click="deleteOrder(order.id)">删除</button>
       </div>
@@ -134,6 +135,10 @@
               <label>店铺联系方式</label>
               <el-input v-model="newOrder.shop_contact" placeholder="请输入店铺联系方式" style="width: 100%;"></el-input>
             </div>
+            <div class="form-group" v-if="isEditing">
+              <label>物流订单</label>
+              <el-input v-model="newOrder.tracking_number" placeholder="请输入物流订单号" style="width: 100%;"></el-input>
+            </div>
           </div>
 
           <div class="form-actions">
@@ -159,7 +164,7 @@ export default {
       currentPage: 1,
       pageSize: 15,
       pageSizes: [15, 30, 45, 60],
-      currentStatus: 'all', // 当前筛选状态：all, 未支付, 已支付, 已取消
+      currentStatus: '未支付', // 当前筛选状态：all, 未支付, 已支付, 已取消；默认显示未支付
       figureError: '',
       dueDateError: '',
       newOrder: {
@@ -284,7 +289,8 @@ export default {
         due_date: '',
         status: '未支付',
         shop_name: '',
-        shop_contact: ''
+        shop_contact: '',
+        tracking_number: ''
       }
     },
     // 打开添加订单表单

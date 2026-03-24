@@ -20,11 +20,13 @@ class OrderUpdate(BaseModel):
     status: str | None = None
     shop_name: str | None = None
     shop_contact: str | None = None
+    tracking_number: str | None = None
 
 class Order(OrderBase):
     id: int
     user_id: int
     status: str
+    tracking_number: str | None = None
     figure: Figure
 
     class Config:

@@ -14,6 +14,7 @@ class Order(Base):
     status = Column(String(20), default="未支付")  # 未支付, 已支付, 已取消
     shop_name = Column(String(100))  # 购买店铺
     shop_contact = Column(String(200))  # 店铺联系方式
+    tracking_number = Column(String(100))  # 物流订单号
 
     # 关系
     user = relationship("User")

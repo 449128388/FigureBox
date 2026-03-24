@@ -75,7 +75,56 @@
             <span class="value">{{ figure.purchase_type }}</span>
           </div>
         </div>
-        
+
+        <div class="info-section" v-if="figure.tags">
+          <h2>标签</h2>
+          <div class="tags-container">
+            <el-tag
+              v-for="tag in parseTags(figure.tags)"
+              :key="tag"
+              size="small"
+              effect="light"
+              style="margin-right: 8px; margin-bottom: 8px;"
+            >
+              {{ tag }}
+            </el-tag>
+          </div>
+        </div>
+
+        <!-- 尾款信息模块 -->
+        <div class="info-section" v-if="relatedOrder">
+          <h2>尾款信息</h2>
+          <div class="info-item" v-if="relatedOrder.deposit !== null && relatedOrder.deposit !== undefined">
+            <span class="label">定金:</span>
+            <span class="value">¥{{ relatedOrder.deposit }}</span>
+          </div>
+          <div class="info-item" v-if="relatedOrder.balance !== null && relatedOrder.balance !== undefined">
+            <span class="label">尾款:</span>
+            <span class="value">¥{{ relatedOrder.balance }}</span>
+          </div>
+          <div class="info-item" v-if="relatedOrder.due_date">
+            <span class="label">出荷日期:</span>
+            <span class="value">{{ relatedOrder.due_date }}</span>
+          </div>
+          <div class="info-item" v-if="relatedOrder.status">
+            <span class="label">尾款状态:</span>
+            <span class="value" :class="getStatusClass(relatedOrder.status)">{{ relatedOrder.status }}</span>
+          </div>
+          <div class="info-item" v-if="relatedOrder.shop_name">
+            <span class="label">购买店铺:</span>
+            <span class="value">{{ relatedOrder.shop_name }}</span>
+          </div>
+          <div class="info-item" v-if="relatedOrder.shop_contact">
+            <span class="label">联系方式:</span>
+            <span class="value">{{ relatedOrder.shop_contact }}</span>
+          </div>
+          <div class="info-item" v-if="relatedOrder.tracking_number">
+            <span class="label">物流订单:</span>
+            <span class="value">{{ relatedOrder.tracking_number }}</span>
+          </div>
+        </div>        
+
+        <!-- 作者信息模块 -->  
         <div class="info-section" v-if="figure.painting || figure.original_art || figure.work">
           <h2>作者信息</h2>
           <div class="info-item" v-if="figure.painting">
@@ -91,7 +140,8 @@
             <span class="value">{{ figure.work }}</span>
           </div>
         </div>
-        
+
+        <!-- 规格信息模块 -->        
         <div class="info-section" v-if="figure.scale || figure.material || figure.size">
           <h2>规格信息</h2>
           <div class="info-item" v-if="figure.scale">
@@ -108,27 +158,13 @@
           </div>
         </div>
         
-        <div class="info-section" v-if="figure.tags">
-          <h2>标签</h2>
-          <div class="tags-container">
-            <el-tag
-              v-for="tag in parseTags(figure.tags)"
-              :key="tag"
-              size="small"
-              effect="light"
-              style="margin-right: 8px; margin-bottom: 8px;"
-            >
-              {{ tag }}
-            </el-tag>
-          </div>
-        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { useFigureStore } from '../store'
+import { useFigureStore, useOrderStore } from '../store'
 
 export default {
   name: 'FigureDetail',
@@ -143,10 +179,19 @@ export default {
   computed: {
     figureStore() {
       return useFigureStore()
+    },
+    orderStore() {
+      return useOrderStore()
+    },
+    // 获取与当前手办关联的订单
+    relatedOrder() {
+      const figureId = parseInt(this.$route.params.id)
+      return this.orderStore.orders.find(order => order.figure.id === figureId)
     }
   },
   mounted() {
     this.fetchFigureDetail()
+    this.orderStore.fetchOrders() // 获取订单数据
   },
   methods: {
     async fetchFigureDetail() {
@@ -189,6 +234,15 @@ export default {
     closeImagePreview() {
       this.showImagePreview = false
       this.currentPreviewImage = ''
+    },
+    // 获取状态样式类
+    getStatusClass(status) {
+      switch(status) {
+        case '未支付': return 'status-unpaid'
+        case '已支付': return 'status-paid'
+        case '已取消': return 'status-cancelled'
+        default: return ''
+      }
     }
   }
 }
@@ -452,5 +506,21 @@ export default {
   .main-image {
     height: 300px;
   }
+}
+
+/* 尾款状态样式 */
+.status-unpaid {
+  color: #f44336;
+  font-weight: 600;
+}
+
+.status-paid {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.status-cancelled {
+  color: #9e9e9e;
+  font-weight: 600;
 }
 </style>
