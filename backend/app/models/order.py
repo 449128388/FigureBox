@@ -11,7 +11,7 @@ class Order(Base):
     deposit = Column(Float, nullable=False)
     balance = Column(Float, nullable=False)
     due_date = Column(Date, nullable=False)
-    status = Column(String(20), default="未支付")  # 未支付, 已支付, 已取消
+    status = Column(String(20), default="未支付")  # 未支付, 已支付, 已取消, 已完成
     shop_name = Column(String(100))  # 购买店铺
     shop_contact = Column(String(200))  # 店铺联系方式
     tracking_number = Column(String(100))  # 物流订单号

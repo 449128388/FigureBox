@@ -120,7 +120,7 @@
           </div>
           <div class="info-item" v-if="relatedOrder.tracking_number">
             <span class="label">物流订单:</span>
-            <span class="value">{{ relatedOrder.tracking_number }}</span>
+            <a class="value tracking-link" :href="`https://www.baidu.com/s?wd=${encodeURIComponent(relatedOrder.tracking_number)}`" target="_blank" rel="noopener noreferrer">{{ relatedOrder.tracking_number }}</a>
           </div>
         </div>        
 
@@ -522,5 +522,16 @@ export default {
 .status-cancelled {
   color: #9e9e9e;
   font-weight: 600;
+}
+
+/* 物流订单链接样式 */
+.tracking-link {
+  color: #2196F3;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.tracking-link:hover {
+  color: #1976D2;
 }
 </style>

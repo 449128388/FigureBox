@@ -41,6 +41,13 @@
       >
         已取消 ({{ statusCounts['已取消'] }})
       </div>
+      <div 
+        class="status-tab" 
+        :class="{ active: currentStatus === '已完成' }"
+        @click="currentStatus = '已完成'"
+      >
+        已完成 ({{ statusCounts['已完成'] }})
+      </div>
     </div>
 
     <div class="orders-list">
@@ -48,7 +55,7 @@
         <p>暂无数据</p>
       </div>
       <div v-else class="order-item" v-for="order in paginatedOrders" :key="order.id">
-        <h3><router-link :to="`/figures/${order.figure.id}`" class="figure-name-link">{{ order.figure.name }}</router-link><span class="countdown-tag" :class="getCountdownClass(order.due_date)">{{ getCountdownText(order.due_date) }}</span></h3>
+        <h3><router-link :to="`/figures/${order.figure.id}`" class="figure-name-link">{{ order.figure.name }}</router-link><span v-if="order.status !== '已完成' && order.status !== '已取消'" class="countdown-tag" :class="getCountdownClass(order.due_date)">{{ getCountdownText(order.due_date) }}</span></h3>
         <p>定金: ¥{{ order.deposit }}</p>
         <p>尾款: ¥{{ order.balance }}</p>
         <p>出荷日期: {{ order.due_date }}</p>
@@ -57,6 +64,7 @@
         <p v-if="order.shop_contact">店铺联系方式: {{ order.shop_contact }}</p>
         <p v-if="order.tracking_number">物流订单: {{ order.tracking_number }}</p>
         <button class="btn btn-edit" @click="editOrder(order)">编辑</button>
+        <button v-if="order.status === '已支付'" class="btn btn-receive" @click="receiveOrder(order)">收货</button>
         <button class="btn btn-delete" @click="deleteOrder(order.id)">删除</button>
       </div>
     </div>
@@ -125,6 +133,7 @@
                 <el-option value="未支付" label="未支付" />
                 <el-option value="已支付" label="已支付" />
                 <el-option value="已取消" label="已取消" />
+                <el-option value="已完成" label="已完成" />
               </el-select>
             </div>
             <div class="form-group">
@@ -192,23 +201,42 @@ export default {
     // 根据状态筛选订单
     filteredOrders() {
       let orders = this.orderStore.orders
-      
+
       // 按状态筛选
       if (this.currentStatus !== 'all') {
         orders = orders.filter(order => order.status === this.currentStatus)
       }
-      
-      // 按出荷日期倒计时升序排序（即将出荷的排在前面）
+
+      // 按出荷日期排序
       return orders.sort((a, b) => {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
-        
+
         const dueA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31')
         const dueB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31')
         dueA.setHours(0, 0, 0, 0)
         dueB.setHours(0, 0, 0, 0)
-        
-        // 升序排序：即将出荷的排在前面
+
+        // 当筛选状态为"全部"时，已完成和已取消的订单放在最后，并按出荷日期降序排列
+        if (this.currentStatus === 'all') {
+          const isACompletedOrCancelled = a.status === '已完成' || a.status === '已取消'
+          const isBCompletedOrCancelled = b.status === '已完成' || b.status === '已取消'
+
+          // 如果一个是已完成/已取消，另一个不是
+          if (isACompletedOrCancelled && !isBCompletedOrCancelled) {
+            return 1 // a 排在后面
+          }
+          if (!isACompletedOrCancelled && isBCompletedOrCancelled) {
+            return -1 // b 排在后面
+          }
+
+          // 如果都是已完成/已取消，按出荷日期降序排列（最新的在前面）
+          if (isACompletedOrCancelled && isBCompletedOrCancelled) {
+            return dueB - dueA
+          }
+        }
+
+        // 其他情况按出荷日期升序排序（即将出荷的排在前面）
         return dueA - dueB
       })
     },
@@ -231,15 +259,16 @@ export default {
         all: this.orderStore.orders.length,
         '未支付': 0,
         '已支付': 0,
-        '已取消': 0
+        '已取消': 0,
+        '已完成': 0
       }
-      
+
       this.orderStore.orders.forEach(order => {
         if (counts[order.status] !== undefined) {
           counts[order.status]++
         }
       })
-      
+
       return counts
     },
     
@@ -352,8 +381,12 @@ export default {
         const formatDate = (date) => {
           if (!date) return null
           if (typeof date === 'string') return date
-          // 转换为YYYY-MM-DD格式
-          return date.toISOString().split('T')[0]
+          // 转换为YYYY-MM-DD格式，使用本地时间避免时区问题
+          const d = new Date(date)
+          const year = d.getFullYear()
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
         }
         
         const orderData = {
@@ -382,6 +415,15 @@ export default {
           await this.orderStore.deleteOrder(id)
         } catch (error) {
           console.error('Failed to delete order:', error)
+        }
+      }
+    },
+    async receiveOrder(order) {
+      if (confirm('确认已收到货物？')) {
+        try {
+          await this.orderStore.updateOrder(order.id, { status: '已完成' })
+        } catch (error) {
+          console.error('Failed to receive order:', error)
         }
       }
     },
@@ -721,6 +763,15 @@ export default {
 
 .btn-delete:hover {
   background-color: #da190b;
+}
+
+.btn-receive {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn-receive:hover {
+  background-color: #45a049;
 }
 
 .btn-add {
