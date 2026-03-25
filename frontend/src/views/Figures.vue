@@ -5,6 +5,9 @@
       <div class="header-actions">
         <div class="action-buttons">
           <button class="btn btn-add" @click="openAddForm">添加手办</button>
+          <button class="btn btn-download" @click="downloadFigures">
+            <i class="fa-solid fa-download"></i> 下载数据
+          </button>
           <button class="btn btn-refresh" @click="fetchFigures">
             <i class="fa-solid fa-refresh"></i>
           </button>
@@ -351,6 +354,7 @@
 
 <script>
 import { useFigureStore, useUserStore } from '../store'
+import axios from 'axios'
 
 export default {
   name: 'Figures',
@@ -1111,6 +1115,42 @@ export default {
       this.searchPurchaseDateRange = []
       this.searchPurchaseType = ''
       this.currentPage = 1 // 重置到第一页
+    },
+    
+    // 下载手办数据
+    async downloadFigures() {
+      try {
+        // 使用原生 fetch API 获取响应，以便正确处理文件下载
+        const token = localStorage.getItem('token')
+        const response = await fetch('/api/figures/download', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        if (!response.ok) {
+          throw new Error('下载失败')
+        }
+        
+        // 获取响应文本（JSON 字符串）
+        const jsonText = await response.text()
+        
+        // 创建下载链接
+        const blob = new Blob([jsonText], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `figures_${new Date().toISOString().split('T')[0]}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        
+        this.$message.success('手办数据下载成功')
+      } catch (error) {
+        console.error('下载失败:', error)
+        this.$message.error('下载失败，请重试')
+      }
     }
   }
 }
@@ -1209,10 +1249,32 @@ export default {
   color: white;
   padding: 12px 24px;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  box-sizing: border-box;
 }
 
 .btn-add:hover {
   background-color: #45a049;
+}
+
+.btn-download {
+  background-color: #ff9800;
+  color: white;
+  padding: 12px 24px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  box-sizing: border-box;
+}
+
+.btn-download:hover {
+  background-color: #f57c00;
 }
 
 .btn-refresh {

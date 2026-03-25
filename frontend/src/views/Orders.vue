@@ -55,6 +55,14 @@
         <p>暂无数据</p>
       </div>
       <div v-else class="order-item" v-for="order in paginatedOrders" :key="order.id">
+        <div class="figure-image">
+          <img 
+            :src="order.figure.images && order.figure.images.length > 0 ? order.figure.images[0] : '/imgs/no_image.png'" 
+            :alt="order.figure.name"
+            loading="lazy"
+            decoding="async"
+          >
+        </div>
         <h3><router-link :to="`/figures/${order.figure.id}`" class="figure-name-link">{{ order.figure.name }}</router-link><span v-if="order.status !== '已完成' && order.status !== '已取消'" class="countdown-tag" :class="getCountdownClass(order.due_date)">{{ getCountdownText(order.due_date) }}</span></h3>
         <p>定金: ¥{{ order.deposit }}</p>
         <p>尾款: ¥{{ order.balance }}</p>
@@ -659,6 +667,22 @@ export default {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.order-item .figure-image {
+  width: 100%;
+  height: 200px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+  background-color: #f5f5f5;
+}
+
+.order-item .figure-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  content-visibility: auto;
 }
 
 .order-item h3 {

@@ -10,8 +10,18 @@ from starlette.responses import Response
 # 创建数据库表（如果不存在）
 Base.metadata.create_all(bind=engine)
 
-# 增加请求体大小限制到300MB
+# 增加请求体大小限制到 300MB
 app = FastAPI()
+
+# 配置 CORS（必须在 TokenRefreshMiddleware 之前添加）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 在生产环境中应该设置具体的前端地址
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Refresh-Token"],  # 暴露自定义响应头
+)
 
 # Token 自动续期中间件
 class TokenRefreshMiddleware(BaseHTTPMiddleware):
@@ -33,16 +43,6 @@ class TokenRefreshMiddleware(BaseHTTPMiddleware):
 
 # 添加 Token 续期中间件
 app.add_middleware(TokenRefreshMiddleware)
-
-# 配置CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 在生产环境中应该设置具体的前端地址
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["X-Refresh-Token"],  # 暴露自定义响应头
-)
 
 # 注册路由
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

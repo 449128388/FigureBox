@@ -2,7 +2,11 @@ import axios from 'axios'
 
 const instance = axios.create({
   baseURL: '/api',
-  timeout: 10000
+  timeout: 10000,
+  // 允许获取自定义响应头
+  headers: {
+    'Access-Control-Expose-Headers': 'X-Refresh-Token'
+  }
 })
 
 // 请求拦截器
@@ -26,6 +30,7 @@ instance.interceptors.response.use(
     const newToken = response.headers['x-refresh-token']
     if (newToken) {
       localStorage.setItem('token', newToken)
+      console.log('Token 已自动续期')
     }
     return response.data
   },
