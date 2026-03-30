@@ -11,9 +11,63 @@ from datetime import datetime
 
 router = APIRouter()
 
+# 入手形式映射表：英文大写 -> 中文
+PURCHASE_TYPE_MAP = {
+    "OTHER": "其他",
+    "PREORDER": "预定",
+    "INSTOCK": "现货",
+    "SECONDHAND": "二手",
+    "LOOSE": "散货",
+    "DOMESTIC": "国产"
+}
+
+# 反向映射表：中文 -> 英文大写
+PURCHASE_TYPE_REVERSE_MAP = {v: k for k, v in PURCHASE_TYPE_MAP.items()}
+
 @router.get("/", response_model=list[FigureSchema])
-def get_figures(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    figures = db.query(Figure).offset(skip).limit(limit).all()
+def get_figures(
+    skip: int = 0,
+    limit: int = 100,
+    name: str = None,
+    purchase_type: str = None,
+    purchase_date_start: str = None,
+    purchase_date_end: str = None,
+    db: Session = Depends(get_db)
+):
+    """
+    获取手办列表，支持搜索过滤
+    """
+    query = db.query(Figure)
+    
+    # 按名称搜索（模糊匹配）
+    if name:
+        query = query.filter(Figure.name.ilike(f"%{name}%"))
+    
+    # 按入手形式过滤
+    if purchase_type:
+        # 将英文大写参数转换为中文进行查询
+        chinese_purchase_type = PURCHASE_TYPE_MAP.get(purchase_type.upper(), purchase_type)
+        query = query.filter(Figure.purchase_type == chinese_purchase_type)
+    
+    # 按入手日期范围过滤
+    if purchase_date_start:
+        try:
+            start_date = datetime.strptime(purchase_date_start, "%Y-%m-%d").date()
+            query = query.filter(Figure.purchase_date >= start_date)
+        except ValueError:
+            pass
+    
+    if purchase_date_end:
+        try:
+            end_date = datetime.strptime(purchase_date_end, "%Y-%m-%d").date()
+            query = query.filter(Figure.purchase_date <= end_date)
+        except ValueError:
+            pass
+    
+    # 按 id 降序排序（最新的在前面）
+    query = query.order_by(Figure.id.desc())
+    
+    figures = query.offset(skip).limit(limit).all()
     return figures
 
 def json_serial(obj):
@@ -25,15 +79,35 @@ def json_serial(obj):
 @router.get("/download")
 def download_figures(db: Session = Depends(get_db)):
     """
-    下载所有手办数据为 JSON 格式
+    下载所有手办数据及关联的尾款数据为 JSON 格式
     """
     try:
+        # 导入 Order 模型
+        from app.models.order import Order
+        
         # 获取所有手办数据
         figures = db.query(Figure).all()
         
         # 转换为字典列表
         figures_data = []
         for figure in figures:
+            # 获取该手办关联的尾款订单
+            orders = db.query(Order).filter(Order.figure_id == figure.id).all()
+            orders_data = []
+            for order in orders:
+                order_dict = {
+                    "id": order.id,
+                    "figure_id": order.figure_id,
+                    "deposit": order.deposit,
+                    "balance": order.balance,
+                    "due_date": order.due_date.isoformat() if order.due_date else None,
+                    "status": order.status,
+                    "shop_name": order.shop_name,
+                    "shop_contact": order.shop_contact,
+                    "tracking_number": order.tracking_number
+                }
+                orders_data.append(order_dict)
+            
             figure_dict = {
                 "id": figure.id,
                 "name": figure.name,
@@ -54,7 +128,8 @@ def download_figures(db: Session = Depends(get_db)):
                 "work": figure.work,
                 "material": figure.material,
                 "size": figure.size,
-                "images": figure.images
+                "images": figure.images,
+                "orders": orders_data  # 添加关联的尾款数据
             }
             figures_data.append(figure_dict)
         
@@ -90,7 +165,16 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=FigureSchema)
 def create_figure(figure: FigureCreate, db: Session = Depends(get_db)):
-    db_figure = Figure(**figure.model_dump())
+    figure_data = figure.model_dump()
+    
+    # 将入手形式的英文转换为中文
+    if figure_data.get('purchase_type'):
+        figure_data['purchase_type'] = PURCHASE_TYPE_MAP.get(
+            figure_data['purchase_type'].upper(), 
+            figure_data['purchase_type']
+        )
+    
+    db_figure = Figure(**figure_data)
     db.add(db_figure)
     db.commit()
     db.refresh(db_figure)
@@ -104,7 +188,17 @@ def update_figure(figure_id: int, figure: FigureUpdate, db: Session = Depends(ge
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Figure not found"
         )
-    for key, value in figure.model_dump(exclude_unset=True).items():
+    
+    figure_data = figure.model_dump(exclude_unset=True)
+    
+    # 将入手形式的英文转换为中文
+    if 'purchase_type' in figure_data and figure_data['purchase_type']:
+        figure_data['purchase_type'] = PURCHASE_TYPE_MAP.get(
+            figure_data['purchase_type'].upper(), 
+            figure_data['purchase_type']
+        )
+    
+    for key, value in figure_data.items():
         setattr(db_figure, key, value)
     db.commit()
     db.refresh(db_figure)

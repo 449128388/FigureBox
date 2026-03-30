@@ -41,12 +41,43 @@ export const useUserStore = defineStore('user', {
 
 export const useFigureStore = defineStore('figure', {
   state: () => ({
-    figures: []
+    figures: [],
+    totalCount: 0
   }),
   actions: {
-    async fetchFigures() {
-      const response = await axios.get('/figures/')
+    async fetchFigures(params = {}) {
+      // 构建查询参数
+      const queryParams = new URLSearchParams()
+      
+      if (params.name) {
+        queryParams.append('name', params.name)
+      }
+      if (params.purchase_type) {
+        queryParams.append('purchase_type', params.purchase_type)
+      }
+      if (params.purchase_date_start) {
+        queryParams.append('purchase_date_start', params.purchase_date_start)
+      }
+      if (params.purchase_date_end) {
+        queryParams.append('purchase_date_end', params.purchase_date_end)
+      }
+      if (params.skip !== undefined) {
+        queryParams.append('skip', params.skip)
+      }
+      if (params.limit !== undefined) {
+        queryParams.append('limit', params.limit)
+      }
+      
+      const queryString = queryParams.toString()
+      const url = queryString ? `/figures/?${queryString}` : '/figures/'
+      
+      const response = await axios.get(url)
       this.figures = response
+      
+      // 设置总数（用于分页）
+      // 注意：这里使用返回数据的长度作为当前页数据量
+      // 实际总数量需要通过其他方式获取（如后端返回的 total 字段）
+      this.totalCount = response.length
     },
     async createFigure(figure) {
       const response = await axios.post('/figures/', figure)

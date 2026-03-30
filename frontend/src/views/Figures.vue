@@ -24,12 +24,12 @@
         <el-input v-model="searchName" placeholder="搜索名称" style="width: 200px; margin-right: 10px;"></el-input>
         <el-select v-model="searchPurchaseType" placeholder="选择入手形式" style="width: 200px; margin-right: 10px;">
           <el-option value="" label="全部" />
-          <el-option value="其他" label="其他" />
-          <el-option value="预定" label="预定" />
-          <el-option value="现货" label="现货" />
-          <el-option value="二手" label="二手" />
-          <el-option value="散货" label="散货" />
-          <el-option value="国产" label="国产" />
+          <el-option value="OTHER" label="其他" />
+          <el-option value="PREORDER" label="预定" />
+          <el-option value="INSTOCK" label="现货" />
+          <el-option value="SECONDHAND" label="二手" />
+          <el-option value="LOOSE" label="散货" />
+          <el-option value="DOMESTIC" label="国产" />
         </el-select>
         <el-date-picker v-model="searchPurchaseDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width: 250px; margin-right: 10px;"></el-date-picker>
         <el-button type="primary" @click="handleSearch">搜索</el-button>
@@ -157,12 +157,12 @@
                   <div class="form-group">
                     <label>入手形式</label>
                     <el-select v-model="newFigure.purchase_type" placeholder="请选择入手形式" style="width: 100%;">
-                      <el-option value="其他" label="其他" />
-                      <el-option value="预定" label="预定" />
-                      <el-option value="现货" label="现货" />
-                      <el-option value="二手" label="二手" />
-                      <el-option value="散货" label="散货" />
-                      <el-option value="国产" label="国产" />
+                      <el-option value="OTHER" label="其他" />
+                      <el-option value="PREORDER" label="预定" />
+                      <el-option value="INSTOCK" label="现货" />
+                      <el-option value="SECONDHAND" label="二手" />
+                      <el-option value="LOOSE" label="散货" />
+                      <el-option value="DOMESTIC" label="国产" />
                     </el-select>
                   </div>
                 </div>
@@ -415,73 +415,20 @@ export default {
       return useUserStore()
     },
     
-    // 分页处理
+    // 分页处理 - 直接使用后端返回的数据（已排序和过滤）
     paginatedFigures() {
-      // 按id排序，最新添加的在前面（id自增）
-      let filteredFigures = [...this.figureStore.figures].sort((a, b) => {
-        return b.id - a.id
-      })
-      
-      // 搜索过滤
-      if (this.searchName) {
-        const searchLower = this.searchName.toLowerCase()
-        filteredFigures = filteredFigures.filter(figure => 
-          figure.name && figure.name.toLowerCase().includes(searchLower)
-        )
-      }
-      
-      if (this.searchPurchaseDateRange && this.searchPurchaseDateRange.length === 2) {
-        const [startDate, endDate] = this.searchPurchaseDateRange
-        filteredFigures = filteredFigures.filter(figure => {
-          if (!figure.purchase_date) return false
-          const purchaseDate = new Date(figure.purchase_date)
-          return purchaseDate >= startDate && purchaseDate <= endDate
-        })
-      }
-      
-      if (this.searchPurchaseType) {
-        filteredFigures = filteredFigures.filter(figure => 
-          figure.purchase_type === this.searchPurchaseType
-        )
-      }
-      
-      const startIndex = (this.currentPage - 1) * this.pageSize
-      const endIndex = startIndex + this.pageSize
-      return filteredFigures.slice(startIndex, endIndex)
+      // 后端已经按 id 降序排序并过滤，直接返回
+      return this.figureStore.figures
     },
     
-    // 总数据量
+    // 总数据量 - 使用后端返回的总数
     totalFigures() {
-      let filteredFigures = [...this.figureStore.figures]
-      
-      // 搜索过滤
-      if (this.searchName) {
-        const searchLower = this.searchName.toLowerCase()
-        filteredFigures = filteredFigures.filter(figure => 
-          figure.name && figure.name.toLowerCase().includes(searchLower)
-        )
-      }
-      
-      if (this.searchPurchaseDateRange && this.searchPurchaseDateRange.length === 2) {
-        const [startDate, endDate] = this.searchPurchaseDateRange
-        filteredFigures = filteredFigures.filter(figure => {
-          if (!figure.purchase_date) return false
-          const purchaseDate = new Date(figure.purchase_date)
-          return purchaseDate >= startDate && purchaseDate <= endDate
-        })
-      }
-      
-      if (this.searchPurchaseType) {
-        filteredFigures = filteredFigures.filter(figure => 
-          figure.purchase_type === this.searchPurchaseType
-        )
-      }
-      
-      return filteredFigures.length
+      return this.figureStore.totalCount
     }
   },
-  mounted() {
-    this.figureStore.fetchFigures()
+  async mounted() {
+    // 使用 fetchFiguresWithSearch 加载数据，确保分页参数正确传递
+    await this.fetchFiguresWithSearch()
     // 如果有token但用户信息为空，获取用户信息
     if (localStorage.getItem('token') && !this.userStore.currentUser) {
       this.userStore.fetchUser()
@@ -1089,32 +1036,60 @@ export default {
     },
     
     // 处理每页条数变化
-    handleSizeChange(val) {
+    async handleSizeChange(val) {
       this.pageSize = val
       this.currentPage = 1 // 重置为第一页
+      await this.fetchFiguresWithSearch()
     },
     
     // 处理页码变化
-    handleCurrentChange(val) {
+    async handleCurrentChange(val) {
       this.currentPage = val
+      await this.fetchFiguresWithSearch()
     },
     
     // 刷新数据
     async fetchFigures() {
-      await this.figureStore.fetchFigures()
+      await this.fetchFiguresWithSearch()
     },
     
-    // 处理搜索
-    handleSearch() {
+    // 处理搜索 - 调用后端接口
+    async handleSearch() {
       this.currentPage = 1 // 搜索时重置到第一页
+      await this.fetchFiguresWithSearch()
     },
     
     // 重置搜索
-    resetSearch() {
+    async resetSearch() {
       this.searchName = ''
       this.searchPurchaseDateRange = []
       this.searchPurchaseType = ''
       this.currentPage = 1 // 重置到第一页
+      await this.fetchFiguresWithSearch()
+    },
+    
+    // 根据搜索条件获取数据
+    async fetchFiguresWithSearch() {
+      const params = {
+        skip: (this.currentPage - 1) * this.pageSize,
+        limit: this.pageSize
+      }
+      
+      // 添加搜索条件
+      if (this.searchName) {
+        params.name = this.searchName
+      }
+      if (this.searchPurchaseType) {
+        params.purchase_type = this.searchPurchaseType
+      }
+      if (this.searchPurchaseDateRange && this.searchPurchaseDateRange.length === 2) {
+        const startDate = new Date(this.searchPurchaseDateRange[0])
+        const endDate = new Date(this.searchPurchaseDateRange[1])
+        params.purchase_date_start = startDate.toISOString().split('T')[0]
+        params.purchase_date_end = endDate.toISOString().split('T')[0]
+      }
+      
+      await this.figureStore.fetchFigures(params)
     },
     
     // 下载手办数据
