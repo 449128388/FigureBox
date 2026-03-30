@@ -1,11 +1,19 @@
 <template>
   <div class="figure-detail-container">
-    <div class="header">
-      <h1>中文名称：{{ figure.name }}</h1>
-      <button class="btn btn-back" @click="goBack">返回列表</button>
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>加载中...</p>
     </div>
     
-    <div class="figure-content">
+    <!-- 内容区域 -->
+    <template v-else>
+      <div class="header">
+        <h1>中文名称：{{ figure.name }}</h1>
+        <button class="btn btn-back" @click="goBack">返回列表</button>
+      </div>
+    
+      <div class="figure-content">
       <div class="figure-images">
         <div class="main-image" @click="openImagePreview">
           <img :src="figure.images && figure.images.length > 0 ? figure.images[activeImageIndex] : '/imgs/no_image.png'" :alt="figure.name">
@@ -76,17 +84,16 @@
           </div>
         </div>
 
-        <div class="info-section" v-if="figure.tags">
+        <div class="info-section" v-if="figure.tags && figure.tags.length > 0">
           <h2>标签</h2>
           <div class="tags-container">
             <el-tag
-              v-for="tag in parseTags(figure.tags)"
-              :key="tag"
-              size="small"
+              v-for="tag in figure.tags"
+              :key="tag.id"
               effect="light"
-              style="margin-right: 8px; margin-bottom: 8px;"
+              class="figure-tag"
             >
-              {{ tag }}
+              {{ tag.name }}
             </el-tag>
           </div>
         </div>
@@ -160,11 +167,13 @@
         
       </div>
     </div>
+    </template>
   </div>
 </template>
 
 <script>
 import { useFigureStore, useOrderStore } from '../store'
+import axios from '../axios'
 
 export default {
   name: 'FigureDetail',
@@ -173,7 +182,8 @@ export default {
       figure: {},
       activeImageIndex: 0,
       showImagePreview: false,
-      currentPreviewImage: ''
+      currentPreviewImage: '',
+      loading: true
     }
   },
   computed: {
@@ -195,18 +205,22 @@ export default {
   },
   methods: {
     async fetchFigureDetail() {
+      this.loading = true
       const figureId = this.$route.params.id
       try {
-        // 从store中获取手办详情
+        // 调用API获取手办详情（包含完整的标签数据）
+        // axios拦截器已处理response.data，直接返回数据
+        const data = await axios.get(`/figures/${figureId}`)
+        this.figure = data
+      } catch (error) {
+        console.error('获取手办详情失败:', error)
+        // 如果API调用失败，尝试从store中获取
         const figure = this.figureStore.figures.find(f => f.id == figureId)
         if (figure) {
           this.figure = figure
-        } else {
-          // 如果store中没有，可能需要从API获取
-          console.error('手办不存在')
         }
-      } catch (error) {
-        console.error('获取手办详情失败:', error)
+      } finally {
+        this.loading = false
       }
     },
     goBack() {
@@ -220,10 +234,6 @@ export default {
         case 'EUR': return '欧元'
         default: return '元'
       }
-    },
-    parseTags(tagStr) {
-      if (!tagStr) return []
-      return tagStr.split(',').filter(tag => tag.trim())
     },
     openImagePreview() {
       if (this.figure.images && this.figure.images.length > 0) {
@@ -259,6 +269,36 @@ export default {
   background-color: #f9f9f9;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  min-height: 400px;
+}
+
+/* 加载状态样式 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #409eff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-container p {
+  margin-top: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .header {
@@ -492,6 +532,14 @@ export default {
 .tags-container {
   display: flex;
   flex-wrap: wrap;
+}
+
+.figure-tag {
+  margin-right: 8px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  padding: 6px 12px;
+  height: auto;
 }
 
 @media (max-width: 768px) {

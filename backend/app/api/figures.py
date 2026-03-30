@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from app.models.database import get_db
 from app.models.figure import Figure
-from app.schemas.figure import Figure as FigureSchema, FigureCreate, FigureUpdate
+from app.models.tag import Tag, figure_tag
+from app.schemas.figure import Figure as FigureSchema, FigureCreate, FigureUpdate, Tag as TagSchema, TagCreate
 from app.api.users import get_current_user
 from app.models.user import User
 from fastapi.responses import Response
@@ -32,23 +33,24 @@ def get_figures(
     purchase_type: str = None,
     purchase_date_start: str = None,
     purchase_date_end: str = None,
+    tag_id: int = None,
     db: Session = Depends(get_db)
 ):
     """
     获取手办列表，支持搜索过滤
     """
     query = db.query(Figure)
-    
+
     # 按名称搜索（模糊匹配）
     if name:
         query = query.filter(Figure.name.ilike(f"%{name}%"))
-    
+
     # 按入手形式过滤
     if purchase_type:
         # 将英文大写参数转换为中文进行查询
         chinese_purchase_type = PURCHASE_TYPE_MAP.get(purchase_type.upper(), purchase_type)
         query = query.filter(Figure.purchase_type == chinese_purchase_type)
-    
+
     # 按入手日期范围过滤
     if purchase_date_start:
         try:
@@ -56,17 +58,33 @@ def get_figures(
             query = query.filter(Figure.purchase_date >= start_date)
         except ValueError:
             pass
-    
+
     if purchase_date_end:
         try:
             end_date = datetime.strptime(purchase_date_end, "%Y-%m-%d").date()
             query = query.filter(Figure.purchase_date <= end_date)
         except ValueError:
             pass
-    
+
+    # 按标签ID筛选
+    if tag_id:
+        # 先执行子查询获取包含指定标签的手办ID列表
+        # 避免在主查询中使用子查询导致的排序内存问题
+        figure_ids = db.query(figure_tag.c.figure_id).filter(figure_tag.c.tag_id == tag_id).all()
+        # 提取ID值
+        figure_id_list = [id_tuple[0] for id_tuple in figure_ids]
+        # 如果没有符合条件的手办，直接返回空列表
+        if not figure_id_list:
+            return []
+        # 然后根据ID列表筛选
+        query = query.filter(Figure.id.in_(figure_id_list))
+
     # 按 id 降序排序（最新的在前面）
     query = query.order_by(Figure.id.desc())
-    
+
+    # 使用 selectinload 预加载标签数据，避免 N+1 查询问题和排序内存问题
+    query = query.options(selectinload(Figure.tags))
+
     figures = query.offset(skip).limit(limit).all()
     return figures
 
@@ -153,7 +171,82 @@ def download_figures(db: Session = Depends(get_db)):
             detail=f"下载数据失败: {str(e)}"
         )
 
+# ========== 标签管理接口（必须放在 /{figure_id} 路由之前）==========
+
+@router.get("/tags/", response_model=list[TagSchema])
+def get_tags(db: Session = Depends(get_db)):
+    """
+    获取所有标签
+    """
+    tags = db.query(Tag).order_by(Tag.name).all()
+    return tags
+
+
+@router.post("/tags/", response_model=TagSchema)
+def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
+    """
+    创建新标签
+    """
+    # 检查标签是否已存在
+    existing_tag = db.query(Tag).filter(Tag.name == tag.name).first()
+    if existing_tag:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="标签已存在"
+        )
+
+    db_tag = Tag(name=tag.name)
+    db.add(db_tag)
+    db.commit()
+    db.refresh(db_tag)
+    return db_tag
+
+
+@router.put("/tags/{tag_id}", response_model=TagSchema)
+def update_tag(tag_id: int, tag: TagCreate, db: Session = Depends(get_db)):
+    """
+    更新标签
+    """
+    db_tag = db.query(Tag).filter(Tag.id == tag_id).first()
+    if not db_tag:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="标签不存在"
+        )
+
+    # 检查新名称是否已被其他标签使用
+    existing_tag = db.query(Tag).filter(Tag.name == tag.name, Tag.id != tag_id).first()
+    if existing_tag:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="标签名称已存在"
+        )
+
+    db_tag.name = tag.name
+    db.commit()
+    db.refresh(db_tag)
+    return db_tag
+
+
+@router.delete("/tags/{tag_id}")
+def delete_tag(tag_id: int, db: Session = Depends(get_db)):
+    """
+    删除标签
+    """
+    db_tag = db.query(Tag).filter(Tag.id == tag_id).first()
+    if not db_tag:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="标签不存在"
+        )
+
+    db.delete(db_tag)
+    db.commit()
+    return {"message": "标签删除成功"}
+
+
 @router.get("/{figure_id}", response_model=FigureSchema)
+@router.get("/{figure_id}/", response_model=FigureSchema)
 def get_figure(figure_id: int, db: Session = Depends(get_db)):
     figure = db.query(Figure).filter(Figure.id == figure_id).first()
     if not figure:
@@ -166,18 +259,30 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=FigureSchema)
 def create_figure(figure: FigureCreate, db: Session = Depends(get_db)):
     figure_data = figure.model_dump()
-    
+
+    # 提取标签ID列表
+    tag_ids = figure_data.pop('tag_ids', [])
+
     # 将入手形式的英文转换为中文
     if figure_data.get('purchase_type'):
         figure_data['purchase_type'] = PURCHASE_TYPE_MAP.get(
-            figure_data['purchase_type'].upper(), 
+            figure_data['purchase_type'].upper(),
             figure_data['purchase_type']
         )
-    
+
+    # 创建手办对象
     db_figure = Figure(**figure_data)
     db.add(db_figure)
     db.commit()
     db.refresh(db_figure)
+
+    # 关联标签
+    if tag_ids:
+        tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+        db_figure.tags = tags
+        db.commit()
+        db.refresh(db_figure)
+
     return db_figure
 
 @router.put("/{figure_id}", response_model=FigureSchema)
@@ -188,18 +293,28 @@ def update_figure(figure_id: int, figure: FigureUpdate, db: Session = Depends(ge
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Figure not found"
         )
-    
+
     figure_data = figure.model_dump(exclude_unset=True)
-    
+
+    # 提取标签ID列表
+    tag_ids = figure_data.pop('tag_ids', None)
+
     # 将入手形式的英文转换为中文
     if 'purchase_type' in figure_data and figure_data['purchase_type']:
         figure_data['purchase_type'] = PURCHASE_TYPE_MAP.get(
-            figure_data['purchase_type'].upper(), 
+            figure_data['purchase_type'].upper(),
             figure_data['purchase_type']
         )
-    
+
+    # 更新其他字段
     for key, value in figure_data.items():
         setattr(db_figure, key, value)
+
+    # 更新标签关联
+    if tag_ids is not None:
+        tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+        db_figure.tags = tags
+
     db.commit()
     db.refresh(db_figure)
     return db_figure

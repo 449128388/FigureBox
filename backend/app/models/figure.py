@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, Text, Date, JSON
+from sqlalchemy.orm import relationship
 from app.models.database import Base
 
 class Figure(Base):
@@ -10,7 +11,6 @@ class Figure(Base):
     manufacturer = Column(String(100))
     price = Column(Float)
     currency = Column(String(10), default="CNY")
-    tags = Column(String(100))
     release_date = Column(Date)
     purchase_price = Column(Float)
     purchase_currency = Column(String(10), default="CNY")
@@ -25,3 +25,6 @@ class Figure(Base):
     size = Column(String(100))
     description = Column(Text)
     images = Column(JSON, default=list)
+    
+    # 关联的标签（多对多关系）
+    tags = relationship("Tag", secondary="figure_tag", back_populates="figures")

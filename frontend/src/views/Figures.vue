@@ -35,6 +35,13 @@
         <el-button type="primary" @click="handleSearch">搜索</el-button>
         <el-button @click="resetSearch">重置</el-button>
       </div>
+      <!-- 标签筛选显示 -->
+      <div v-if="searchTagId" class="tag-filter-info" style="margin-top: 10px; padding: 8px 12px; background-color: #f0f9ff; border-radius: 4px; display: inline-flex; align-items: center;">
+        <span style="color: #606266; margin-right: 8px;">当前标签筛选:</span>
+        <el-tag size="small" type="primary" closable @close="filterByTag(searchTagId)">
+          {{ getTagNameById(searchTagId) }}
+        </el-tag>
+      </div>
     </div>
     <div class="figures-list">
       <div v-if="figureStore.figures.length === 0" class="empty-state">
@@ -54,16 +61,19 @@
         <p v-if="figure.purchase_price !== null && figure.purchase_price !== undefined">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</p>
         <p v-else>入手价格: 未设置</p>
         <p v-if="figure.purchase_date">入手时间: {{ figure.purchase_date }}</p>
-        <div v-if="figure.tags" class="tags-container">
+        <div v-if="figure.tags && figure.tags.length > 0" class="tags-container">
           <span class="tags-label">标签:</span>
           <el-tag
-            v-for="tag in parseTags(figure.tags)"
-            :key="tag"
+            v-for="tag in figure.tags"
+            :key="tag.id"
             size="small"
             effect="light"
-            style="margin-right: 4px; margin-bottom: 4px;"
+            class="clickable-tag"
+            @click="filterByTag(tag.id)"
+            style="margin-right: 4px; margin-bottom: 4px; cursor: pointer;"
+            :type="searchTagId === tag.id ? 'primary' : ''"
           >
-            {{ tag }}
+            {{ tag.name }}
           </el-tag>
         </div>
         <div class="figure-actions">
@@ -247,7 +257,7 @@
                   <div class="form-group">
                     <label>标签</label>
                     <el-select
-                      v-model="newFigure.tags"
+                      v-model="newFigure.tag_ids"
                       multiple
                       filterable
                       allow-create
@@ -255,12 +265,13 @@
                       placeholder="请选择或输入标签"
                       empty-text="暂无数据"
                       style="width: 100%"
+                      @change="handleTagChange"
                     >
                       <el-option
-                        v-for="item in tagOptions"
-                        :key="item"
-                        :label="item"
-                        :value="item"
+                        v-for="item in tagStore.tags"
+                        :key="item.id"
+                        :label="item.name"
+                        :value="item.id"
                       />
                     </el-select>
                   </div>
@@ -353,7 +364,7 @@
 </template>
 
 <script>
-import { useFigureStore, useUserStore } from '../store'
+import { useFigureStore, useUserStore, useTagStore } from '../store'
 import axios from 'axios'
 
 export default {
@@ -384,13 +395,14 @@ export default {
       searchName: '',
       searchPurchaseDateRange: [],
       searchPurchaseType: '',
+      searchTagId: null,  // 使用标签ID进行筛选
       newFigure: {
         name: '',
         japanese_name: '',
         manufacturer: '',
         price: 0,
         currency: 'CNY',
-        tags: [],
+        tag_ids: [],  // 使用标签ID列表
         release_date: '',
         purchase_price: 0,
         purchase_currency: 'CNY',
@@ -414,13 +426,16 @@ export default {
     userStore() {
       return useUserStore()
     },
-    
+    tagStore() {
+      return useTagStore()
+    },
+
     // 分页处理 - 直接使用后端返回的数据（已排序和过滤）
     paginatedFigures() {
       // 后端已经按 id 降序排序并过滤，直接返回
       return this.figureStore.figures
     },
-    
+
     // 总数据量 - 使用后端返回的总数
     totalFigures() {
       return this.figureStore.totalCount
@@ -433,8 +448,8 @@ export default {
     if (localStorage.getItem('token') && !this.userStore.currentUser) {
       this.userStore.fetchUser()
     }
-    // 从已存在的手办中提取所有标签值
-    this.updateTagOptions()
+    // 加载所有标签
+    await this.tagStore.fetchTags()
   },
   watch: {
     'figureStore.figures': {
@@ -901,7 +916,7 @@ export default {
         manufacturer: '',
         price: 0,
         currency: 'CNY',
-        tags: [],
+        tag_ids: [],  // 使用标签ID列表
         release_date: '',
         purchase_price: 0,
         purchase_currency: 'CNY',
@@ -935,7 +950,7 @@ export default {
         if (!this.validateForm()) {
           return
         }
-        
+
         // 处理空的日期字段和价格字段
         // 确保日期格式正确，只保留日期部分，去除时间部分
         const formatDate = (date) => {
@@ -944,15 +959,43 @@ export default {
           // 转换为YYYY-MM-DD格式
           return date.toISOString().split('T')[0]
         }
-        
+
+        // 处理标签：分离已存在的标签ID和需要创建的新标签名称
+        const existingTagIds = []
+        const newTagNames = []
+
+        for (const item of this.newFigure.tag_ids) {
+          if (typeof item === 'number') {
+            // 已存在的标签ID
+            existingTagIds.push(item)
+          } else if (typeof item === 'string') {
+            // 新标签名称（用户输入的）
+            newTagNames.push(item)
+          }
+        }
+
+        // 创建新标签并获取ID
+        for (const tagName of newTagNames) {
+          try {
+            const newTag = await this.tagStore.createTag({ name: tagName })
+            existingTagIds.push(newTag.id)
+          } catch (error) {
+            // 如果标签已存在，查找并获取ID
+            const existingTag = this.tagStore.tags.find(t => t.name === tagName)
+            if (existingTag) {
+              existingTagIds.push(existingTag.id)
+            }
+          }
+        }
+
         const figureData = {
           ...this.newFigure,
           release_date: formatDate(this.newFigure.release_date),
           purchase_date: formatDate(this.newFigure.purchase_date),
           purchase_currency: this.newFigure.purchase_currency || 'CNY',
-          tags: this.newFigure.tags.length > 0 ? this.newFigure.tags.join(',') : null
+          tag_ids: existingTagIds
         }
-        
+
         if (this.isEditing) {
           // 编辑模式
           await this.figureStore.updateFigure(this.currentEditFigureId, figureData)
@@ -960,10 +1003,13 @@ export default {
           // 添加模式
           await this.figureStore.createFigure(figureData)
         }
-        
+
         this.showAddForm = false
         // 重置表单
         this.resetForm()
+
+        // 重新加载列表数据，确保排序正确
+        await this.fetchFiguresWithSearch()
       } catch (error) {
         console.error('Failed to add figure:', error)
       }
@@ -992,15 +1038,15 @@ export default {
       this.showAddForm = true
       this.isEditing = true
       this.currentEditFigureId = figure.id
-      
+
       // 填充表单数据
       this.newFigure = {
         ...figure,
-        tags: figure.tags ? figure.tags.split(',').filter(tag => tag.trim()) : [],
+        tag_ids: figure.tags ? figure.tags.map(tag => tag.id) : [],  // 使用标签ID列表
         price: figure.price || 0,
         purchase_price: figure.purchase_price || 0
       }
-      
+
       // 重置错误信息
       this.resetErrors()
     },
@@ -1064,17 +1110,36 @@ export default {
       this.searchName = ''
       this.searchPurchaseDateRange = []
       this.searchPurchaseType = ''
+      this.searchTagId = null
       this.currentPage = 1 // 重置到第一页
       await this.fetchFiguresWithSearch()
     },
-    
+
+    // 根据标签ID筛选
+    async filterByTag(tagId) {
+      // 如果点击的是当前已选中的标签，则取消筛选
+      if (this.searchTagId === tagId) {
+        this.searchTagId = null
+      } else {
+        this.searchTagId = tagId
+      }
+      this.currentPage = 1 // 重置到第一页
+      await this.fetchFiguresWithSearch()
+    },
+
+    // 根据标签ID获取标签名称
+    getTagNameById(tagId) {
+      const tag = this.tagStore.tags.find(t => t.id === tagId)
+      return tag ? tag.name : ''
+    },
+
     // 根据搜索条件获取数据
     async fetchFiguresWithSearch() {
       const params = {
         skip: (this.currentPage - 1) * this.pageSize,
         limit: this.pageSize
       }
-      
+
       // 添加搜索条件
       if (this.searchName) {
         params.name = this.searchName
@@ -1088,7 +1153,11 @@ export default {
         params.purchase_date_start = startDate.toISOString().split('T')[0]
         params.purchase_date_end = endDate.toISOString().split('T')[0]
       }
-      
+      // 添加标签筛选条件（使用标签ID）
+      if (this.searchTagId) {
+        params.tag_id = this.searchTagId
+      }
+
       await this.figureStore.fetchFigures(params)
     },
     

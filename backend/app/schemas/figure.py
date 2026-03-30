@@ -3,6 +3,26 @@ from datetime import date, datetime
 from typing import List, Optional
 import re
 
+
+# ========== Tag Schema ==========
+class TagBase(BaseModel):
+    name: str
+
+
+class TagCreate(TagBase):
+    pass
+
+
+class TagUpdate(TagBase):
+    pass
+
+
+class Tag(TagBase):
+    id: int
+    
+    class Config:
+        from_attributes = True
+
 # 定义正则表达式模式
 # 允许中文、英文、日文、数字、空格，常见符号（如 /、×、（）、&）
 ALLOWED_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312fa-zA-Z0-9\s\/\×\(\)\&\-\.\,\:\;\!\?\#\@\$\%\*\+\=\[\]\{\}\|\<\>\~\`\"\'\\]*$')
@@ -50,7 +70,6 @@ class FigureBase(BaseModel):
     price: float | None = None
     currency: str = "CNY"
     manufacturer: str | None = None
-    tags: str | None = None
     release_date: date | None = None
     purchase_price: float | None = None
     purchase_currency: str = "CNY"
@@ -154,7 +173,7 @@ class FigureBase(BaseModel):
 
 
 class FigureCreate(FigureBase):
-    pass
+    tag_ids: List[int] = []  # 标签ID列表
 
 
 class FigureUpdate(BaseModel):
@@ -163,7 +182,7 @@ class FigureUpdate(BaseModel):
     manufacturer: str | None = None
     price: float | None = None
     currency: str | None = None
-    tags: str | None = None
+    tag_ids: List[int] | None = None  # 标签ID列表
     release_date: date | None = None
     purchase_price: float | None = None
     purchase_currency: str | None = None
@@ -252,6 +271,7 @@ class FigureUpdate(BaseModel):
 
 class Figure(FigureBase):
     id: int
+    tags: List[Tag] = []  # 返回完整的标签信息
 
     class Config:
         from_attributes = True

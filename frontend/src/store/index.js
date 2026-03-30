@@ -61,6 +61,9 @@ export const useFigureStore = defineStore('figure', {
       if (params.purchase_date_end) {
         queryParams.append('purchase_date_end', params.purchase_date_end)
       }
+      if (params.tag_id) {
+        queryParams.append('tag_id', params.tag_id)
+      }
       if (params.skip !== undefined) {
         queryParams.append('skip', params.skip)
       }
@@ -93,6 +96,36 @@ export const useFigureStore = defineStore('figure', {
     async deleteFigure(id) {
       await axios.delete(`/figures/${id}`)
       this.figures = this.figures.filter(f => f.id !== id)
+    }
+  }
+})
+
+export const useTagStore = defineStore('tag', {
+  state: () => ({
+    tags: []
+  }),
+  actions: {
+    async fetchTags() {
+      const response = await axios.get('/figures/tags/')
+      this.tags = response
+      return response
+    },
+    async createTag(tag) {
+      const response = await axios.post('/figures/tags/', tag)
+      this.tags.push(response)
+      return response
+    },
+    async updateTag(id, tag) {
+      const response = await axios.put(`/figures/tags/${id}/`, tag)
+      const index = this.tags.findIndex(t => t.id === id)
+      if (index !== -1) {
+        this.tags[index] = response
+      }
+      return response
+    },
+    async deleteTag(id) {
+      await axios.delete(`/figures/tags/${id}/`)
+      this.tags = this.tags.filter(t => t.id !== id)
     }
   }
 })
