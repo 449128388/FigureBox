@@ -36,10 +36,18 @@
         <el-button @click="resetSearch">重置</el-button>
       </div>
       <!-- 标签筛选显示 -->
-      <div v-if="searchTagId" class="tag-filter-info" style="margin-top: 10px; padding: 8px 12px; background-color: #f0f9ff; border-radius: 4px; display: inline-flex; align-items: center;">
-        <span style="color: #606266; margin-right: 8px;">当前标签筛选:</span>
-        <el-tag size="small" type="primary" closable @close="filterByTag(searchTagId)">
-          {{ getTagNameById(searchTagId) }}
+      <div v-if="searchTagIds.length > 0" class="tag-filter-info" style="margin-top: 10px; padding: 8px 12px; background-color: #f0f9ff; border-radius: 4px; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span style="color: #606266; margin-right: 4px;">当前标签筛选:</span>
+        <el-tag 
+          v-for="tagId in searchTagIds" 
+          :key="tagId"
+          size="small" 
+          type="primary" 
+          closable 
+          @close="filterByTag(tagId)"
+          style="font-size: 14px;"
+        >
+          {{ getTagNameById(tagId) }}
         </el-tag>
       </div>
     </div>
@@ -50,7 +58,7 @@
       <div v-else class="figure-item" v-for="figure in paginatedFigures" :key="figure.id">
         <div class="figure-image">
           <img 
-            :src="figure.images && figure.images.length > 0 ? figure.images[0] : '/imgs/no_image.png'" 
+            :src="figure.image || '/imgs/no_image.png'" 
             :alt="figure.name"
             loading="lazy"
             decoding="async"
@@ -64,14 +72,14 @@
         <div v-if="figure.tags && figure.tags.length > 0" class="tags-container">
           <span class="tags-label">标签:</span>
           <el-tag
-            v-for="tag in figure.tags"
+            v-for="tag in getSortedTags(figure.tags)"
             :key="tag.id"
             size="small"
             effect="light"
             class="clickable-tag"
             @click="filterByTag(tag.id)"
             style="margin-right: 4px; margin-bottom: 4px; cursor: pointer;"
-            :type="searchTagId === tag.id ? 'primary' : ''"
+            :type="searchTagIds.includes(tag.id) ? 'primary' : ''"
           >
             {{ tag.name }}
           </el-tag>
@@ -395,7 +403,7 @@ export default {
       searchName: '',
       searchPurchaseDateRange: [],
       searchPurchaseType: '',
-      searchTagId: null,  // 使用标签ID进行筛选
+      searchTagIds: [],  // 使用标签ID数组进行多标签筛选
       newFigure: {
         name: '',
         japanese_name: '',
@@ -466,11 +474,11 @@ export default {
       
       // 从已存在的手办中提取所有标签值
       this.figureStore.figures.forEach(figure => {
-        if (figure.tags) {
-          const tags = figure.tags.split(',')
-          tags.forEach(tag => {
-            if (tag && tag.trim()) {
-              allTags.add(tag.trim())
+        if (figure.tags && Array.isArray(figure.tags)) {
+          // tags 是对象数组，提取标签名称
+          figure.tags.forEach(tag => {
+            if (tag && tag.name) {
+              allTags.add(tag.name)
             }
           })
         }
@@ -1110,18 +1118,19 @@ export default {
       this.searchName = ''
       this.searchPurchaseDateRange = []
       this.searchPurchaseType = ''
-      this.searchTagId = null
+      this.searchTagIds = []
       this.currentPage = 1 // 重置到第一页
       await this.fetchFiguresWithSearch()
     },
 
     // 根据标签ID筛选
     async filterByTag(tagId) {
-      // 如果点击的是当前已选中的标签，则取消筛选
-      if (this.searchTagId === tagId) {
-        this.searchTagId = null
+      // 如果点击的是已选中的标签，则移除它
+      if (this.searchTagIds.includes(tagId)) {
+        this.searchTagIds = this.searchTagIds.filter(id => id !== tagId)
       } else {
-        this.searchTagId = tagId
+        // 否则添加到筛选列表
+        this.searchTagIds.push(tagId)
       }
       this.currentPage = 1 // 重置到第一页
       await this.fetchFiguresWithSearch()
@@ -1131,6 +1140,12 @@ export default {
     getTagNameById(tagId) {
       const tag = this.tagStore.tags.find(t => t.id === tagId)
       return tag ? tag.name : ''
+    },
+
+    // 获取排序后的标签列表（按标签ID排序，确保顺序固定）
+    getSortedTags(tags) {
+      if (!tags || !Array.isArray(tags)) return []
+      return [...tags].sort((a, b) => a.id - b.id)
     },
 
     // 根据搜索条件获取数据
@@ -1153,9 +1168,9 @@ export default {
         params.purchase_date_start = startDate.toISOString().split('T')[0]
         params.purchase_date_end = endDate.toISOString().split('T')[0]
       }
-      // 添加标签筛选条件（使用标签ID）
-      if (this.searchTagId) {
-        params.tag_id = this.searchTagId
+      // 添加标签筛选条件（使用标签ID数组）
+      if (this.searchTagIds && this.searchTagIds.length > 0) {
+        params.tag_ids = this.searchTagIds
       }
 
       await this.figureStore.fetchFigures(params)

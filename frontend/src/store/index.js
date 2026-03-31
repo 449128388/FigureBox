@@ -64,6 +64,12 @@ export const useFigureStore = defineStore('figure', {
       if (params.tag_id) {
         queryParams.append('tag_id', params.tag_id)
       }
+      // 处理多标签筛选参数
+      if (params.tag_ids && params.tag_ids.length > 0) {
+        params.tag_ids.forEach(tagId => {
+          queryParams.append('tag_ids', tagId)
+        })
+      }
       if (params.skip !== undefined) {
         queryParams.append('skip', params.skip)
       }
@@ -106,17 +112,17 @@ export const useTagStore = defineStore('tag', {
   }),
   actions: {
     async fetchTags() {
-      const response = await axios.get('/figures/tags/')
+      const response = await axios.get('/figures/tags')
       this.tags = response
       return response
     },
     async createTag(tag) {
-      const response = await axios.post('/figures/tags/', tag)
+      const response = await axios.post('/figures/tags', tag)
       this.tags.push(response)
       return response
     },
     async updateTag(id, tag) {
-      const response = await axios.put(`/figures/tags/${id}/`, tag)
+      const response = await axios.put(`/figures/tags/${id}`, tag)
       const index = this.tags.findIndex(t => t.id === id)
       if (index !== -1) {
         this.tags[index] = response
@@ -124,7 +130,7 @@ export const useTagStore = defineStore('tag', {
       return response
     },
     async deleteTag(id) {
-      await axios.delete(`/figures/tags/${id}/`)
+      await axios.delete(`/figures/tags/${id}`)
       this.tags = this.tags.filter(t => t.id !== id)
     }
   }

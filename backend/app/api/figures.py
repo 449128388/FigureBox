@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, selectinload
 from app.models.database import get_db
 from app.models.figure import Figure
 from app.models.tag import Tag, figure_tag
-from app.schemas.figure import Figure as FigureSchema, FigureCreate, FigureUpdate, Tag as TagSchema, TagCreate
+from app.schemas.figure import Figure as FigureSchema, FigureCreate, FigureUpdate, Tag as TagSchema, TagCreate, FigureListItem
 from app.api.users import get_current_user
 from app.models.user import User
 from fastapi.responses import Response
@@ -25,7 +25,7 @@ PURCHASE_TYPE_MAP = {
 # 反向映射表：中文 -> 英文大写
 PURCHASE_TYPE_REVERSE_MAP = {v: k for k, v in PURCHASE_TYPE_MAP.items()}
 
-@router.get("/", response_model=list[FigureSchema])
+@router.get("/", response_model=list[FigureListItem])
 def get_figures(
     skip: int = 0,
     limit: int = 100,
@@ -34,10 +34,11 @@ def get_figures(
     purchase_date_start: str = None,
     purchase_date_end: str = None,
     tag_id: int = None,
+    tag_ids: list[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
-    获取手办列表，支持搜索过滤
+    获取手办列表，支持搜索过滤（使用精简响应模型减少数据传输）
     """
     query = db.query(Figure)
 
@@ -66,7 +67,7 @@ def get_figures(
         except ValueError:
             pass
 
-    # 按标签ID筛选
+    # 按标签ID筛选（单个标签）
     if tag_id:
         # 先执行子查询获取包含指定标签的手办ID列表
         # 避免在主查询中使用子查询导致的排序内存问题
@@ -78,6 +79,20 @@ def get_figures(
             return []
         # 然后根据ID列表筛选
         query = query.filter(Figure.id.in_(figure_id_list))
+    
+    # 按标签ID列表筛选（多标签联合筛选）
+    if tag_ids and len(tag_ids) > 0:
+        # 对每个标签ID进行筛选
+        for tag_id in tag_ids:
+            # 先执行子查询获取包含当前标签的手办ID列表
+            figure_ids = db.query(figure_tag.c.figure_id).filter(figure_tag.c.tag_id == tag_id).all()
+            # 提取ID值
+            figure_id_list = [id_tuple[0] for id_tuple in figure_ids]
+            # 如果没有符合条件的手办，直接返回空列表
+            if not figure_id_list:
+                return []
+            # 然后根据ID列表筛选
+            query = query.filter(Figure.id.in_(figure_id_list))
 
     # 按 id 降序排序（最新的在前面）
     query = query.order_by(Figure.id.desc())
@@ -86,7 +101,37 @@ def get_figures(
     query = query.options(selectinload(Figure.tags))
 
     figures = query.offset(skip).limit(limit).all()
-    return figures
+    
+    # 转换为精简响应模型，只返回第一张图片
+    result = []
+    for figure in figures:
+        item = FigureListItem(
+            id=figure.id,
+            name=figure.name,
+            japanese_name=figure.japanese_name,
+            price=figure.price,
+            currency=figure.currency,
+            manufacturer=figure.manufacturer,
+            release_date=figure.release_date,
+            purchase_price=figure.purchase_price,
+            purchase_currency=figure.purchase_currency,
+            purchase_date=figure.purchase_date,
+            purchase_method=figure.purchase_method,
+            purchase_type=figure.purchase_type,
+            scale=figure.scale,
+            painting=figure.painting,
+            original_art=figure.original_art,
+            work=figure.work,
+            material=figure.material,
+            size=figure.size,
+            description=figure.description,
+            # 只返回第一张图片，减少数据量
+            image=figure.images[0] if figure.images and len(figure.images) > 0 else None,
+            tags=figure.tags
+        )
+        result.append(item)
+    
+    return result
 
 def json_serial(obj):
     """JSON 序列化辅助函数，处理日期类型"""
@@ -126,6 +171,15 @@ def download_figures(db: Session = Depends(get_db)):
                 }
                 orders_data.append(order_dict)
             
+            # 转换标签对象为可序列化的字典列表
+            tags_data = []
+            for tag in figure.tags:
+                tag_dict = {
+                    "id": tag.id,
+                    "name": tag.name
+                }
+                tags_data.append(tag_dict)
+            
             figure_dict = {
                 "id": figure.id,
                 "name": figure.name,
@@ -133,7 +187,7 @@ def download_figures(db: Session = Depends(get_db)):
                 "manufacturer": figure.manufacturer,
                 "price": figure.price,
                 "currency": figure.currency,
-                "tags": figure.tags,
+                "tags": tags_data,
                 "release_date": figure.release_date.isoformat() if figure.release_date else None,
                 "purchase_price": figure.purchase_price,
                 "purchase_currency": figure.purchase_currency,
@@ -173,7 +227,7 @@ def download_figures(db: Session = Depends(get_db)):
 
 # ========== 标签管理接口（必须放在 /{figure_id} 路由之前）==========
 
-@router.get("/tags/", response_model=list[TagSchema])
+@router.get("/tags", response_model=list[TagSchema])
 def get_tags(db: Session = Depends(get_db)):
     """
     获取所有标签
@@ -182,7 +236,7 @@ def get_tags(db: Session = Depends(get_db)):
     return tags
 
 
-@router.post("/tags/", response_model=TagSchema)
+@router.post("/tags", response_model=TagSchema)
 def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
     """
     创建新标签

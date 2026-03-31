@@ -275,3 +275,32 @@ class Figure(FigureBase):
 
     class Config:
         from_attributes = True
+
+
+# 精简的手办列表响应模型（用于列表查询，减少数据传输）
+class FigureListItem(BaseModel):
+    id: int
+    name: str
+    japanese_name: str | None = None
+    price: float | None = None
+    currency: str = "CNY"
+    manufacturer: str | None = None
+    release_date: date | None = None
+    purchase_price: float | None = None
+    purchase_currency: str = "CNY"
+    purchase_date: date | None = None
+    purchase_method: str | None = None
+    purchase_type: str | None = None
+    scale: str | None = None
+    painting: str | None = None
+    original_art: str | None = None
+    work: str | None = None
+    material: str | None = None
+    size: str | None = None
+    description: str | None = None
+    # 图片只返回第一张或空，减少数据量
+    image: str | None = None
+    tags: List[Tag] = []
+
+    class Config:
+        from_attributes = True
