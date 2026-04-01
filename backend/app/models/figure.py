@@ -17,6 +17,7 @@ class Figure(Base):
     purchase_date = Column(Date)
     purchase_method = Column(String(100))
     purchase_type = Column(String(50))
+    quantity = Column(Integer, default=1)  # 数量，默认值为1
     scale = Column(String(50))
     painting = Column(String(100))
     original_art = Column(String(100))

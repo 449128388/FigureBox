@@ -183,6 +183,10 @@
                       <el-option value="DOMESTIC" label="国产" />
                     </el-select>
                   </div>
+                  <div class="form-group">
+                    <label>数量</label>
+                    <el-input-number v-model="newFigure.quantity" placeholder="请输入数量" :min="1" :step="1" style="width: 200px;"></el-input-number>
+                  </div>
                 </div>
                 
                 <!-- 图片上传 -->
@@ -373,7 +377,7 @@
 
 <script>
 import { useFigureStore, useUserStore, useTagStore } from '../store'
-import axios from 'axios'
+import axios from '../axios'
 
 export default {
   name: 'Figures',
@@ -931,6 +935,7 @@ export default {
         purchase_date: '',
         purchase_method: '',
         purchase_type: '',
+        quantity: 1,  // 数量默认值为1
         scale: '',
         painting: '',
         original_art: '',
@@ -1041,18 +1046,36 @@ export default {
       this.userStore.logout()
       this.$router.push('/login')
     },
-    editFigure(figure) {
+    async editFigure(figure) {
       // 打开编辑表单
       this.showAddForm = true
       this.isEditing = true
       this.currentEditFigureId = figure.id
 
-      // 填充表单数据
-      this.newFigure = {
-        ...figure,
-        tag_ids: figure.tags ? figure.tags.map(tag => tag.id) : [],  // 使用标签ID列表
-        price: figure.price || 0,
-        purchase_price: figure.purchase_price || 0
+      try {
+        // 调用详情接口获取完整的手办信息（包含完整的images数组）
+        const response = await axios.get(`/figures/${figure.id}`)
+        const fullFigure = response
+
+        // 填充表单数据，确保images字段存在且为数组，quantity字段有默认值
+        this.newFigure = {
+          ...fullFigure,
+          tag_ids: fullFigure.tags ? fullFigure.tags.map(tag => tag.id) : [],  // 使用标签ID列表
+          price: fullFigure.price || 0,
+          purchase_price: fullFigure.purchase_price || 0,
+          images: fullFigure.images || [],  // 确保images字段存在且为数组
+          quantity: fullFigure.quantity || 1  // 确保quantity字段存在，默认值为1
+        }
+      } catch (error) {
+        console.error('Failed to fetch figure details:', error)
+        // 失败时使用列表数据作为回退
+        this.newFigure = {
+          ...figure,
+          tag_ids: figure.tags ? figure.tags.map(tag => tag.id) : [],
+          price: figure.price || 0,
+          purchase_price: figure.purchase_price || 0,
+          images: figure.image ? [figure.image] : []
+        }
       }
 
       // 重置错误信息

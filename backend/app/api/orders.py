@@ -5,8 +5,29 @@ from app.models.order import Order
 from app.schemas.order import Order as OrderSchema, OrderCreate, OrderUpdate
 from app.api.users import get_current_user
 from app.models.user import User
+from sqlalchemy import func
 
 router = APIRouter()
+
+
+@router.get("/unpaid-balance/")
+def get_unpaid_balance(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    获取未支付状态的尾款总额
+    """
+    if current_user.is_admin:
+        # 管理员查看所有未支付订单的尾款总额
+        total_balance = db.query(func.sum(Order.balance)).filter(Order.status == "未支付").scalar()
+    else:
+        # 普通用户只查看自己的未支付订单的尾款总额
+        total_balance = db.query(func.sum(Order.balance)).filter(
+            Order.status == "未支付",
+            Order.user_id == current_user.id
+        ).scalar()
+    
+    # 如果没有未支付订单，返回0
+    return {"total_unpaid_balance": float(total_balance) if total_balance else 0.0}
+
 
 @router.get("/", response_model=list[OrderSchema])
 def get_orders(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -15,6 +36,7 @@ def get_orders(current_user: User = Depends(get_current_user), db: Session = Dep
     else:
         orders = db.query(Order).filter(Order.user_id == current_user.id).all()
     return orders
+
 
 @router.get("/{order_id}/", response_model=OrderSchema)
 def get_order(order_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -31,6 +53,7 @@ def get_order(order_id: int, current_user: User = Depends(get_current_user), db:
         )
     return order
 
+
 @router.post("/", response_model=OrderSchema)
 def create_order(order: OrderCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db_order = Order(
@@ -41,6 +64,7 @@ def create_order(order: OrderCreate, current_user: User = Depends(get_current_us
     db.commit()
     db.refresh(db_order)
     return db_order
+
 
 @router.put("/{order_id}/", response_model=OrderSchema)
 def update_order(order_id: int, order: OrderUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -60,6 +84,7 @@ def update_order(order_id: int, order: OrderUpdate, current_user: User = Depends
     db.commit()
     db.refresh(db_order)
     return db_order
+
 
 @router.delete("/{order_id}/")
 def delete_order(order_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

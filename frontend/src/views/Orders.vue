@@ -48,6 +48,9 @@
       >
         已完成 ({{ statusCounts['已完成'] }})
       </div>
+      <div class="status-tab balance-tab">
+        待补款: ¥{{ orderStore.totalUnpaidBalance.toFixed(2) }}
+      </div>
     </div>
 
     <div class="orders-list">
@@ -152,7 +155,7 @@
               <label>店铺联系方式</label>
               <el-input v-model="newOrder.shop_contact" placeholder="请输入店铺联系方式" style="width: 100%;"></el-input>
             </div>
-            <div class="form-group" v-if="isEditing">
+            <div class="form-group" v-if="isEditing || newOrder.status === '已支付' || newOrder.status === '已完成'">
               <label>物流订单</label>
               <el-input v-model="newOrder.tracking_number" placeholder="请输入物流订单号" style="width: 100%;"></el-input>
             </div>
@@ -589,6 +592,21 @@ export default {
 
 .status-tab.active:hover {
   background-color: #1976D2;
+}
+
+/* 待补款统计项样式 */
+.status-tab.balance-tab {
+  margin-left: auto;
+  background-color: #FF9800;
+  color: white;
+  border-color: #F57C00;
+  font-weight: 600;
+}
+
+.status-tab.balance-tab:hover {
+  background-color: #F57C00;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
 }
 
 .user-info {

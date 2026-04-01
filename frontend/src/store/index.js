@@ -138,16 +138,21 @@ export const useTagStore = defineStore('tag', {
 
 export const useOrderStore = defineStore('order', {
   state: () => ({
-    orders: []
+    orders: [],
+    totalUnpaidBalance: 0
   }),
   actions: {
     async fetchOrders() {
       const response = await axios.get('/orders/')
       this.orders = response
+      // 同时获取未支付尾款总额
+      await this.fetchUnpaidBalance()
     },
     async createOrder(order) {
       const response = await axios.post('/orders/', order)
       this.orders.push(response)
+      // 重新获取未支付尾款总额
+      await this.fetchUnpaidBalance()
     },
     async updateOrder(id, order) {
       const response = await axios.put(`/orders/${id}/`, order)
@@ -155,10 +160,23 @@ export const useOrderStore = defineStore('order', {
       if (index !== -1) {
         this.orders[index] = response
       }
+      // 重新获取未支付尾款总额
+      await this.fetchUnpaidBalance()
     },
     async deleteOrder(id) {
       await axios.delete(`/orders/${id}/`)
       this.orders = this.orders.filter(o => o.id !== id)
+      // 重新获取未支付尾款总额
+      await this.fetchUnpaidBalance()
+    },
+    async fetchUnpaidBalance() {
+      try {
+        const response = await axios.get('/orders/unpaid-balance/')
+        this.totalUnpaidBalance = response.total_unpaid_balance
+      } catch (error) {
+        console.error('Failed to fetch unpaid balance:', error)
+        this.totalUnpaidBalance = 0
+      }
     }
   }
 })

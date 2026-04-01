@@ -118,6 +118,7 @@ def get_figures(
             purchase_date=figure.purchase_date,
             purchase_method=figure.purchase_method,
             purchase_type=figure.purchase_type,
+            quantity=figure.quantity,
             scale=figure.scale,
             painting=figure.painting,
             original_art=figure.original_art,

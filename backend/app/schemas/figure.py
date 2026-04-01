@@ -76,6 +76,7 @@ class FigureBase(BaseModel):
     purchase_date: date | None = None
     purchase_method: str | None = None
     purchase_type: str | None = None
+    quantity: int = 1  # 数量，默认值为1
     scale: str | None = None
     painting: str | None = None
     original_art: str | None = None
@@ -189,6 +190,7 @@ class FigureUpdate(BaseModel):
     purchase_date: date | None = None
     purchase_method: str | None = None
     purchase_type: str | None = None
+    quantity: int | None = None  # 数量
     scale: str | None = None
     painting: str | None = None
     original_art: str | None = None
@@ -291,6 +293,7 @@ class FigureListItem(BaseModel):
     purchase_date: date | None = None
     purchase_method: str | None = None
     purchase_type: str | None = None
+    quantity: int = 1  # 数量，默认值为1
     scale: str | None = None
     painting: str | None = None
     original_art: str | None = None

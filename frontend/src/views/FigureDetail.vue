@@ -82,6 +82,10 @@
             <span class="label">入手形式:</span>
             <span class="value">{{ figure.purchase_type }}</span>
           </div>
+          <div class="info-item" v-if="figure.quantity !== null && figure.quantity !== undefined">
+            <span class="label">数量:</span>
+            <span class="value">{{ figure.quantity }}</span>
+          </div>
         </div>
 
         <div class="info-section" v-if="figure.tags && figure.tags.length > 0">
@@ -250,6 +254,7 @@ export default {
       switch(status) {
         case '未支付': return 'status-unpaid'
         case '已支付': return 'status-paid'
+        case '已完成': return 'status-paid'
         case '已取消': return 'status-cancelled'
         default: return ''
       }
@@ -527,6 +532,9 @@ export default {
 .value {
   flex: 1;
   color: #333;
+  padding: 2px 0;
+  min-height: 20px;
+  line-height: 1.5;
 }
 
 .tags-container {
