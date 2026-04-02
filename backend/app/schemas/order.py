@@ -31,3 +31,14 @@ class Order(OrderBase):
 
     class Config:
         from_attributes = True
+
+class OrderListItem(OrderBase):
+    id: int
+    user_id: int
+    status: str
+    tracking_number: str | None = None
+    figure_name: str
+    figure_image: str | None = None
+    
+    class Config:
+        from_attributes = True

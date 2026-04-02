@@ -31,7 +31,7 @@
           <el-option value="LOOSE" label="散货" />
           <el-option value="DOMESTIC" label="国产" />
         </el-select>
-        <el-date-picker v-model="searchPurchaseDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width: 250px; margin-right: 10px;"></el-date-picker>
+        <el-date-picker v-model="searchPurchaseDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width: 500px; min-width: 500px; max-width: 500px; margin-right: 10px;"></el-date-picker>
         <el-button type="primary" @click="handleSearch">搜索</el-button>
         <el-button @click="resetSearch">重置</el-button>
       </div>

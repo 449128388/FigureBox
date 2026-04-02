@@ -60,13 +60,13 @@
       <div v-else class="order-item" v-for="order in paginatedOrders" :key="order.id">
         <div class="figure-image">
           <img 
-            :src="order.figure.images && order.figure.images.length > 0 ? order.figure.images[0] : '/imgs/no_image.png'" 
-            :alt="order.figure.name"
+            :src="order.figure_image || '/imgs/no_image.png'" 
+            :alt="order.figure_name"
             loading="lazy"
             decoding="async"
           >
         </div>
-        <h3><router-link :to="`/figures/${order.figure.id}`" class="figure-name-link">{{ order.figure.name }}</router-link><span v-if="order.status !== '已完成' && order.status !== '已取消'" class="countdown-tag" :class="getCountdownClass(order.due_date)">{{ getCountdownText(order.due_date) }}</span></h3>
+        <h3><router-link :to="`/figures/${order.figure_id}`" class="figure-name-link">{{ order.figure_name }}</router-link><span v-if="order.status !== '已完成' && order.status !== '已取消'" class="countdown-tag" :class="getCountdownClass(order.due_date)">{{ getCountdownText(order.due_date) }}</span></h3>
         <p>定金: ¥{{ order.deposit }}</p>
         <p>尾款: ¥{{ order.balance }}</p>
         <p>出荷日期: {{ order.due_date }}</p>
@@ -283,18 +283,31 @@ export default {
       return counts
     },
     
-    // 可选手办列表（过滤掉已有订单的手办，但编辑模式下包含当前订单的手办）
+    // 可选手办列表（过滤掉已有订单的手办，且检查手办数量限制）
     availableFigures() {
-      // 获取已有订单的手办ID列表
-      const orderedFigureIds = this.orderStore.orders.map(order => order.figure.id)
-      // 过滤掉已有订单的手办，但编辑模式下保留当前订单的手办
+      // 获取已有订单的手办ID列表及其订单数量
+      const figureOrderCounts = {}
+      this.orderStore.orders.forEach(order => {
+        if (!figureOrderCounts[order.figure_id]) {
+          figureOrderCounts[order.figure_id] = 0
+        }
+        figureOrderCounts[order.figure_id]++
+      })
+      
+      // 过滤出符合条件的手办
       return this.figureStore.figures.filter(figure => {
         // 如果是编辑模式且是当前订单的手办，则保留
         if (this.isEditing && this.newOrder.figure_id === figure.id) {
           return true
         }
-        // 否则过滤掉已有订单的手办
-        return !orderedFigureIds.includes(figure.id)
+        
+        // 检查手办是否已有订单
+        const orderCount = figureOrderCounts[figure.id] || 0
+        // 检查手办数量限制
+        const figureQuantity = figure.quantity || 1
+        
+        // 只有当订单数量小于手办数量时才显示
+        return orderCount < figureQuantity
       })
     }
   },
@@ -447,7 +460,7 @@ export default {
       // 填充表单数据
       this.newOrder = {
         ...order,
-        figure_id: order.figure.id
+        figure_id: order.figure_id
       }
     },
     
