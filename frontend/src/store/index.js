@@ -149,19 +149,14 @@ export const useOrderStore = defineStore('order', {
       await this.fetchUnpaidBalance()
     },
     async createOrder(order) {
-      const response = await axios.post('/orders/', order)
-      this.orders.push(response)
-      // 重新获取未支付尾款总额
-      await this.fetchUnpaidBalance()
+      await axios.post('/orders/', order)
+      // 重新获取订单列表，确保数据格式正确
+      await this.fetchOrders()
     },
     async updateOrder(id, order) {
-      const response = await axios.put(`/orders/${id}/`, order)
-      const index = this.orders.findIndex(o => o.id === id)
-      if (index !== -1) {
-        this.orders[index] = response
-      }
-      // 重新获取未支付尾款总额
-      await this.fetchUnpaidBalance()
+      await axios.put(`/orders/${id}/`, order)
+      // 重新获取订单列表，确保数据格式正确
+      await this.fetchOrders()
     },
     async deleteOrder(id) {
       await axios.delete(`/orders/${id}/`)

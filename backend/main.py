@@ -6,6 +6,10 @@ from app.models.database import engine, Base
 from app.utils.jwt import verify_token, create_access_token
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 创建数据库表（如果不存在）
 Base.metadata.create_all(bind=engine)
@@ -26,6 +30,11 @@ app.add_middleware(
 # Token 自动续期中间件
 class TokenRefreshMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # 打印请求头信息用于调试
+        logger.info(f"请求路径: {request.url.path}")
+        logger.info(f"所有请求头: {dict(request.headers)}")
+        logger.info(f"Authorization头: {request.headers.get('Authorization')}")
+        
         response = await call_next(request)
         
         # 获取请求中的 token
@@ -34,7 +43,7 @@ class TokenRefreshMiddleware(BaseHTTPMiddleware):
             token = auth_header[7:]  # 去掉 "Bearer " 前缀
             user_id, should_refresh = verify_token(token)
             
-            # 如果需要续期，生成新 token 并添加到响应头
+            # 只有当需要续期时才续期
             if user_id and should_refresh:
                 new_token = create_access_token({"sub": user_id})
                 response.headers["X-Refresh-Token"] = new_token

@@ -103,35 +103,49 @@
         </div>
 
         <!-- 尾款信息模块 -->
-        <div class="info-section" v-if="relatedOrder">
+        <div class="info-section" v-if="relatedOrders.length > 0">
           <h2>尾款信息</h2>
-          <div class="info-item" v-if="relatedOrder.deposit !== null && relatedOrder.deposit !== undefined">
+          
+          <!-- 订单切换标签 -->
+          <div class="order-tabs" v-if="relatedOrders.length > 1">
+            <div 
+              v-for="(order, index) in relatedOrders" 
+              :key="order.id"
+              class="order-tab"
+              :class="{ active: activeOrderIndex === index }"
+              @click="activeOrderIndex = index"
+            >
+              订单 {{ index + 1 }} ({{ order.status }})
+            </div>
+          </div>
+          
+          <div class="info-item" v-if="selectedOrder.deposit !== null && selectedOrder.deposit !== undefined">
             <span class="label">定金:</span>
-            <span class="value">¥{{ relatedOrder.deposit }}</span>
+            <span class="value">¥{{ selectedOrder.deposit }}</span>
           </div>
-          <div class="info-item" v-if="relatedOrder.balance !== null && relatedOrder.balance !== undefined">
+          <div class="info-item" v-if="selectedOrder.balance !== null && selectedOrder.balance !== undefined">
             <span class="label">尾款:</span>
-            <span class="value">¥{{ relatedOrder.balance }}</span>
+            <span class="value">¥{{ selectedOrder.balance }}</span>
           </div>
-          <div class="info-item" v-if="relatedOrder.due_date">
+          <div class="info-item" v-if="selectedOrder.due_date">
             <span class="label">出荷日期:</span>
-            <span class="value">{{ relatedOrder.due_date }}</span>
+            <span class="value">{{ selectedOrder.due_date }}</span>
           </div>
-          <div class="info-item" v-if="relatedOrder.status">
+          <div class="info-item" v-if="selectedOrder.status">
             <span class="label">尾款状态:</span>
-            <span class="value" :class="getStatusClass(relatedOrder.status)">{{ relatedOrder.status }}</span>
+            <span class="value" :class="getStatusClass(selectedOrder.status)">{{ selectedOrder.status }}</span>
           </div>
-          <div class="info-item" v-if="relatedOrder.shop_name">
+          <div class="info-item" v-if="selectedOrder.shop_name">
             <span class="label">购买店铺:</span>
-            <span class="value">{{ relatedOrder.shop_name }}</span>
+            <span class="value">{{ selectedOrder.shop_name }}</span>
           </div>
-          <div class="info-item" v-if="relatedOrder.shop_contact">
+          <div class="info-item" v-if="selectedOrder.shop_contact">
             <span class="label">联系方式:</span>
-            <span class="value">{{ relatedOrder.shop_contact }}</span>
+            <span class="value">{{ selectedOrder.shop_contact }}</span>
           </div>
-          <div class="info-item" v-if="relatedOrder.tracking_number">
+          <div class="info-item" v-if="selectedOrder.tracking_number">
             <span class="label">物流订单:</span>
-            <a class="value tracking-link" :href="`https://www.baidu.com/s?wd=${encodeURIComponent(relatedOrder.tracking_number)}`" target="_blank" rel="noopener noreferrer">{{ relatedOrder.tracking_number }}</a>
+            <a class="value tracking-link" :href="`https://www.baidu.com/s?wd=${encodeURIComponent(selectedOrder.tracking_number)}`" target="_blank" rel="noopener noreferrer">{{ selectedOrder.tracking_number }}</a>
           </div>
         </div>        
 
@@ -185,6 +199,7 @@ export default {
     return {
       figure: {},
       activeImageIndex: 0,
+      activeOrderIndex: 0,
       showImagePreview: false,
       currentPreviewImage: '',
       loading: true
@@ -197,10 +212,14 @@ export default {
     orderStore() {
       return useOrderStore()
     },
-    // 获取与当前手办关联的订单
-    relatedOrder() {
+    // 获取与当前手办关联的所有订单
+    relatedOrders() {
       const figureId = parseInt(this.$route.params.id)
-      return this.orderStore.orders.find(order => order.figure.id === figureId)
+      return this.orderStore.orders.filter(order => order.figure_id === figureId)
+    },
+    // 当前选中的订单
+    selectedOrder() {
+      return this.relatedOrders.length > 0 ? this.relatedOrders[this.activeOrderIndex] : null
     }
   },
   mounted() {
@@ -589,5 +608,43 @@ export default {
 
 .tracking-link:hover {
   color: #1976D2;
+}
+
+/* 订单切换标签样式 */
+.order-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.order-tab {
+  padding: 8px 16px;
+  background-color: #f5f5f5;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.order-tab:hover {
+  background-color: #e8e8e8;
+  color: #333;
+  transform: translateY(-1px);
+}
+
+.order-tab.active {
+  background-color: #2196F3;
+  color: white;
+  border-color: #1976D2;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+.order-tab.active:hover {
+  background-color: #1976D2;
+  color: white;
 }
 </style>

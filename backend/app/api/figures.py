@@ -238,7 +238,7 @@ def get_tags(db: Session = Depends(get_db)):
 
 
 @router.post("/tags", response_model=TagSchema)
-def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
+def create_tag(tag: TagCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     创建新标签
     """
@@ -258,7 +258,7 @@ def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/tags/{tag_id}", response_model=TagSchema)
-def update_tag(tag_id: int, tag: TagCreate, db: Session = Depends(get_db)):
+def update_tag(tag_id: int, tag: TagCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     更新标签
     """
@@ -284,7 +284,7 @@ def update_tag(tag_id: int, tag: TagCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/tags/{tag_id}")
-def delete_tag(tag_id: int, db: Session = Depends(get_db)):
+def delete_tag(tag_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     删除标签
     """
@@ -312,7 +312,7 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
     return figure
 
 @router.post("/", response_model=FigureSchema)
-def create_figure(figure: FigureCreate, db: Session = Depends(get_db)):
+def create_figure(figure: FigureCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     figure_data = figure.model_dump()
 
     # 提取标签ID列表
@@ -341,7 +341,7 @@ def create_figure(figure: FigureCreate, db: Session = Depends(get_db)):
     return db_figure
 
 @router.put("/{figure_id}", response_model=FigureSchema)
-def update_figure(figure_id: int, figure: FigureUpdate, db: Session = Depends(get_db)):
+def update_figure(figure_id: int, figure: FigureUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db_figure = db.query(Figure).filter(Figure.id == figure_id).first()
     if not db_figure:
         raise HTTPException(
@@ -375,7 +375,7 @@ def update_figure(figure_id: int, figure: FigureUpdate, db: Session = Depends(ge
     return db_figure
 
 @router.delete("/{figure_id}")
-def delete_figure(figure_id: int, db: Session = Depends(get_db)):
+def delete_figure(figure_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db_figure = db.query(Figure).filter(Figure.id == figure_id).first()
     if not db_figure:
         raise HTTPException(

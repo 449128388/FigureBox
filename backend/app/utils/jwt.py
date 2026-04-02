@@ -9,9 +9,9 @@ load_dotenv()
 # 密钥
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 # Token 续期阈值：当 token 剩余有效期小于此值时自动续期（分钟）
-TOKEN_REFRESH_THRESHOLD_MINUTES = 5
+TOKEN_REFRESH_THRESHOLD_MINUTES = 10
 
 def create_access_token(data: dict):
     to_encode = data.copy()
