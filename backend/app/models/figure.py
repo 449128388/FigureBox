@@ -26,6 +26,9 @@ class Figure(Base):
     size = Column(String(100))
     description = Column(Text)
     images = Column(JSON, default=list)
+    current_value = Column(Float)  # 当前估值
     
     # 关联的标签（多对多关系）
     tags = relationship("Tag", secondary="figure_tag", back_populates="figures")
+    # 关联的价格历史
+    price_histories = relationship("AssetPriceHistory", back_populates="figure")

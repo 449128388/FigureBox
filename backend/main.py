@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
-from app.api import auth, figures, orders, users
+from app.api import auth, figures, orders, users, assets
 from app.models.database import engine, Base
 from app.utils.jwt import verify_token, create_access_token
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -58,6 +58,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(figures.router, prefix="/api/figures", tags=["figures"])
 app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
+app.include_router(assets.router, prefix="/api/assets", tags=["assets"])
 
 @app.get("/")
 def read_root():

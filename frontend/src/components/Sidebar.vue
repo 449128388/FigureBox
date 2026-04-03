@@ -19,6 +19,10 @@
               <span class="menu-icon">📋</span>
               <span v-if="!isCollapsed" class="menu-text">订单管理</span>
             </router-link>
+            <router-link to="/dashboard" class="menu-item" active-class="active">
+              <span class="menu-icon">📊</span>
+              <span v-if="!isCollapsed" class="menu-text">资产看板</span>
+            </router-link>
           </div>
   </div>
 </template>

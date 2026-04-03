@@ -108,8 +108,9 @@
           
           <!-- 订单切换标签 -->
           <div class="order-tabs" v-if="relatedOrders.length > 1">
+            <!-- 显示前4个订单标签 -->
             <div 
-              v-for="(order, index) in relatedOrders" 
+              v-for="(order, index) in displayedOrders" 
               :key="order.id"
               class="order-tab"
               :class="{ active: activeOrderIndex === index }"
@@ -117,6 +118,27 @@
             >
               订单 {{ index + 1 }} ({{ order.status }})
             </div>
+            <!-- 折叠展开按钮 -->
+            <div 
+              v-if="relatedOrders.length > 4"
+              class="order-tab expand-tab"
+              @click="toggleExpandOrders"
+            >
+              <span v-if="!isOrdersExpanded">+{{ relatedOrders.length - 4 }}</span>
+              <span v-else>收起</span>
+            </div>
+            <!-- 展开后显示的额外订单标签 -->
+            <template v-if="isOrdersExpanded">
+              <div 
+                v-for="(order, index) in expandedOrders" 
+                :key="order.id"
+                class="order-tab"
+                :class="{ active: activeOrderIndex === index + 4 }"
+                @click="activeOrderIndex = index + 4"
+              >
+                订单 {{ index + 5 }} ({{ order.status }})
+              </div>
+            </template>
           </div>
           
           <div class="info-item" v-if="selectedOrder.deposit !== null && selectedOrder.deposit !== undefined">
@@ -202,7 +224,8 @@ export default {
       activeOrderIndex: 0,
       showImagePreview: false,
       currentPreviewImage: '',
-      loading: true
+      loading: true,
+      isOrdersExpanded: false // 订单标签是否展开
     }
   },
   computed: {
@@ -220,6 +243,14 @@ export default {
     // 当前选中的订单
     selectedOrder() {
       return this.relatedOrders.length > 0 ? this.relatedOrders[this.activeOrderIndex] : null
+    },
+    // 显示的前4个订单
+    displayedOrders() {
+      return this.relatedOrders.slice(0, 4)
+    },
+    // 展开后显示的额外订单（第5个及以后）
+    expandedOrders() {
+      return this.relatedOrders.slice(4)
     }
   },
   mounted() {
@@ -277,6 +308,10 @@ export default {
         case '已取消': return 'status-cancelled'
         default: return ''
       }
+    },
+    // 切换订单标签展开/折叠状态
+    toggleExpandOrders() {
+      this.isOrdersExpanded = !this.isOrdersExpanded
     }
   }
 }
@@ -646,5 +681,19 @@ export default {
 .order-tab.active:hover {
   background-color: #1976D2;
   color: white;
+}
+
+/* 展开按钮样式 */
+.order-tab.expand-tab {
+  background-color: #e3f2fd;
+  color: #2196F3;
+  border: 2px dashed #2196F3;
+  font-weight: 600;
+}
+
+.order-tab.expand-tab:hover {
+  background-color: #2196F3;
+  color: white;
+  border-style: solid;
 }
 </style>

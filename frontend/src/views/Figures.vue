@@ -21,7 +21,9 @@
     </div>
     <div class="search-section">
       <div class="search-form">
+        <span style="margin-right: 5px; font-weight: 500;">名称:</span>
         <el-input v-model="searchName" placeholder="搜索名称" style="width: 200px; margin-right: 10px;"></el-input>
+        <span style="margin-right: 5px; font-weight: 500;">入手形式:</span>
         <el-select v-model="searchPurchaseType" placeholder="选择入手形式" style="width: 200px; margin-right: 10px;">
           <el-option value="" label="全部" />
           <el-option value="OTHER" label="其他" />
@@ -31,6 +33,7 @@
           <el-option value="LOOSE" label="散货" />
           <el-option value="DOMESTIC" label="国产" />
         </el-select>
+        <span style="margin-right: 5px; font-weight: 500;">入手时间:</span>
         <el-date-picker v-model="searchPurchaseDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width: 500px; min-width: 500px; max-width: 500px; margin-right: 10px;"></el-date-picker>
         <el-button type="primary" @click="handleSearch">搜索</el-button>
         <el-button @click="resetSearch">重置</el-button>
@@ -1186,10 +1189,16 @@ export default {
         params.purchase_type = this.searchPurchaseType
       }
       if (this.searchPurchaseDateRange && this.searchPurchaseDateRange.length === 2) {
-        const startDate = new Date(this.searchPurchaseDateRange[0])
-        const endDate = new Date(this.searchPurchaseDateRange[1])
-        params.purchase_date_start = startDate.toISOString().split('T')[0]
-        params.purchase_date_end = endDate.toISOString().split('T')[0]
+        const formatDate = (date) => {
+          if (!date) return null
+          const d = new Date(date)
+          const year = d.getFullYear()
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        }
+        params.purchase_date_start = formatDate(this.searchPurchaseDateRange[0])
+        params.purchase_date_end = formatDate(this.searchPurchaseDateRange[1])
       }
       // 添加标签筛选条件（使用标签ID数组）
       if (this.searchTagIds && this.searchTagIds.length > 0) {

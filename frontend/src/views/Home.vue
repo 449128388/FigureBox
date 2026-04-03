@@ -7,6 +7,7 @@
       <router-link to="/register" class="btn" v-if="!userStore.isAuthenticated">注册</router-link>
       <router-link to="/figures" class="btn" v-if="userStore.isAuthenticated">手办管理</router-link>
       <router-link to="/orders" class="btn" v-if="userStore.isAuthenticated">订单管理</router-link>
+      <router-link to="/dashboard" class="btn" v-if="userStore.isAuthenticated">资产看板</router-link>
       <router-link to="/profile" class="btn" v-if="userStore.isAuthenticated">个人资料</router-link>
       <button class="btn btn-logout" v-if="userStore.isAuthenticated" @click="userStore.logout()">退出登录</button>
     </div>
