@@ -138,6 +138,18 @@
           <div class="section-header">
             <div class="section-title">
               📊 持仓列表 (按盈亏排序)
+              <el-tooltip
+                placement="top"
+                :show-after="200"
+                effect="light"
+              >
+                <template #content>
+                  <div v-html="statusTable"></div>
+                </template>
+                <el-button size="small" type="info" class="status-help-button">
+                  ?
+                </el-button>
+              </el-tooltip>
             </div>
             <el-button @click="showFilter = !showFilter">
               筛选 ▼
@@ -161,15 +173,23 @@
           
           <!-- 持仓卡片 -->
           <div class="holdings-cards">
-            <div 
-              v-for="(item, index) in dashboardData?.holdings || []" 
+            <!-- 空数据提示 -->
+            <div v-if="!dashboardData?.holdings || dashboardData.holdings.length === 0" class="empty-holdings">
+              <el-empty description="暂无数据" />
+            </div>
+            <div
+              v-for="(item, index) in dashboardData?.holdings || []"
               :key="item.figure_id"
               class="holding-card"
-              :class="{ 'break-even': item.status === '破位' }"
+              :class="getStatusClass(item.status)"
               @long-press="handleLongPress(item)"
             >
+              <div class="card-image" v-if="item.image">
+                <img :src="item.image" :alt="item.figure_name" />
+              </div>
+              <div class="card-content">
               <div class="card-header">
-                <div class="card-title">[图] {{ item.figure_name }}</div>
+                <div class="card-title">{{ item.figure_name }}</div>
                 <el-dropdown>
                   <span class="el-dropdown-link">
                     操作 ▼
@@ -178,7 +198,7 @@
                     <el-dropdown-menu>
                       <el-dropdown-item @click="sellAsset(item)">卖出</el-dropdown-item>
                       <el-dropdown-item @click="addPosition(item)">补仓</el-dropdown-item>
-                      <el-dropdown-item v-if="item.status === '破位'" @click="cutLoss(item)">斩仓</el-dropdown-item>
+                      <el-dropdown-item v-if="item.status && item.status.includes('破位')" @click="cutLoss(item)">斩仓</el-dropdown-item>
                       <el-dropdown-item @click="editPrice(item)">修改现价</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
@@ -229,6 +249,7 @@
                     <span class="value">{{ item.market_share }}%</span>
                   </div>
                 </div>
+              </div>
               </div>
             </div>
           </div>
@@ -804,6 +825,54 @@ export default {
     const profitChartInstance = ref(null)
     const selectedHoldingFilter = ref('all')
     
+    // 状态对照表
+    const statusTable = ref(`
+<table style="border-collapse: collapse; width: 100%; font-size: 12px;">
+  <tr style="background-color: #f5f7fa; font-weight: bold;">
+    <th style="border: 1px solid #dcdfe6; padding: 4px 8px; text-align: left;">状态标签</th>
+    <th style="border: 1px solid #dcdfe6; padding: 4px 8px; text-align: left;">触发条件</th>
+    <th style="border: 1px solid #dcdfe6; padding: 4px 8px; text-align: left;">颜色</th>
+    <th style="border: 1px solid #dcdfe6; padding: 4px 8px; text-align: left;">操作建议</th>
+  </tr>
+  <tr>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">🚀 暴涨</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">单月涨幅 ≥ +15%</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: green;">绿色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">考虑止盈或分批减仓</td>
+  </tr>
+  <tr>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">📈 上涨</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">涨幅 +5% ~ +15%</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #67c23a;">浅绿</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">持有，设置+20%止盈点</td>
+  </tr>
+  <tr>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">➖ 横盘</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">波动 -5% ~ +5%</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #909399;">灰色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">观望，适合建仓或定投</td>
+  </tr>
+  <tr>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">📉 告警</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">跌幅 -10% ~ -20%</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #e6a23c;">黄色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">警惕，准备止损预案</td>
+  </tr>
+  <tr>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">🔴 破位</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">跌幅 ≥ -20% 或 破发</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #f56c6c;">红色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; font-weight: bold;">强制止损，避免深套</td>
+  </tr>
+  <tr>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">💀 退市</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">跌幅 ≥ -50% 或 绝版无市</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #000000;">黑色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">流动性归零，账面资产作废</td>
+  </tr>
+</table>
+    `)
+    
     const klineTabs = [
       { label: '分时', value: 'minute' },
       { label: '日K', value: 'day' },
@@ -1243,6 +1312,18 @@ export default {
       ElMessage.info('补仓功能开发中')
     }
     
+    // 获取状态对应的CSS类名
+    const getStatusClass = (status) => {
+      if (!status) return ''
+      if (status.includes('暴涨')) return 'status-surge'
+      if (status.includes('上涨')) return 'status-rise'
+      if (status.includes('横盘')) return 'status-flat'
+      if (status.includes('告警')) return 'status-warning'
+      if (status.includes('退市')) return 'status-delisted'
+      if (status.includes('破位')) return 'status-break'
+      return ''
+    }
+
     // 斩仓
     const cutLoss = (item) => {
       ElMessageBox.confirm(`确定要斩仓 ${item.figure_name} 吗？`, '警告', {
@@ -1725,6 +1806,7 @@ export default {
       tradeMonths,
       klineTabs,
       selectedKlineTab,
+      statusTable,
       formatNumber,
       refreshData,
       refreshTradeData,
@@ -1734,6 +1816,7 @@ export default {
       sellAsset,
       addPosition,
       cutLoss,
+      getStatusClass,
       toggleMode,
       sharePoster,
       privacySettings,
@@ -2267,11 +2350,114 @@ export default {
   background-color: #fff2f0;
 }
 
+/* 持仓状态样式 */
+.holding-card.status-surge {
+  border-left: 4px solid #52c41a;
+  background-color: #f6ffed;
+}
+
+.holding-card.status-rise {
+  border-left: 4px solid #95de64;
+  background-color: #f6ffed;
+}
+
+.holding-card.status-flat {
+  border-left: 4px solid #8c8c8c;
+  background-color: #f5f5f5;
+}
+
+.holding-card.status-warning {
+  border-left: 4px solid #faad14;
+  background-color: #fffbe6;
+}
+
+.holding-card.status-break {
+  border-left: 4px solid #ff4d4f;
+  background-color: #fff2f0;
+}
+
+.holding-card.status-delisted {
+  border-left: 4px solid #000000;
+  background-color: #f0f0f0;
+}
+
+/* 持仓列表空数据提示 */
+.empty-holdings {
+  width: 100%;
+  padding: 40px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 持仓卡片图片样式 */
+.holding-card {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.holding-card .card-image {
+  width: 80px;
+  height: 80px;
+  min-width: 80px;
+  margin-right: 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #f0f0f0;
+}
+
+.holding-card .card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.holding-card .card-content {
+  flex: 1;
+  min-width: 0;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
+}
+
+/* 移除操作按钮的黑框 */
+.card-header .el-dropdown-link {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.card-header .el-dropdown-link:focus,
+.card-header .el-dropdown-link:hover,
+.card-header .el-dropdown-link:active {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 状态帮助按钮样式 */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-help-button {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .card-title {

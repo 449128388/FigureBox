@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta, date
@@ -25,6 +25,8 @@ router = APIRouter()
 
 @router.get("/dashboard")
 def get_asset_dashboard(
+    request: Request,
+    response: Response,
     time_range: str = Query("1m", description="时间范围: 1m, 3m, 1y, all"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -109,66 +111,46 @@ def get_asset_dashboard(
     
     # 构建持仓明细
     holdings = []
-    if not figures:
-        # 模拟数据
-        holdings = [
-            {
-                "figure_id": 1,
-                "figure_name": "初音未来 韶华 Ver.",
-                "stock": 1,
-                "status": "收藏中",
-                "cost_price": 800,
-                "current_price": 2000,
-                "profit": 1200,
-                "profit_percentage": 150,
-                "purchase_date": "2024-01",
-                "holding_days": 420,
-                "market_share": 15.6
-            },
-            {
-                "figure_id": 2,
-                "figure_name": "Saber 礼服 Ver.",
-                "stock": 1,
-                "status": "补款中(待付¥600)",
-                "cost_price": 200,
-                "current_price": 1200,
-                "profit": 400,
-                "profit_percentage": 200,
-                "purchase_date": "2026-03",
-                "holding_days": 15,
-                "market_share": 9.3
-            },
-            {
-                "figure_id": 3,
-                "figure_name": "蕾姆 婚纱 Ver.",
-                "stock": 0,
-                "status": "已转卖",
-                "cost_price": 1200,
-                "current_price": 1000,
-                "profit": -200,
-                "profit_percentage": -17,
-                "purchase_date": "2025-06",
-                "holding_days": 180,
-                "market_share": 0
-            }
-        ]
-    else:
+    if figures:
         for fig in figures:
             cost_price = fig.purchase_price or 0
             current_price = fig.current_value or 0
             profit = current_price - cost_price
             profit_percentage = (profit / cost_price * 100) if cost_price > 0 else 0
             
-            # 确定状态
-            if profit_percentage < -10:
-                status = "破位"
+            # 确定状态标签（根据涨幅百分比）
+            # 🚀 暴涨: 单月涨幅 ≥ +15% (绿色)
+            # 📈 上涨: 涨幅 +5% ~ +15% (浅绿)
+            # ➖ 横盘: 波动 -5% ~ +5% (灰色)
+            # 📉 告警: 跌幅 -10% ~ -20% (黄色)
+            # 🔴 破位: 跌幅 ≥ -20% 或 破发 (红色)
+            # 💀 退市: 跌幅 ≥ -50% 或 绝版无市 (黑色)
+            if profit_percentage >= 15:
+                status = "🚀 暴涨"
+            elif profit_percentage >= 5:
+                status = "📈 上涨"
+            elif profit_percentage >= -5:
+                status = "➖ 横盘"
+            elif profit_percentage >= -20:
+                status = "📉 告警"
+            elif profit_percentage >= -50:
+                status = "🔴 破位"
             else:
-                status = "正常"
+                status = "💀 退市"
+            
+            # 获取图片URL（从images字段中取第一张，如果没有则使用默认图片）
+            image_url = None
+            if fig.images and len(fig.images) > 0:
+                image_url = fig.images[0]
+            
+            # 如果没有图片，使用系统自带的默认占位图片
+            if not image_url:
+                image_url = "/imgs/no_image.png"
             
             holdings.append({
                 "figure_id": fig.id,
                 "figure_name": fig.name,
-                "stock": 1,
+                "stock": fig.quantity or 1,
                 "status": status,
                 "cost_price": cost_price,
                 "current_price": current_price,
@@ -176,9 +158,14 @@ def get_asset_dashboard(
                 "profit_percentage": profit_percentage,
                 "purchase_date": "2024-01",
                 "holding_days": 365,
-                "market_share": 10.0
+                "market_share": 10.0,
+                "image": image_url
             })
     
+    # 检查是否需要返回新的token（自动续期）
+    if hasattr(request.state, 'new_token'):
+        response.headers["X-Refresh-Token"] = request.state.new_token
+
     # 返回数据
     return {
         "summary": summary,
