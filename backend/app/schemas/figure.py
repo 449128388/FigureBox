@@ -77,6 +77,8 @@ class FigureBase(BaseModel):
     purchase_method: str | None = None
     purchase_type: str | None = None
     quantity: int = 1  # 数量，默认值为1
+    market_price: float | None = None
+    market_currency: str = "CNY"
     scale: str | None = None
     painting: str | None = None
     original_art: str | None = None
@@ -191,6 +193,8 @@ class FigureUpdate(BaseModel):
     purchase_method: str | None = None
     purchase_type: str | None = None
     quantity: int | None = None  # 数量
+    market_price: float | None = None
+    market_currency: str | None = None
     scale: str | None = None
     painting: str | None = None
     original_art: str | None = None
@@ -286,6 +290,8 @@ class FigureListItem(BaseModel):
     japanese_name: str | None = None
     price: float | None = None
     currency: str = "CNY"
+    market_price: float | None = None
+    market_currency: str = "CNY"
     manufacturer: str | None = None
     release_date: date | None = None
     purchase_price: float | None = None

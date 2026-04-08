@@ -27,6 +27,8 @@ class Figure(Base):
     description = Column(Text)
     images = Column(JSON, default=list)
     current_value = Column(Float)  # 当前估值
+    market_price = Column(Float)  # 市场价
+    market_currency = Column(String(10), default="CNY")  # 市场价币种
     
     # 关联的标签（多对多关系）
     tags = relationship("Tag", secondary="figure_tag", back_populates="figures")

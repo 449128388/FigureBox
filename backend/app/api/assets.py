@@ -9,7 +9,7 @@ import time
 import re
 
 from app.models.database import get_db
-from app.models.asset import AssetPriceHistory, AssetAlert, AssetTransaction, StockIndexCache
+from app.models.asset import AssetPriceHistory, AssetAlert, AssetTransaction, StockIndexCache, AssetValueCache, UserSettings
 from app.models.figure import Figure
 from app.models.order import Order
 from app.schemas.asset import (
@@ -46,26 +46,162 @@ def get_asset_dashboard(
     figures = db.query(Figure).all()
     
     # 计算总资产和成本
-    total_assets = sum(fig.current_value or 0 for fig in figures)
-    total_cost = sum(fig.purchase_price or 0 for fig in figures)
+    # 总资产 = Σ(市场价 × 数量)
+    total_assets = sum((fig.market_price or fig.price or 0) * (fig.quantity or 1) for fig in figures)
+    total_cost = sum((fig.purchase_price or 0) * (fig.quantity or 1) for fig in figures)
     
-    # 计算日涨跌（模拟数据，实际应该从价格历史计算）
-    daily_change = 2300
-    daily_change_percentage = 1.82
+    # 计算日涨跌（与股票账户当日盈亏一致）
+    # 1. 日涨跌金额 = 今日总市值 - 昨日收盘总市值
+    # 2. 日涨跌% = (今日总市值 - 昨日总市值) / 昨日总市值 × 100%
+    # 3. 昨日市值取值：取昨日23:59的缓存市值作为基准
     
-    # 塑料指数（手办总价值指数）
-    plastic_index = 2847
-
+    # 获取昨日市值缓存
+    yesterday = date.today() - timedelta(days=1)
+    yesterday_cache = db.query(AssetValueCache).filter(
+        AssetValueCache.user_id == current_user.id,
+        AssetValueCache.cache_date == yesterday
+    ).first()
+    
+    # 检查今日是否已有缓存（判断是否为今日首次获取数据）
+    today_existing_cache = db.query(AssetValueCache).filter(
+        AssetValueCache.user_id == current_user.id,
+        AssetValueCache.cache_date == date.today()
+    ).first()
+    
+    if yesterday_cache:
+        # 有昨日缓存，使用缓存值计算
+        yesterday_total_assets = yesterday_cache.total_value
+        daily_change = total_assets - yesterday_total_assets
+        daily_change_percentage = (daily_change / yesterday_total_assets * 100) if yesterday_total_assets > 0 else 0
+        has_daily_change = True  # 有涨跌数据
+    elif today_existing_cache:
+        # 没有昨日缓存，但今日已有缓存（今日非首次），使用今日缓存作为基准
+        # 这种情况发生在昨日没有记录，但今日已经记录过
+        yesterday_total_assets = today_existing_cache.total_value
+        daily_change = total_assets - yesterday_total_assets
+        daily_change_percentage = (daily_change / yesterday_total_assets * 100) if yesterday_total_assets > 0 else 0
+        has_daily_change = True  # 有涨跌数据
+    else:
+        # 没有昨日缓存，且今日首次获取数据
+        # 将当前市值记录为基准，今日不显示涨跌
+        daily_change = 0
+        daily_change_percentage = 0
+        has_daily_change = False  # 无涨跌数据，前端展示为"-- (--%)"
+    
+    # 保存今日市值缓存（用于明日计算）
+    today_cache = db.query(AssetValueCache).filter(
+        AssetValueCache.user_id == current_user.id,
+        AssetValueCache.cache_date == date.today()
+    ).first()
+    
+    if today_cache:
+        # 更新今日缓存
+        today_cache.total_value = total_assets
+    else:
+        # 创建今日缓存
+        today_cache = AssetValueCache(
+            user_id=current_user.id,
+            total_value=total_assets,
+            cache_date=date.today()
+        )
+        db.add(today_cache)
+    
+    db.commit()
+    
+    # 计算塑料指数（手办总价值指数）
+    # 公式：塑料指数 = 基准日指数 × (当前总市值 / 基准日总市值)
+    # 基准日指数 = 1000
+    # 基准日 = 最早购买手办的日期（开户首日）
+    BASE_INDEX = 1000  # 基准日指数
+    BASE_SH_INDEX = 2900  # 基准日上证指数（假设基准日上证指数为2900点）
+    
+    # 找到最早的购买日期作为基准日（开户首日）
+    purchase_dates = [fig.purchase_date for fig in figures if fig.purchase_date]
+    if purchase_dates:
+        base_date = min(purchase_dates)
+        # 基准日总市值 = 开户首日所有手办的成本总价（使用入手价格）
+        # 原则：新买入手办不改变指数，只增加成分股
+        # 原则：卖出手办不影响指数，视为成分股剔除
+        base_total_value = sum((fig.purchase_price or 0) * (fig.quantity or 1) for fig in figures)
+    else:
+        # 如果没有购买日期，使用当前日期作为基准日，基准市值为当前成本
+        base_date = date.today()
+        base_total_value = total_cost if total_cost > 0 else 1  # 避免除以0
+    
+    # 计算塑料指数
+    # 关键：手办再版（复刻）导致价格暴跌，需复权处理避免指数断崖
+    # 当前总市值使用市场价（或定价），反映当前市场价值
+    if base_total_value > 0:
+        plastic_index = round(BASE_INDEX * (total_assets / base_total_value), 2)
+    else:
+        plastic_index = BASE_INDEX
+    
+    # 塑料指数计算说明：
+    # 1. 基准：开户首日（最早购买手办的日期）
+    # 2. 意义：反映整个投资生涯的总收益能力
+    # 3. 新买入手办（IPO）：不改变指数，只增加成分股
+    # 4. 卖出手办（退市）：不影响指数，视为成分股剔除
+    # 5. 再版冲击（复刻）：通过市场价变化自然反映在指数中
+    
     # 获取上证指数（带缓存机制）
     sh_index_data = get_cached_sh_index(db)
     sh_index = sh_index_data["current_value"]
-    sh_change_percentage = sh_index_data["change_percentage"]
-
-    # 跑赢大盘百分比（根据塑料指数和上证指数计算）
-    outperform_percentage = 68
     
-    # 仓位状态
-    position = "满仓"
+    # 计算跑赢大盘百分比（成立至今）
+    # 塑料指数涨幅 = (当前塑料指数 - 基准日指数) / 基准日指数 × 100%
+    # 上证指数涨幅 = (当前上证指数 - 基准日上证指数) / 基准日上证指数 × 100%
+    # 跑赢大盘 = 塑料指数涨幅 - 上证指数涨幅
+    plastic_change_percentage = ((plastic_index - BASE_INDEX) / BASE_INDEX) * 100
+    sh_change_percentage_total = ((sh_index - BASE_SH_INDEX) / BASE_SH_INDEX) * 100
+    outperform_percentage = round(plastic_change_percentage - sh_change_percentage_total, 2)
+    
+    # 计算仓位
+    # 仓位 = 已投入成本 / 投资预算上限 × 100%
+    # 投资预算：用户在设置中设定的"年度手办消费上限"
+    # 已投入成本：所有持仓手办的买入成本价总和
+    
+    # 获取用户设置的投资预算上限
+    user_settings = db.query(UserSettings).filter(
+        UserSettings.user_id == current_user.id
+    ).first()
+    investment_budget = user_settings.annual_spending_limit if user_settings else 0
+    
+    # 计算已投入成本（所有持仓手办的买入成本价总和）
+    invested_cost = sum((fig.purchase_price or 0) * (fig.quantity or 1) for fig in figures)
+    
+    # 计算仓位百分比
+    if investment_budget > 0:
+        position_percentage = (invested_cost / investment_budget) * 100
+    else:
+        # 如果没有设置投资预算，根据持仓情况判断
+        position_percentage = 100 if invested_cost > 0 else 0
+    
+    # 根据仓位百分比确定仓位状态和颜色
+    # 仓位状态分级表：
+    # 空仓: 0% - 灰色
+    # 轻仓: 1% - 30% - 蓝色
+    # 半仓: 30% - 70% - 绿色
+    # 重仓: 70% - 90% - 黄色
+    # 满仓: 90% - 100% - 红色
+    # 超仓: >100% - 黑色
+    if position_percentage == 0:
+        position = "空仓"
+        position_color = "gray"
+    elif position_percentage <= 30:
+        position = "轻仓"
+        position_color = "blue"
+    elif position_percentage <= 70:
+        position = "半仓"
+        position_color = "green"
+    elif position_percentage <= 90:
+        position = "重仓"
+        position_color = "yellow"
+    elif position_percentage <= 100:
+        position = "满仓"
+        position_color = "red"
+    else:
+        position = "超仓"
+        position_color = "black"
     
     # 本月入手数量
     monthly_purchases = 3
@@ -75,10 +211,15 @@ def get_asset_dashboard(
         "total_assets": total_assets or 128500,
         "daily_change": daily_change,
         "daily_change_percentage": daily_change_percentage,
+        "has_daily_change": has_daily_change,  # 是否有涨跌数据（用于前端展示）
         "plastic_index": plastic_index,
         "sh_index": sh_index,
         "outperform_percentage": outperform_percentage,
         "position": position,
+        "position_percentage": round(position_percentage, 2),  # 仓位百分比
+        "position_color": position_color,  # 仓位颜色标识
+        "investment_budget": investment_budget,  # 投资预算上限
+        "invested_cost": invested_cost,  # 已投入成本
         "monthly_purchases": monthly_purchases
     }
     
@@ -114,7 +255,8 @@ def get_asset_dashboard(
     if figures:
         for fig in figures:
             cost_price = fig.purchase_price or 0
-            current_price = fig.current_value or 0
+            # 现价使用市场价，如果没有市场价则使用定价
+            current_price = fig.market_price or fig.price or 0
             profit = current_price - cost_price
             profit_percentage = (profit / cost_price * 100) if cost_price > 0 else 0
             
@@ -147,6 +289,37 @@ def get_asset_dashboard(
             if not image_url:
                 image_url = "/imgs/no_image.png"
             
+            # 处理入手时间
+            purchase_date_str = ""
+            holding_days = 0
+            if fig.purchase_date:
+                # 格式化入手时间为 YYYY-MM 格式
+                purchase_date_str = fig.purchase_date.strftime("%Y-%m")
+                # 计算持有天数（使用东八区时区）
+                import pytz
+                # 设置东八区时区
+                tz = pytz.timezone('Asia/Shanghai')
+                # 获取当前时间（东八区）
+                current_time = datetime.now(tz)
+                # 将date对象转换为datetime对象，然后再本地化
+                if isinstance(fig.purchase_date, date):
+                    # 创建datetime对象（假设时间为00:00:00）
+                    purchase_datetime = datetime(fig.purchase_date.year, fig.purchase_date.month, fig.purchase_date.day)
+                    # 本地化datetime对象
+                    purchase_time = tz.localize(purchase_datetime)
+                else:
+                    # 如果已经是datetime对象，直接本地化
+                    purchase_time = tz.localize(fig.purchase_date)
+                # 计算持有天数
+                holding_days = (current_time - purchase_time).days
+            else:
+                purchase_date_str = "未设置"
+                holding_days = 0
+            
+            # 计算市值占比 = (现价 × 持有数量) ÷ 总资产 × 100%
+            market_value = current_price * (fig.quantity or 1)
+            market_share = (market_value / total_assets * 100) if total_assets > 0 else 0
+            
             holdings.append({
                 "figure_id": fig.id,
                 "figure_name": fig.name,
@@ -156,10 +329,39 @@ def get_asset_dashboard(
                 "current_price": current_price,
                 "profit": profit,
                 "profit_percentage": profit_percentage,
-                "purchase_date": "2024-01",
-                "holding_days": 365,
-                "market_share": 10.0,
+                "purchase_date": purchase_date_str,
+                "holding_days": holding_days,
+                "market_share": round(market_share, 2),
                 "image": image_url
+            })
+    
+    # 计算风险状态分布（健康度仪表盘）
+    # 统计各风险状态的手办数量和市值
+    risk_distribution = {
+        "🚀 暴涨": {"count": 0, "value": 0, "color": "#67C23A"},
+        "📈 上涨": {"count": 0, "value": 0, "color": "#95D475"},
+        "➖ 横盘": {"count": 0, "value": 0, "color": "#909399"},
+        "📉 告警": {"count": 0, "value": 0, "color": "#E6A23C"},
+        "🔴 破位": {"count": 0, "value": 0, "color": "#F56C6C"},
+        "💀 退市": {"count": 0, "value": 0, "color": "#303133"}
+    }
+    
+    for holding in holdings:
+        status = holding.get("status", "")
+        market_value = holding.get("current_price", 0) * holding.get("stock", 1)
+        if status in risk_distribution:
+            risk_distribution[status]["count"] += 1
+            risk_distribution[status]["value"] += market_value
+    
+    # 转换为饼图数据格式
+    risk_pie_data = []
+    for status, data in risk_distribution.items():
+        if data["count"] > 0:  # 只显示有数据的状态
+            risk_pie_data.append({
+                "name": status,
+                "value": round(data["value"], 2),
+                "count": data["count"],
+                "itemStyle": {"color": data["color"]}
             })
     
     # 检查是否需要返回新的token（自动续期）
@@ -173,7 +375,8 @@ def get_asset_dashboard(
         "kline_data": kline_data,
         "rankings": rankings,
         "advice": advice,
-        "holdings": holdings
+        "holdings": holdings,
+        "risk_distribution": risk_pie_data  # 风险状态分布（健康度仪表盘）
     }
 
 @router.post("/price-history", response_model=AssetPriceHistorySchema)
@@ -775,4 +978,63 @@ def get_cached_sh_index(db: Session):
         "current_value": 3200,
         "change_value": 0,
         "change_percentage": 0
+    }
+
+
+@router.get("/settings/annual-limit")
+def get_annual_spending_limit(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取用户年度手办消费上限"""
+    settings = db.query(UserSettings).filter(
+        UserSettings.user_id == current_user.id
+    ).first()
+    
+    if not settings:
+        # 如果没有设置记录，返回默认值
+        return {
+            "annual_spending_limit": 0,
+            "message": "未设置年度消费上限"
+        }
+    
+    return {
+        "annual_spending_limit": settings.annual_spending_limit,
+        "updated_at": settings.updated_at
+    }
+
+
+@router.post("/settings/annual-limit")
+def update_annual_spending_limit(
+    limit: float,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """更新用户年度手办消费上限"""
+    # 验证输入值
+    if limit < 0:
+        raise HTTPException(status_code=400, detail="消费上限不能为负数")
+    
+    settings = db.query(UserSettings).filter(
+        UserSettings.user_id == current_user.id
+    ).first()
+    
+    if settings:
+        # 更新现有设置
+        settings.annual_spending_limit = limit
+    else:
+        # 创建新设置
+        settings = UserSettings(
+            user_id=current_user.id,
+            annual_spending_limit=limit
+        )
+        db.add(settings)
+    
+    db.commit()
+    db.refresh(settings)
+    
+    return {
+        "annual_spending_limit": settings.annual_spending_limit,
+        "updated_at": settings.updated_at,
+        "message": "年度消费上限设置成功"
     }

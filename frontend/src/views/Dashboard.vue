@@ -36,6 +36,9 @@
         <div class="action-buttons">
           <!-- 资产版块按钮 -->
           <template v-if="activeView === 'asset'">
+            <el-button type="info" @click="showAnnualLimitDialog">
+              <el-icon><Money /></el-icon> 年度手办消费上限
+            </el-button>
             <el-button type="primary" @click="refreshData">
               <el-icon><Refresh /></el-icon> 刷新资产
             </el-button>
@@ -71,13 +74,32 @@
           </div>
           <div class="overview-item">
             <span class="label">日涨跌:</span>
-            <span class="value" :class="{ positive: dashboardData?.summary?.daily_change >= 0, negative: dashboardData?.summary?.daily_change < 0 }">
-              {{ dashboardData?.summary?.daily_change >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(dashboardData?.summary?.daily_change || 2300)) }}({{ dashboardData?.summary?.daily_change_percentage || 1.82 }}%)
+            <span 
+              class="value" 
+              :class="{ 
+                positive: dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change >= 0, 
+                negative: dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change < 0 
+              }"
+            >
+              <template v-if="dashboardData?.summary?.has_daily_change">
+                {{ dashboardData?.summary?.daily_change >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(dashboardData?.summary?.daily_change || 0)) }}({{ dashboardData?.summary?.daily_change >= 0 ? '+' : '' }}{{ (dashboardData?.summary?.daily_change_percentage || 0).toFixed(2) }}%)
+              </template>
+              <template v-else>
+                -- (--%)
+              </template>
             </span>
           </div>
           <div class="overview-item">
             <span class="label">仓位:</span>
-            <span class="value">{{ dashboardData?.summary?.position || '满仓' }}</span>
+            <span 
+              class="value position-value"
+              :class="'position-' + (dashboardData?.summary?.position_color || 'red')"
+            >
+              {{ dashboardData?.summary?.position || '满仓' }}
+              <template v-if="dashboardData?.summary?.position_percentage !== undefined">
+                ({{ dashboardData?.summary?.position_percentage }}%)
+              </template>
+            </span>
           </div>
         </div>
 
@@ -94,8 +116,25 @@
             <span class="value">{{ dashboardData?.summary?.plastic_index || 2847 }}</span>
           </div>
           <div class="index-item">
-            <span class="label">跑赢大盘:</span>
-            <span class="value positive">+{{ dashboardData?.summary?.outperform_percentage || 68 }}%</span>
+            
+            <span 
+              class="value" 
+              :class="{
+                positive: (dashboardData?.summary?.outperform_percentage || 0) > 0,
+                negative: (dashboardData?.summary?.outperform_percentage || 0) < 0,
+                neutral: (dashboardData?.summary?.outperform_percentage || 0) === 0
+              }"
+            >
+              <template v-if="(dashboardData?.summary?.outperform_percentage || 0) > 0">
+                🟢 跑赢大盘+{{ dashboardData?.summary?.outperform_percentage }}% ↑
+              </template>
+              <template v-else-if="(dashboardData?.summary?.outperform_percentage || 0) < 0">
+                🔴 跑输大盘{{ dashboardData?.summary?.outperform_percentage }}% ↓
+              </template>
+              <template v-else>
+                ➖ 持平
+              </template>
+            </span>
           </div>
         </div>
 
@@ -229,9 +268,6 @@
                     <span class="label">盈亏:</span>
                     <span class="value" :class="{ positive: item.profit >= 0, negative: item.profit < 0 }">
                       {{ item.profit >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(item.profit)) }} ({{ item.profit_percentage >= 0 ? '+' : '' }}{{ item.profit_percentage.toFixed(0) }}%)
-                      <span v-if="item.profit_percentage > 50" class="emoji">🚀</span>
-                      <span v-else-if="item.profit_percentage > 0" class="emoji">📈</span>
-                      <span v-else class="emoji">🔴</span>
                     </span>
                   </div>
                 </div>
@@ -762,6 +798,42 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 年度手办消费上限设置对话框 -->
+    <el-dialog
+      v-model="annualLimitDialogVisible"
+      title="年度手办消费上限设置"
+      width="500px"
+    >
+      <el-form :model="annualLimitForm" label-width="120px">
+        <el-form-item label="年度消费上限">
+          <el-input-number 
+            v-model="annualLimitForm.limit" 
+            :min="0" 
+            :precision="2"
+            :step="1000"
+            style="width: 200px"
+          />
+          <span style="margin-left: 10px; color: #909399;">元</span>
+        </el-form-item>
+        <el-form-item>
+          <div style="color: #909399; font-size: 12px; line-height: 1.5;">
+            <p>提示：</p>
+            <p>1. 设置年度手办消费上限后，系统将在您接近或超出上限时提醒您</p>
+            <p>2. 设置为0表示不限制年度消费</p>
+            <p>3. 该设置仅作为参考，不会阻止您继续购买手办</p>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="annualLimitDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveAnnualLimit" :loading="annualLimitLoading">
+            保存设置
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -820,10 +892,18 @@ export default {
     const marketChartInstance = ref(null)
     const selectedKlineTab = ref('day')
     const pieChart = ref(null)
-    const profitChart = ref(null)
     const pieChartInstance = ref(null)
+    const pieChartInitialized = ref(false)
+    const profitChart = ref(null)
     const profitChartInstance = ref(null)
     const selectedHoldingFilter = ref('all')
+    
+    // 年度消费上限设置
+    const annualLimitDialogVisible = ref(false)
+    const annualLimitForm = ref({
+      limit: 0
+    })
+    const annualLimitLoading = ref(false)
     
     // 状态对照表
     const statusTable = ref(`
@@ -1020,10 +1100,12 @@ export default {
         chartInstance.value?.dispose()
       })
     }
-    
-    // 初始化资产分布饼图
+
+    // 初始化资产分布饼图（风险状态分布 - 健康度仪表盘）
     const initPieChart = () => {
-      if (!pieChart.value) return
+      if (!pieChart.value) {
+        return
+      }
       
       if (pieChartInstance.value) {
         pieChartInstance.value.dispose()
@@ -1031,33 +1113,65 @@ export default {
       
       pieChartInstance.value = echarts.init(pieChart.value)
       
+      // 使用后端返回的风险状态分布数据
+      const riskData = dashboardData.value?.risk_distribution || []
+      
+      // 如果没有数据，显示空状态
+      if (riskData.length === 0) {
+        const option = {
+          title: {
+            text: '暂无数据',
+            left: 'center',
+            top: 'center',
+            textStyle: {
+              color: '#909399',
+              fontSize: 14
+            }
+          }
+        }
+        pieChartInstance.value.setOption(option)
+        return
+      }
+      
+      // 提取图例数据
+      const legendData = riskData.map(item => item.name)
+      
       const option = {
         tooltip: {
           trigger: 'item',
-          formatter: '{b}: {c} ({d}%)'
+          formatter: function(params) {
+            const data = params.data
+            return `${data.name}<br/>市值: ¥${formatNumber(data.value)}<br/>数量: ${data.count}个<br/>占比: ${params.percent}%`
+          }
         },
         legend: {
           orient: 'vertical',
           left: 'left',
-          data: ['收藏中', '在途尾款', '已转卖盈利', '闲置资金']
+          data: legendData,
+          textStyle: {
+            fontSize: 12
+          }
         },
         series: [
           {
-            name: '资产分布',
+            name: '健康度分布',
             type: 'pie',
-            radius: '60%',
-            data: [
-              { value: 35, name: '收藏中' },
-              { value: 25, name: '在途尾款' },
-              { value: 20, name: '已转卖盈利' },
-              { value: 20, name: '闲置资金' }
-            ],
+            radius: ['40%', '70%'],  // 环形图
+            center: ['60%', '50%'],
+            data: riskData,
             emphasis: {
               itemStyle: {
                 shadowBlur: 10,
                 shadowOffsetX: 0,
                 shadowColor: 'rgba(0, 0, 0, 0.5)'
               }
+            },
+            label: {
+              show: true,
+              formatter: '{b}\n{d}%'
+            },
+            labelLine: {
+              show: true
             }
           }
         ]
@@ -1078,7 +1192,7 @@ export default {
         pieChartInstance.value?.dispose()
       })
     }
-    
+
     // 初始化收益曲线
     const initProfitChart = () => {
       if (!profitChart.value) return
@@ -1179,73 +1293,56 @@ export default {
         const res = await axios.get(`/assets/dashboard?time_range=${selectedTimeRange.value}`)
         // axios拦截器已返回response.data，所以res就是数据
         dashboardData.value = res
-        initKlineChart()
-        initPieChart()
-        initProfitChart()
+        // 使用更长的延迟确保DOM元素完全渲染
+        setTimeout(() => {
+          if (pieChart.value) {
+            initKlineChart()
+            initPieChart()
+            initProfitChart()
+          } else {
+            // 再试一次
+            setTimeout(() => {
+              initKlineChart()
+              initPieChart()
+              initProfitChart()
+            }, 200)
+          }
+        }, 100)
       } catch (error) {
         console.error('获取看板数据失败:', error)
-        // 生成模拟数据
+        // 不生成模拟数据，保持空状态
         dashboardData.value = {
           summary: {
-            total_assets: 128500,
-            daily_change: 2300,
-            daily_change_percentage: 1.82,
-            plastic_index: 2847,
-            sh_index: 3200,
-            outperform_percentage: 68,
-            position: '满仓',
-            monthly_purchases: 3
+            total_assets: 0,
+            daily_change: 0,
+            daily_change_percentage: 0,
+            plastic_index: 0,
+            sh_index: 0,
+            outperform_percentage: 0,
+            position: '空仓',
+            monthly_purchases: 0
           },
           profit: {
-            floating: 23400,
-            realized: 8200,
-            total_rate: 24.6
+            floating: 0,
+            realized: 0,
+            total_rate: 0
           },
-          holdings: [
-            {
-              figure_id: 1,
-              figure_name: '初音未来 韶华 Ver.',
-              stock: 1,
-              status: '收藏中',
-              cost_price: 800,
-              current_price: 2000,
-              profit: 1200,
-              profit_percentage: 150,
-              purchase_date: '2024-01',
-              holding_days: 420,
-              market_share: 15.6
-            },
-            {
-              figure_id: 2,
-              figure_name: 'Saber 礼服 Ver.',
-              stock: 1,
-              status: '补款中(待付¥600)',
-              cost_price: 200,
-              current_price: 1200,
-              profit: 400,
-              profit_percentage: 200,
-              purchase_date: '2026-03',
-              holding_days: 15,
-              market_share: 9.3
-            },
-            {
-              figure_id: 3,
-              figure_name: '蕾姆 婚纱 Ver.',
-              stock: 0,
-              status: '已转卖',
-              cost_price: 1200,
-              current_price: 1000,
-              profit: -200,
-              profit_percentage: -17,
-              purchase_date: '2025-06',
-              holding_days: 180,
-              market_share: 0
-            }
-          ]
+          holdings: [],
+          risk_distribution: []
         }
-        initKlineChart()
-        initPieChart()
-        initProfitChart()
+        // 清空图表数据
+        if (klineChartInstance.value) {
+          klineChartInstance.value.dispose()
+          klineChartInstance.value = null
+        }
+        if (pieChartInstance.value) {
+          pieChartInstance.value.dispose()
+          pieChartInstance.value = null
+        }
+        if (profitChartInstance.value) {
+          profitChartInstance.value.dispose()
+          profitChartInstance.value = null
+        }
       } finally {
         loading.value = false
       }
@@ -1276,6 +1373,43 @@ export default {
       } catch (error) {
         console.error('创建预警失败:', error)
         ElMessage.error('预警设置失败')
+      }
+    }
+    
+    // 显示年度消费上限设置对话框
+    const showAnnualLimitDialog = async () => {
+      await loadAnnualLimit()
+      annualLimitDialogVisible.value = true
+    }
+    
+    // 加载年度消费上限设置
+    const loadAnnualLimit = async () => {
+      try {
+        const response = await axios.get('/assets/settings/annual-limit')
+        // axios拦截器已返回response.data，所以response就是数据
+        annualLimitForm.value.limit = response.annual_spending_limit || 0
+      } catch (error) {
+        console.error('加载年度消费上限失败:', error)
+        ElMessage.error('加载设置失败')
+      }
+    }
+    
+    // 保存年度消费上限设置
+    const saveAnnualLimit = async () => {
+      annualLimitLoading.value = true
+      try {
+        await axios.post('/assets/settings/annual-limit', null, {
+          params: {
+            limit: annualLimitForm.value.limit
+          }
+        })
+        annualLimitDialogVisible.value = false
+        ElMessage.success('年度消费上限设置成功')
+      } catch (error) {
+        console.error('保存年度消费上限失败:', error)
+        ElMessage.error(error.response?.data?.detail || '设置失败')
+      } finally {
+        annualLimitLoading.value = false
       }
     }
     
@@ -1795,6 +1929,8 @@ export default {
       figures,
       klineChart,
       marketKlineChart,
+      pieChart,
+      profitChart,
       userStore,
       currentMode,
       showFilter,
@@ -1807,6 +1943,12 @@ export default {
       klineTabs,
       selectedKlineTab,
       statusTable,
+      // 年度消费上限设置
+      annualLimitDialogVisible,
+      annualLimitForm,
+      annualLimitLoading,
+      showAnnualLimitDialog,
+      saveAnnualLimit,
       formatNumber,
       refreshData,
       refreshTradeData,
@@ -1986,6 +2128,40 @@ export default {
 
 .overview-item .value.negative {
   color: #F44336;
+}
+
+/* 仓位状态颜色 */
+.position-value.position-gray {
+  color: #909399;
+  font-weight: bold;
+}
+
+.position-value.position-blue {
+  color: #409EFF;
+  font-weight: bold;
+}
+
+.position-value.position-green {
+  color: #67C23A;
+  font-weight: bold;
+}
+
+.position-value.position-yellow {
+  color: #E6A23C;
+  font-weight: bold;
+}
+
+.position-value.position-red {
+  color: #F56C6C;
+  font-weight: bold;
+}
+
+.position-value.position-black {
+  color: #303133;
+  font-weight: bold;
+  background-color: #F2F6FC;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 /* 分隔线 */
@@ -2388,6 +2564,8 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  grid-column: 1 / -1; /* 让空数据提示占据整个网格宽度 */
+  min-height: 200px; /* 确保有足够的高度 */
 }
 
 /* 持仓卡片图片样式 */
@@ -2536,8 +2714,9 @@ export default {
 
 .footer-item {
   display: flex;
+  align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .footer-item .label {

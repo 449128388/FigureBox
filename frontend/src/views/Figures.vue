@@ -69,6 +69,8 @@
         </div>
         <h3><router-link :to="`/figures/${figure.id}`" class="figure-name-link">{{ figure.name }}</router-link></h3>
         <p>定价: {{ figure.price !== null && figure.price !== undefined ? figure.price : '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
+        <p v-if="figure.market_price !== null && figure.market_price !== undefined">市场价: {{ figure.market_price }} {{ getCurrencySymbol(figure.market_currency) }}</p>
+        <p v-else>市场价: 未设置</p>
         <p v-if="figure.purchase_price !== null && figure.purchase_price !== undefined">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</p>
         <p v-else>入手价格: 未设置</p>
         <p v-if="figure.purchase_date">入手时间: {{ figure.purchase_date }}</p>
@@ -189,6 +191,18 @@
                   <div class="form-group">
                     <label>数量</label>
                     <el-input-number v-model="newFigure.quantity" placeholder="请输入数量" :min="1" :step="1" style="width: 200px;"></el-input-number>
+                  </div>
+                  <div class="form-group">
+                    <label>市场价</label>
+                    <div class="price-currency-container">
+                      <el-input-number v-model="newFigure.market_price" :min="0" :step="1" style="width: 200px;"></el-input-number>
+                      <el-select v-model="newFigure.market_currency" style="width: 120px;">
+                        <el-option value="CNY" label="人民币" />
+                        <el-option value="JPY" label="日元" />
+                        <el-option value="USD" label="美元" />
+                        <el-option value="EUR" label="欧元" />
+                      </el-select>
+                    </div>
                   </div>
                 </div>
                 
@@ -417,6 +431,8 @@ export default {
         manufacturer: '',
         price: 0,
         currency: 'CNY',
+        market_price: 0,
+        market_currency: 'CNY',
         tag_ids: [],  // 使用标签ID列表
         release_date: '',
         purchase_price: 0,
@@ -931,6 +947,8 @@ export default {
         manufacturer: '',
         price: 0,
         currency: 'CNY',
+        market_price: 0,
+        market_currency: 'CNY',
         tag_ids: [],  // 使用标签ID列表
         release_date: '',
         purchase_price: 0,
@@ -1008,6 +1026,8 @@ export default {
           ...this.newFigure,
           release_date: formatDate(this.newFigure.release_date),
           purchase_date: formatDate(this.newFigure.purchase_date),
+          currency: this.newFigure.currency || 'CNY',
+          market_currency: this.newFigure.market_currency || 'CNY',
           purchase_currency: this.newFigure.purchase_currency || 'CNY',
           tag_ids: existingTagIds
         }
@@ -1065,7 +1085,11 @@ export default {
           ...fullFigure,
           tag_ids: fullFigure.tags ? fullFigure.tags.map(tag => tag.id) : [],  // 使用标签ID列表
           price: fullFigure.price || 0,
+          currency: fullFigure.currency || 'CNY',
+          market_price: fullFigure.market_price || 0,
+          market_currency: fullFigure.market_currency || 'CNY',
           purchase_price: fullFigure.purchase_price || 0,
+          purchase_currency: fullFigure.purchase_currency || 'CNY',
           images: fullFigure.images || [],  // 确保images字段存在且为数组
           quantity: fullFigure.quantity || 1  // 确保quantity字段存在，默认值为1
         }
@@ -1076,7 +1100,11 @@ export default {
           ...figure,
           tag_ids: figure.tags ? figure.tags.map(tag => tag.id) : [],
           price: figure.price || 0,
+          currency: figure.currency || 'CNY',
+          market_price: figure.market_price || 0,
+          market_currency: figure.market_currency || 'CNY',
           purchase_price: figure.purchase_price || 0,
+          purchase_currency: figure.purchase_currency || 'CNY',
           images: figure.image ? [figure.image] : []
         }
       }

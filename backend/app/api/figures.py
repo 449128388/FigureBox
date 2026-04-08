@@ -111,6 +111,8 @@ def get_figures(
             japanese_name=figure.japanese_name,
             price=figure.price,
             currency=figure.currency,
+            market_price=figure.market_price,
+            market_currency=figure.market_currency,
             manufacturer=figure.manufacturer,
             release_date=figure.release_date,
             purchase_price=figure.purchase_price,
@@ -188,6 +190,8 @@ def download_figures(db: Session = Depends(get_db)):
                 "manufacturer": figure.manufacturer,
                 "price": figure.price,
                 "currency": figure.currency,
+                "market_price": figure.market_price,
+                "market_currency": figure.market_currency,
                 "tags": tags_data,
                 "release_date": figure.release_date.isoformat() if figure.release_date else None,
                 "purchase_price": figure.purchase_price,
@@ -317,6 +321,11 @@ def create_figure(figure: FigureCreate, current_user: User = Depends(get_current
 
     # 提取标签ID列表
     tag_ids = figure_data.pop('tag_ids', [])
+
+    # 处理市场价：当市场价为0或未设置时，市场价默认等于定价
+    if (figure_data.get('market_price') == 0 or figure_data.get('market_price') is None) and figure_data.get('price') is not None:
+        figure_data['market_price'] = figure_data['price']
+        figure_data['market_currency'] = figure_data['currency']
 
     # 将入手形式的英文转换为中文
     if figure_data.get('purchase_type'):

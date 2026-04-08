@@ -61,3 +61,30 @@ class StockIndexCache(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # 更新时间
     request_count = Column(Integer, default=0)  # 当日请求次数
     request_date = Column(Date, nullable=False)  # 请求日期
+
+
+class AssetValueCache(Base):
+    """资产市值缓存（用于计算日涨跌）"""
+    __tablename__ = "asset_value_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    total_value = Column(Float, nullable=False)  # 当日总市值
+    cache_date = Column(Date, nullable=False)  # 缓存日期
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 创建时间
+
+    # 关系
+    user = relationship("User")
+
+
+class UserSettings(Base):
+    """用户设置（年度手办消费上限等）"""
+    __tablename__ = "user_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    annual_spending_limit = Column(Float, default=0)  # 年度手办消费上限（0表示未设置）
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # 更新时间
+
+    # 关系
+    user = relationship("User")
