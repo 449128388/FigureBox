@@ -332,7 +332,8 @@ def get_asset_dashboard(
                 "purchase_date": purchase_date_str,
                 "holding_days": holding_days,
                 "market_share": round(market_share, 2),
-                "image": image_url
+                "image": image_url,
+                "manufacturer": fig.manufacturer
             })
     
     # 计算风险状态分布（健康度仪表盘）
@@ -364,6 +365,113 @@ def get_asset_dashboard(
                 "itemStyle": {"color": data["color"]}
             })
     
+    # 计算制造商分布（IP分布）
+    # 统计各制造商的手办数量和市值
+    manufacturer_distribution = {}
+    # 预定义一些颜色
+    manufacturer_colors = [
+        "#5470c6", "#91cc75", "#fac858", "#ee6666", "#73c0de",
+        "#3ba272", "#fc8452", "#9a60b4", "#ea7ccc", "#ff9f7f"
+    ]
+    
+    for holding in holdings:
+        manufacturer = holding.get("manufacturer", "未知厂商")
+        if not manufacturer or manufacturer == "":
+            manufacturer = "未知厂商"
+        market_value = holding.get("current_price", 0) * holding.get("stock", 1)
+        
+        if manufacturer not in manufacturer_distribution:
+            manufacturer_distribution[manufacturer] = {"count": 0, "value": 0}
+        manufacturer_distribution[manufacturer]["count"] += 1
+        manufacturer_distribution[manufacturer]["value"] += market_value
+    
+    # 转换为饼图数据格式
+    manufacturer_pie_data = []
+    color_idx = 0
+    for manufacturer, data in manufacturer_distribution.items():
+        if data["count"] > 0:  # 只显示有数据的制造商
+            manufacturer_pie_data.append({
+                "name": manufacturer,
+                "value": round(data["value"], 2),
+                "count": data["count"],
+                "itemStyle": {"color": manufacturer_colors[color_idx % len(manufacturer_colors)]}
+            })
+            color_idx += 1
+    
+    # 按市值排序
+    manufacturer_pie_data.sort(key=lambda x: x["value"], reverse=True)
+    
+    # 计算持仓周期分布
+    # 统计各持仓周期的手办数量和市值
+    holding_period_distribution = {
+        "🆕 本月新入": {"count": 0, "value": 0, "color": "#67C23A"},
+        "📅 1年内": {"count": 0, "value": 0, "color": "#409EFF"},
+        "🏛️ 1-2年": {"count": 0, "value": 0, "color": "#E6A23C"},
+        "🦕 2年以上": {"count": 0, "value": 0, "color": "#909399"}
+    }
+    
+    for holding in holdings:
+        holding_days = holding.get("holding_days", 0)
+        market_value = holding.get("current_price", 0) * holding.get("stock", 1)
+        
+        # 根据持有天数判断持仓周期
+        if holding_days <= 30:  # 30天内算本月新入
+            period = "🆕 本月新入"
+        elif holding_days <= 365:  # 1年内
+            period = "📅 1年内"
+        elif holding_days <= 730:  # 1-2年
+            period = "🏛️ 1-2年"
+        else:  # 2年以上
+            period = "🦕 2年以上"
+        
+        holding_period_distribution[period]["count"] += 1
+        holding_period_distribution[period]["value"] += market_value
+    
+    # 转换为饼图数据格式
+    holding_period_pie_data = []
+    for period, data in holding_period_distribution.items():
+        if data["count"] > 0:  # 只显示有数据的周期
+            holding_period_pie_data.append({
+                "name": period,
+                "value": round(data["value"], 2),
+                "count": data["count"],
+                "itemStyle": {"color": data["color"]}
+            })
+    
+    # 计算仓位分层分布
+    # 按单只手办市场价分层统计
+    tier_distribution = {
+        "🏠 海景房": {"count": 0, "value": 0, "color": "#F56C6C"},  # > 3000
+        "💎 中端": {"count": 0, "value": 0, "color": "#409EFF"},   # 1000-3000
+        "🧩 入门": {"count": 0, "value": 0, "color": "#67C23A"}    # < 1000
+    }
+    
+    for holding in holdings:
+        market_price = holding.get("current_price", 0)
+        market_value = market_price * holding.get("stock", 1)
+        
+        # 根据市场价判断分层
+        if market_price > 3000:  # 海景房 > 3000
+            tier = "🏠 海景房"
+        elif market_price >= 1000:  # 中端 1000-3000
+            tier = "💎 中端"
+        else:  # 入门 < 1000
+            tier = "🧩 入门"
+        
+        tier_distribution[tier]["count"] += 1
+        tier_distribution[tier]["value"] += market_value
+    
+    # 转换为饼图数据格式
+    tier_pie_data = []
+    for tier, data in tier_distribution.items():
+        if data["count"] > 0:  # 只显示有数据的分层
+            tier_pie_data.append({
+                "name": tier,
+                "value": round(data["value"], 2),
+                "count": data["count"],
+                "itemStyle": {"color": data["color"]}
+            })
+    
     # 检查是否需要返回新的token（自动续期）
     if hasattr(request.state, 'new_token'):
         response.headers["X-Refresh-Token"] = request.state.new_token
@@ -376,7 +484,10 @@ def get_asset_dashboard(
         "rankings": rankings,
         "advice": advice,
         "holdings": holdings,
-        "risk_distribution": risk_pie_data  # 风险状态分布（健康度仪表盘）
+        "risk_distribution": risk_pie_data,  # 风险状态分布（健康度仪表盘）
+        "manufacturer_distribution": manufacturer_pie_data,  # 制造商分布（IP分布）
+        "holding_period_distribution": holding_period_pie_data,  # 持仓周期分布
+        "tier_distribution": tier_pie_data  # 仓位分层分布
     }
 
 @router.post("/price-history", response_model=AssetPriceHistorySchema)

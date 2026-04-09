@@ -141,8 +141,35 @@
         <!-- 资产分布和收益曲线 -->
         <div class="chart-section">
           <div class="chart-item">
-            <div class="section-title">资产分布饼图</div>
+            <div class="section-title">{{ pieChartTitle }}</div>
             <div ref="pieChart" class="pie-chart"></div>
+            <!-- 饼图切换指示器 -->
+            <div class="pie-chart-dots">
+              <span 
+                class="dot" 
+                :class="{ active: currentPieChart === 'risk' }"
+                @click="switchPieChart('risk')"
+                title="风险状态分布"
+              ></span>
+              <span 
+                class="dot" 
+                :class="{ active: currentPieChart === 'manufacturer' }"
+                @click="switchPieChart('manufacturer')"
+                title="IP分布"
+              ></span>
+              <span 
+                class="dot" 
+                :class="{ active: currentPieChart === 'holding_period' }"
+                @click="switchPieChart('holding_period')"
+                title="持仓周期分布"
+              ></span>
+              <span 
+                class="dot" 
+                :class="{ active: currentPieChart === 'tier' }"
+                @click="switchPieChart('tier')"
+                title="仓位分层分布"
+              ></span>
+            </div>
           </div>
           <div class="chart-item">
             <div class="section-title">收益曲线(近1月)</div>
@@ -894,6 +921,9 @@ export default {
     const pieChart = ref(null)
     const pieChartInstance = ref(null)
     const pieChartInitialized = ref(false)
+    const currentPieChart = ref('risk') // 'risk', 'manufacturer', 'holding_period', 'tier'
+    const pieChartTimer = ref(null) // 饼图自动轮播定时器
+    const pieChartTypes = ['risk', 'manufacturer', 'holding_period', 'tier'] // 饼图类型列表
     const profitChart = ref(null)
     const profitChartInstance = ref(null)
     const selectedHoldingFilter = ref('all')
@@ -1101,6 +1131,50 @@ export default {
       })
     }
 
+    // 计算属性：饼图标题
+    const pieChartTitle = computed(() => {
+      if (currentPieChart.value === 'risk') {
+        return '资产风险状态饼图'
+      } else if (currentPieChart.value === 'manufacturer') {
+        return '资产厂商分布饼图'
+      } else if (currentPieChart.value === 'holding_period') {
+        return '资产持仓周期饼图'
+      } else {
+        return '资产仓位分层饼图'
+      }
+    })
+    
+    // 启动饼图自动轮播
+    const startPieChartAutoPlay = () => {
+      // 清除已有定时器
+      if (pieChartTimer.value) {
+        clearInterval(pieChartTimer.value)
+      }
+      // 每分钟切换一次
+      pieChartTimer.value = setInterval(() => {
+        const currentIndex = pieChartTypes.indexOf(currentPieChart.value)
+        const nextIndex = (currentIndex + 1) % pieChartTypes.length
+        currentPieChart.value = pieChartTypes[nextIndex]
+        initPieChart()
+      }, 60000) // 60秒 = 1分钟
+    }
+
+    // 停止饼图自动轮播
+    const stopPieChartAutoPlay = () => {
+      if (pieChartTimer.value) {
+        clearInterval(pieChartTimer.value)
+        pieChartTimer.value = null
+      }
+    }
+
+    // 切换饼图
+    const switchPieChart = (type) => {
+      currentPieChart.value = type
+      initPieChart()
+      // 用户手动切换后，重新启动自动轮播（从当前选中的开始计时）
+      startPieChartAutoPlay()
+    }
+    
     // 初始化资产分布饼图（风险状态分布 - 健康度仪表盘）
     const initPieChart = () => {
       if (!pieChart.value) {
@@ -1113,11 +1187,26 @@ export default {
       
       pieChartInstance.value = echarts.init(pieChart.value)
       
-      // 使用后端返回的风险状态分布数据
-      const riskData = dashboardData.value?.risk_distribution || []
+      // 根据当前选中的饼图类型获取数据
+      let chartData = []
+      let chartName = ''
+      
+      if (currentPieChart.value === 'risk') {
+        chartData = dashboardData.value?.risk_distribution || []
+        chartName = '健康度分布'
+      } else if (currentPieChart.value === 'manufacturer') {
+        chartData = dashboardData.value?.manufacturer_distribution || []
+        chartName = 'IP分布'
+      } else if (currentPieChart.value === 'holding_period') {
+        chartData = dashboardData.value?.holding_period_distribution || []
+        chartName = '持仓周期分布'
+      } else {
+        chartData = dashboardData.value?.tier_distribution || []
+        chartName = '仓位分层分布'
+      }
       
       // 如果没有数据，显示空状态
-      if (riskData.length === 0) {
+      if (chartData.length === 0) {
         const option = {
           title: {
             text: '暂无数据',
@@ -1134,7 +1223,7 @@ export default {
       }
       
       // 提取图例数据
-      const legendData = riskData.map(item => item.name)
+      const legendData = chartData.map(item => item.name)
       
       const option = {
         tooltip: {
@@ -1154,11 +1243,11 @@ export default {
         },
         series: [
           {
-            name: '健康度分布',
+            name: chartName,
             type: 'pie',
             radius: ['40%', '70%'],  // 环形图
-            center: ['60%', '50%'],
-            data: riskData,
+            center: ['50%', '50%'],
+            data: chartData,
             emphasis: {
               itemStyle: {
                 shadowBlur: 10,
@@ -1911,6 +2000,14 @@ export default {
       if (localStorage.getItem('token') && !userStore.currentUser) {
         userStore.fetchUser()
       }
+      // 启动饼图自动轮播（默认展示风险状态饼图）
+      startPieChartAutoPlay()
+    })
+
+    // 组件卸载时
+    onUnmounted(() => {
+      // 停止饼图自动轮播
+      stopPieChartAutoPlay()
     })
     
     return {
@@ -1943,6 +2040,10 @@ export default {
       klineTabs,
       selectedKlineTab,
       statusTable,
+      // 饼图相关
+      currentPieChart,
+      pieChartTitle,
+      switchPieChart,
       // 年度消费上限设置
       annualLimitDialogVisible,
       annualLimitForm,
@@ -2443,6 +2544,31 @@ export default {
 .profit-chart {
   height: 300px;
   width: 100%;
+}
+
+/* 饼图切换指示器 */
+.pie-chart-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pie-chart-dots .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #dcdfe6;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.pie-chart-dots .dot:hover {
+  background-color: #c0c4cc;
+}
+
+.pie-chart-dots .dot.active {
+  background-color: #409eff;
 }
 
 /* 盈亏分析 */
