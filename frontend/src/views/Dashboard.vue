@@ -107,29 +107,79 @@
 
         <!-- 指数对比 -->
         <div class="index-comparison">
+          <!-- 上证指数 -->
           <div class="index-item">
             <span class="label">上证指数:</span>
-            <span class="value">{{ dashboardData?.summary?.sh_index || 3200 }}</span>
+            <span class="value">{{ dashboardData?.summary?.sh_index_comparison?.current_value || dashboardData?.summary?.sh_index || 3200 }}</span>
+            <span 
+              v-if="dashboardData?.summary?.sh_index_comparison?.has_history"
+              class="index-change"
+              :class="{
+                up: dashboardData?.summary?.sh_index_comparison?.trend === 'up',
+                down: dashboardData?.summary?.sh_index_comparison?.trend === 'down',
+                flat: dashboardData?.summary?.sh_index_comparison?.trend === 'flat'
+              }"
+            >
+              <template v-if="dashboardData?.summary?.sh_index_comparison?.trend === 'up'">
+                ▲{{ dashboardData?.summary?.sh_index_comparison?.change_percentage }}%
+              </template>
+              <template v-else-if="dashboardData?.summary?.sh_index_comparison?.trend === 'down'">
+                ▼{{ Math.abs(dashboardData?.summary?.sh_index_comparison?.change_percentage) }}%
+              </template>
+              <template v-else>
+                -{{ dashboardData?.summary?.sh_index_comparison?.change_percentage }}%
+              </template>
+            </span>
+            <span v-else class="index-change no-history">--</span>
           </div>
+          
+          <!-- 沪深300 -->
           <div class="index-item">
-            <span class="label">你的塑料指数:</span>
+            <span class="label">沪深300:</span>
+            <span class="value">{{ dashboardData?.summary?.hs300_index_comparison?.current_value || dashboardData?.summary?.hs300_index || 4000 }}</span>
+            <span 
+              v-if="dashboardData?.summary?.hs300_index_comparison?.has_history"
+              class="index-change"
+              :class="{
+                up: dashboardData?.summary?.hs300_index_comparison?.trend === 'up',
+                down: dashboardData?.summary?.hs300_index_comparison?.trend === 'down',
+                flat: dashboardData?.summary?.hs300_index_comparison?.trend === 'flat'
+              }"
+            >
+              <template v-if="dashboardData?.summary?.hs300_index_comparison?.trend === 'up'">
+                ▲{{ dashboardData?.summary?.hs300_index_comparison?.change_percentage }}%
+              </template>
+              <template v-else-if="dashboardData?.summary?.hs300_index_comparison?.trend === 'down'">
+                ▼{{ Math.abs(dashboardData?.summary?.hs300_index_comparison?.change_percentage) }}%
+              </template>
+              <template v-else>
+                -{{ dashboardData?.summary?.hs300_index_comparison?.change_percentage }}%
+              </template>
+            </span>
+            <span v-else class="index-change no-history">--</span>
+          </div>
+          
+          <!-- 塑料手办指数 -->
+          <div class="index-item">
+            <span class="label">塑料手办指数:</span>
             <span class="value">{{ dashboardData?.summary?.plastic_index || 2847 }}</span>
           </div>
+          
+          <!-- 跑赢/跑输大盘 -->
           <div class="index-item">
-            
-            <span 
-              class="value" 
+            <span
+              class="value"
               :class="{
-                positive: (dashboardData?.summary?.outperform_percentage || 0) > 0,
-                negative: (dashboardData?.summary?.outperform_percentage || 0) < 0,
+                'a-up': (dashboardData?.summary?.outperform_percentage || 0) > 0,
+                'a-down': (dashboardData?.summary?.outperform_percentage || 0) < 0,
                 neutral: (dashboardData?.summary?.outperform_percentage || 0) === 0
               }"
             >
               <template v-if="(dashboardData?.summary?.outperform_percentage || 0) > 0">
-                🟢 跑赢大盘+{{ dashboardData?.summary?.outperform_percentage }}% ↑
+                🔴 跑赢大盘+{{ dashboardData?.summary?.outperform_percentage }}%
               </template>
               <template v-else-if="(dashboardData?.summary?.outperform_percentage || 0) < 0">
-                🔴 跑输大盘{{ dashboardData?.summary?.outperform_percentage }}% ↓
+                🟢 跑输大盘{{ dashboardData?.summary?.outperform_percentage }}%
               </template>
               <template v-else>
                 ➖ 持平
@@ -1238,7 +1288,7 @@ export default {
           left: 'left',
           data: legendData,
           textStyle: {
-            fontSize: 12
+            fontSize: 14
           }
         },
         series: [
@@ -2290,7 +2340,7 @@ export default {
 }
 
 .index-item .label {
-  font-size: 14px;
+  font-size: 18px;
   color: #666;
 }
 
@@ -2302,6 +2352,42 @@ export default {
 
 .index-item .value.positive {
   color: #4CAF50;
+}
+
+/* 指数涨跌样式 - 资产看板专用 */
+.index-item .index-change {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.index-item .index-change.up {
+  color: #F56C6C;  /* 红色 - 上涨 */
+}
+
+.index-item .index-change.down {
+  color: #67C23A;  /* 绿色 - 下跌 */
+}
+
+.index-item .index-change.flat {
+  color: #909399;  /* 灰色 - 持平 */
+}
+
+.index-item .index-change.no-history {
+  color: #C0C4CC;
+  font-weight: normal;
+}
+
+/* A股风格颜色 - 跑赢跑输大盘专用 */
+.index-item .value.a-up {
+  color: #F56C6C;  /* 红色 - 跑赢（A股习惯：红涨） */
+}
+
+.index-item .value.a-down {
+  color: #67C23A;  /* 绿色 - 跑输（A股习惯：绿跌） */
 }
 
 /* 主内容区 */

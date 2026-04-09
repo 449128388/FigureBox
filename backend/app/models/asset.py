@@ -63,6 +63,29 @@ class StockIndexCache(Base):
     request_date = Column(Date, nullable=False)  # 请求日期
 
 
+class StockIndexHistory(Base):
+    """上证指数历史记录（保存每次请求的数据）"""
+    __tablename__ = "stock_index_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    index_code = Column(String(20), nullable=False, index=True)  # 指数代码，如 sh000001
+    index_name = Column(String(50), nullable=False)  # 指数名称
+    current_value = Column(Float, nullable=False)  # 当前指数值
+    change_value = Column(Float, default=0)  # 涨跌值
+    change_percentage = Column(Float, default=0)  # 涨跌幅百分比
+    prev_close = Column(Float, nullable=True)  # 昨日收盘价
+    open_value = Column(Float, nullable=True)  # 今日开盘价
+    request_time = Column(DateTime(timezone=True), server_default=func.now())  # 请求时间
+    request_date = Column(Date, nullable=False)  # 请求日期
+
+    # 关系
+    # 可以添加索引优化查询
+    __table_args__ = (
+        # 为常用查询创建复合索引
+        {'mysql_engine': 'InnoDB'},
+    )
+
+
 class AssetValueCache(Base):
     """资产市值缓存（用于计算日涨跌）"""
     __tablename__ = "asset_value_cache"
