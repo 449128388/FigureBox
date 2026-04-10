@@ -123,12 +123,19 @@ class IndexService:
         config = INDEX_CONFIG[index_code]
         cache = db.query(StockIndexCache).filter(StockIndexCache.index_code == index_code).first()
         
+        # 检查是否需要重置请求计数（系统时间已经变成第二天）
+        if cache and cache.request_date != today:
+            cache.request_count = 0
+            cache.request_date = today
+            db.commit()
+        
         if cls._check_need_fetch(cache, today) and (not cache or cache.request_count < cls.DAILY_REQUEST_LIMIT):
-            lock_key = f"{index_code}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            lock_key = index_code  # 使用指数代码作为固定锁键
             
             with _index_fetch_locks_lock:
                 if lock_key in _index_fetch_locks:
-                    time.sleep(0.5)
+                    # 等待锁释放
+                    time.sleep(1)  # 等待1秒后重新检查
                     db.refresh(cache)
                     return cls._get_cached_response(cache) if cache else cls._default_response(index_code)
                 _index_fetch_locks[lock_key] = True

@@ -147,6 +147,7 @@ export const useOrderStore = defineStore('order', {
       this.orders = response
       // 同时获取未支付尾款总额
       await this.fetchUnpaidBalance()
+      return response
     },
     async createOrder(order) {
       await axios.post('/orders/', order)

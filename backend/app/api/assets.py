@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta, date
 from typing import List, Optional
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from app.models.database import get_db
 from app.models.asset import (
@@ -31,7 +33,7 @@ router = APIRouter()
 
 
 @router.get("/dashboard")
-def get_asset_dashboard(
+async def get_asset_dashboard(
     request: Request,
     response: Response,
     time_range: str = Query("1m", description="时间范围: 1m, 3m, 1y, all"),
@@ -68,16 +70,56 @@ def get_asset_dashboard(
         figures, total_assets
     )
     
-    # 使用服务层获取上证指数和沪深300指数
-    sh_index_data = IndexService.get_cached_sh_index(db)
+    # 并行获取指数数据（使用线程池避免阻塞事件循环）
+    async def fetch_index_data():
+        # 为每个线程创建独立的数据库会话
+        from app.models.database import get_db
+        
+        def get_sh_index():
+            db_session = next(get_db())
+            try:
+                return IndexService.get_cached_sh_index(db_session)
+            finally:
+                db_session.close()
+        
+        def get_hs300_index():
+            db_session = next(get_db())
+            try:
+                return IndexService.get_cached_hs300_index(db_session)
+            finally:
+                db_session.close()
+        
+        def get_sh_comparison():
+            db_session = next(get_db())
+            try:
+                return IndexService.get_index_comparison_data(db_session, "sh000001")
+            finally:
+                db_session.close()
+        
+        def get_hs300_comparison():
+            db_session = next(get_db())
+            try:
+                return IndexService.get_index_comparison_data(db_session, "sh000300")
+            finally:
+                db_session.close()
+        
+        with ThreadPoolExecutor() as executor:
+            # 提交所有指数数据获取任务
+            loop = asyncio.get_event_loop()
+            tasks = [
+                loop.run_in_executor(executor, get_sh_index),
+                loop.run_in_executor(executor, get_hs300_index),
+                loop.run_in_executor(executor, get_sh_comparison),
+                loop.run_in_executor(executor, get_hs300_comparison)
+            ]
+            # 并行执行并等待所有任务完成
+            return await asyncio.gather(*tasks)
+    
+    # 执行并行获取
+    sh_index_data, hs300_index_data, sh_index_comparison, hs300_index_comparison = await fetch_index_data()
+    
     sh_index = sh_index_data["current_value"]
-    
-    hs300_index_data = IndexService.get_cached_hs300_index(db)
     hs300_index = hs300_index_data["current_value"]
-    
-    # 使用服务层获取指数对比数据
-    sh_index_comparison = IndexService.get_index_comparison_data(db, "sh000001")
-    hs300_index_comparison = IndexService.get_index_comparison_data(db, "sh000300")
     
     # 使用服务层计算跑赢大盘百分比
     outperform_percentage = AssetCalculationService.calculate_outperform_percentage(
