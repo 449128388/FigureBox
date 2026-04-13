@@ -717,128 +717,24 @@
 
     <!-- 收藏家模式内容 -->
     <div v-else class="collector-mode">
-      <!-- 头部 -->
-      <div class="collector-header">
-        <div class="avatar">[头像]</div>
-        <h3>我的塑料资产</h3>
-        <div class="header-actions">
-          <el-button @click="sharePoster">分享海报</el-button>
-          <el-button @click="privacySettings">
-            隐私设置 <el-icon><View /></el-icon>
-          </el-button>
-        </div>
-      </div>
-
-      <!-- 资产概览 -->
-      <div class="collector-overview">
-        <div class="overview-card">
-          <div class="card-icon">💸</div>
-          <div class="card-label">总投入</div>
-          <div class="card-value">¥{{ formatNumber(collectorData?.summary?.total_investment || 0) }}</div>
-        </div>
-        <div class="overview-card">
-          <div class="card-icon">💎</div>
-          <div class="card-label">现估值</div>
-          <div class="card-value">¥{{ formatNumber(collectorData?.summary?.total_valuation || 0) }}</div>
-        </div>
-        <div class="overview-card">
-          <div class="card-icon">💰</div>
-          <div class="card-label">回血额</div>
-          <div class="card-value">¥{{ formatNumber(collectorData?.summary?.blood_money || 0) }}</div>
-        </div>
-      </div>
-
-      <!-- 高价值藏品 -->
-      <div class="valuable-collections">
-        <div class="section-title">
-          <el-icon><Picture /></el-icon> 高价值藏品
-        </div>
-        <div class="collections-grid">
-          <div 
-            v-for="item in collectorData?.valuable_items || []" 
-            :key="item.id"
-            class="collection-item"
-            :class="{ 'sold-item': item.status === '已转卖' }"
-          >
-            <div class="item-image">
-              <img :src="item.image" :alt="item.name" />
-            </div>
-            <div v-if="item.status === '已转卖'" class="item-status sold">
-              已转卖
-            </div>
-            <div v-else class="item-profit" :class="{ positive: item.profit >= 0, negative: item.profit < 0 }">
-              {{ item.profit >= 0 ? '💹+' : '🔻' }}¥{{ Math.abs(item.profit) }}
-            </div>
-            <div class="item-status">
-              {{ item.status }}
-            </div>
-            <div v-if="item.sold_profit" class="sold-profit">
-              利润¥{{ item.sold_profit }}
-            </div>
-          </div>
-          <!-- 更多按钮 -->
-          <div class="collection-item more-item">
-            <div class="more-content">
-              <span>+15</span>
-              <p>更多</p>
-            </div>
-          </div>
-          <div class="collection-item more-item">
-            <div class="more-content">
-              <span>+15</span>
-              <p>更多</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 标签云 -->
-      <div class="tag-cloud">
-        <div class="section-title">
-          <el-icon><CollectionTag /></el-icon> 标签云
-        </div>
-        <div class="tags">
-          <span 
-            v-for="tag in collectorData?.tags || []" 
-            :key="tag.name"
-            class="tag"
-            @click="filterByTag(tag.name)"
-          >
-            #{{ tag.name }}({{ tag.count }})
-          </span>
-        </div>
-      </div>
-
-      <!-- 动态流 -->
-      <div class="activity-feed">
-        <div class="section-title">
-          <el-icon><ChatDotRound /></el-icon> 动态流
-        </div>
-        <div class="activities">
-          <div 
-            v-for="(activity, index) in collectorData?.activities || []" 
-            :key="index"
-            class="activity-item"
-          >
-            <div class="activity-date">
-              📅 {{ activity.date }}
-            </div>
-            <div class="activity-content">
-              {{ activity.content }}
-            </div>
-            <div class="activity-actions">
-              <el-button 
-                v-for="action in activity.actions" 
-                :key="action"
-                size="small"
-                @click="handleActivityAction(action, activity)"
-              >
-                {{ action }}
-              </el-button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CollectorHeader
+        @share-poster="sharePoster"
+        @privacy-settings="privacySettings"
+      />
+      
+      <CollectorOverview :collector-data="collectorData" />
+      
+      <ValuableCollections :collector-data="collectorData" />
+      
+      <TagCloud
+        :collector-data="collectorData"
+        @filter-by-tag="filterByTag"
+      />
+      
+      <ActivityFeed
+        :collector-data="collectorData"
+        @activity-action="handleActivityAction"
+      />
     </div>
 
     <!-- 预警设置对话框 -->
@@ -923,6 +819,16 @@ import * as echarts from 'echarts'
 import { Refresh, Bell, TrendCharts, Top, Warning, List, ArrowUp, ArrowDown, Minus, View, Picture, CollectionTag, ChatDotRound, ArrowLeft, Download, Plus, Money, Close } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+// 导入收藏家模式组件
+import CollectorHeader from './Dashboard/components/collector/CollectorHeader.vue'
+import CollectorOverview from './Dashboard/components/collector/CollectorOverview.vue'
+import ValuableCollections from './Dashboard/components/collector/ValuableCollections.vue'
+import TagCloud from './Dashboard/components/collector/TagCloud.vue'
+import ActivityFeed from './Dashboard/components/collector/ActivityFeed.vue'
+
+// 导入收藏家模式 composable
+import { useCollectorData } from './Dashboard/composables/useCollectorData'
+
 export default {
   name: 'Dashboard',
   components: {
@@ -943,7 +849,13 @@ export default {
     Download,
     Plus,
     Money,
-    Close
+    Close,
+    // 注册收藏家模式组件
+    CollectorHeader,
+    CollectorOverview,
+    ValuableCollections,
+    TagCloud,
+    ActivityFeed
   },
   setup() {
     const router = useRouter()
@@ -951,8 +863,10 @@ export default {
     const klineChart = ref(null)
     const chartInstance = ref(null)
     const dashboardData = ref(null)
-    const collectorData = ref(null)
     const loading = ref(true)
+    
+    // 使用收藏家模式 composable
+    const { collectorData, loading: collectorLoading, fetchCollectorData, sharePoster, privacySettings, filterByTag, handleActivityAction } = useCollectorData()
     const activeView = ref('asset')
     const selectedTimeRange = ref('1m')
     const showHoldings = ref(true)
@@ -1658,101 +1572,12 @@ export default {
       })
     }
     
-    // 获取收藏家模式数据
-    const fetchCollectorData = async () => {
-      loading.value = true
-      try {
-        const res = await axios.get('/assets/collector/dashboard')
-        collectorData.value = res
-      } catch (error) {
-        console.error('获取收藏家模式数据失败:', error)
-        // 生成模拟数据
-        collectorData.value = {
-          summary: {
-            total_investment: 50000,
-            total_valuation: 80000,
-            blood_money: 12000
-          },
-          valuable_items: [
-            {
-              id: 1,
-              name: "初音韶华",
-              image: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=anime%20figure%20Hatsune%20Miku%20with%20colorful%20hair%20and%20modern%20outfit&image_size=square",
-              profit: 1200,
-              status: "海景房"
-            },
-            {
-              id: 2,
-              name: "蕾姆婚纱",
-              image: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=anime%20figure%20Rem%20in%20wedding%20dress%20blue%20hair&image_size=square",
-              profit: 800,
-              status: "小赚"
-            },
-            {
-              id: 3,
-              name: "Saber",
-              image: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=anime%20figure%20Saber%20from%20Fate%20series%20in%20blue%20dress&image_size=square",
-              profit: -200,
-              status: "破发"
-            },
-            {
-              id: 4,
-              name: "艾米莉亚",
-              image: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=anime%20figure%20Emilia%20with%20silver%20hair%20and%20blue%20dress&image_size=square",
-              status: "已转卖",
-              sold_profit: 500
-            }
-          ],
-          tags: [
-            {"name": "海景房", "count": 3},
-            {"name": "破发区", "count": 5},
-            {"name": "待补款", "count": 2},
-            {"name": "已出坑", "count": 8}
-          ],
-          activities: [
-            {
-              "date": "2026-03-15",
-              "content": "入手初音韶华 180天，估值上涨150%",
-              "actions": ["生成分享卡片", "查看详情"]
-            },
-            {
-              "date": "2026-02-20",
-              "content": "蕾姆婚纱补款完成，等待发货",
-              "actions": ["查看详情"]
-            }
-          ]
-        }
-      } finally {
-        loading.value = false
-      }
-    }
-    
     // 切换模式
     const toggleMode = () => {
       currentMode.value = currentMode.value === 'reseller' ? 'collector' : 'reseller'
       if (currentMode.value === 'collector') {
         fetchCollectorData()
       }
-    }
-    
-    // 分享海报
-    const sharePoster = () => {
-      ElMessage.info('分享海报功能开发中')
-    }
-    
-    // 隐私设置
-    const privacySettings = () => {
-      ElMessage.info('隐私设置功能开发中')
-    }
-    
-    // 按标签筛选
-    const filterByTag = (tagName) => {
-      ElMessage.info(`按标签 ${tagName} 筛选`)
-    }
-    
-    // 处理动态流操作
-    const handleActivityAction = (action, activity) => {
-      ElMessage.info(`执行操作: ${action}`)
     }
     
     // 获取交易数据
@@ -2066,6 +1891,7 @@ export default {
       tradeData,
       marketData,
       loading,
+      collectorLoading,
       activeView,
       viewTabs,
       selectedTimeRange,
@@ -2111,6 +1937,7 @@ export default {
       cutLoss,
       getStatusClass,
       toggleMode,
+      fetchCollectorData,
       sharePoster,
       privacySettings,
       filterByTag,
@@ -2940,323 +2767,7 @@ export default {
   font-weight: 500;
 }
 
-/* 收藏家模式 */
-.collector-mode {
-  padding: 20px;
-}
 
-/* 收藏家头部 */
-.collector-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 30px;
-  padding: 20px;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.collector-header .avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background-color: #f0f0f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-}
-
-.collector-header h3 {
-  margin: 0;
-  color: #333;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.collector-header .header-actions {
-  display: flex;
-  gap: 10px;
-}
-
-/* 资产概览 */
-.collector-overview {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.overview-card {
-  background-color: white;
-  padding: 25px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  transition: transform 0.3s ease;
-}
-
-.overview-card:hover {
-  transform: translateY(-5px);
-}
-
-.overview-card .card-icon {
-  font-size: 32px;
-  margin-bottom: 10px;
-}
-
-.overview-card .card-label {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 5px;
-}
-
-.overview-card .card-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #333;
-}
-
-/* 高价值藏品 */
-.valuable-collections {
-  margin-bottom: 30px;
-}
-
-.valuable-collections .section-title {
-  margin-bottom: 20px;
-  color: #333;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.collections-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.collection-item {
-  background-color: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  position: relative;
-  transition: transform 0.3s ease;
-}
-
-.collection-item:hover {
-  transform: translateY(-5px);
-}
-
-.collection-item .item-image {
-  width: 100%;
-  height: 200px;
-  overflow: hidden;
-}
-
-.collection-item .item-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.collection-item:hover .item-image img {
-  transform: scale(1.05);
-}
-
-.collection-item .item-profit {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 5px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.collection-item .item-profit.positive {
-  background-color: rgba(76, 175, 80, 0.8);
-}
-
-.collection-item .item-profit.negative {
-  background-color: rgba(244, 67, 54, 0.8);
-}
-
-.collection-item .item-status {
-  padding: 15px;
-  text-align: center;
-  font-weight: bold;
-  color: #333;
-}
-
-.collection-item.sold-item .item-status.sold {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  background-color: rgba(255, 152, 0, 0.8);
-  color: white;
-  padding: 5px;
-  font-size: 14px;
-}
-
-.collection-item.sold-item .sold-profit {
-  padding: 0 15px 15px;
-  text-align: center;
-  color: #666;
-  font-size: 14px;
-}
-
-.collection-item.more-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f5f5f5;
-  border: 2px dashed #e0e0e0;
-  min-height: 200px;
-}
-
-.collection-item.more-item .more-content {
-  text-align: center;
-}
-
-.collection-item.more-item .more-content span {
-  display: block;
-  font-size: 32px;
-  font-weight: bold;
-  color: #999;
-  margin-bottom: 10px;
-}
-
-.collection-item.more-item .more-content p {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-/* 标签云 */
-.tag-cloud {
-  margin-bottom: 30px;
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.tag-cloud .section-title {
-  margin-bottom: 20px;
-  color: #333;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.tag-cloud .tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.tag-cloud .tag {
-  background-color: #f0f0f0;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.tag-cloud .tag:hover {
-  background-color: #1976D2;
-  color: white;
-  transform: scale(1.05);
-}
-
-/* 动态流 */
-.activity-feed {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.activity-feed .section-title {
-  margin-bottom: 20px;
-  color: #333;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.activity-feed .activities {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.activity-feed .activity-item {
-  padding: 15px;
-  border-left: 4px solid #1976D2;
-  background-color: #f9f9f9;
-  border-radius: 0 8px 8px 0;
-}
-
-.activity-feed .activity-date {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 10px;
-}
-
-.activity-feed .activity-content {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 15px;
-  line-height: 1.4;
-}
-
-.activity-feed .activity-actions {
-  display: flex;
-  gap: 10px;
-}
-
-/* 响应式设计 */
-@media (max-width: 1200px) {
-  .collector-overview {
-    grid-template-columns: 1fr;
-  }
-  
-  .collections-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .collector-header {
-    flex-direction: column;
-    gap: 20px;
-    text-align: center;
-  }
-  
-  .collector-header .header-actions {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-@media (max-width: 768px) {
-  .collections-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .activity-feed .activity-actions {
-    flex-direction: column;
-  }
-  
-  .activity-feed .activity-actions .el-button {
-    width: 100%;
-  }
-}
 
 /* 交易相关样式 */
 .trade-section {
