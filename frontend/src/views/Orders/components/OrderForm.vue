@@ -1,3 +1,21 @@
+<!--
+  OrderForm.vue - 订单表单组件
+
+  功能说明：
+  - 提供订单添加和编辑功能
+  - 包含手办选择、定金、尾款、总价、购买日期、出货日期、状态等字段
+  - 支持表单验证和错误提示
+  - 编辑模式下禁用手办选择
+
+  组件依赖：
+  - 使用 Element Plus 的 el-select、el-input-number、el-date-picker、el-radio-group 组件
+
+  维护提示：
+  - 通过 visible 属性控制显示
+  - 通过 isEditing 属性判断是添加还是编辑模式
+  - 表单提交通过 saveOrder 事件向父组件传递
+  - 手办选择在编辑模式下被禁用
+-->
 <template>
   <div class="form-overlay" v-if="visible">
     <div class="form-container">

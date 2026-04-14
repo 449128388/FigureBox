@@ -1,3 +1,19 @@
+<!--
+  TradeStats.vue - 交易统计组件
+
+  功能说明：
+  - 展示本月交易统计数据
+  - 包含买入笔数和金额、卖出笔数和金额、净现金流等指标
+  - 根据净现金流情况显示不同颜色和状态
+
+  组件依赖：
+  - 接收 displayTradeData 作为 props，包含 monthly_stats 数据
+  - 接收 formatNumber 作为 props 用于数字格式化
+
+  维护提示：
+  - 净现金流为正时显示绿色，为负时显示红色
+  - 使用 Math.abs 处理负值显示
+-->
 <template>
   <div class="trade-stats">
     <h4>本月交易统计</h4>

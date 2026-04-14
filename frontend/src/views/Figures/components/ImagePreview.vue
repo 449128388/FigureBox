@@ -1,3 +1,19 @@
+<!--
+  ImagePreview.vue - 图片预览组件
+
+  功能说明：
+  - 提供图片预览功能
+  - 显示大图预览
+  - 支持点击关闭和点击背景关闭
+
+  组件依赖：
+  - 无外部组件依赖
+
+  维护提示：
+  - 接收 show 和 image 作为 props
+  - 关闭事件通过 close 事件向父组件传递
+  - 点击背景区域会触发关闭事件
+-->
 <template>
   <div v-if="show" class="image-preview-modal" @click.self="$emit('close')">
     <div class="image-preview-content" @click.stop>

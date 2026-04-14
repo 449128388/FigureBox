@@ -1,3 +1,18 @@
+<!--
+  FigureHeader.vue - 手办详情头部组件
+
+  功能说明：
+  - 展示手办的中文名称
+  - 提供返回列表的按钮
+  - 布局采用左右对齐的方式
+
+  组件依赖：
+  - 接收 figure 作为 props，包含 name 字段
+
+  维护提示：
+  - 返回按钮通过 $router.push('/figures') 跳转
+  - 布局使用 flex 实现左右对齐
+-->
 <template>
   <div class="header">
     <h1>中文名称：{{ figure.name }}</h1>

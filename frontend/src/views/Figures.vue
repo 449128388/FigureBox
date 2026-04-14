@@ -222,11 +222,15 @@ export default {
       importFigures
     } = useImportFigures()
 
-    const handleImport = async (data) => {
+    const handleImport = async (data, callback) => {
       const result = await importFigures(data)
       if (result.success) {
         // 刷新手办列表
         await fetchFigures()
+      }
+      // 如果有回调函数，调用它返回结果
+      if (callback && typeof callback === 'function') {
+        callback(result)
       }
       return result
     }

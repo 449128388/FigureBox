@@ -1,3 +1,21 @@
+<!--
+  TradeFlow.vue - 交易流水组件
+
+  功能说明：
+  - 展示交易流水记录，按时间倒序排列
+  - 支持按交易类型、年份、月份筛选
+  - 显示交易详情，包括手办名称、类型、金额、日期等
+  - 支持点击操作按钮处理交易
+
+  组件依赖：
+  - 接收 tradeData 作为 props，包含交易记录数据
+  - 接收 formatNumber 作为 props 用于数字格式化
+  - 接收 getMockTradeData 作为 props 用于获取模拟数据
+
+  维护提示：
+  - 筛选功能通过 selectedTradeType、selectedTradeYear、selectedTradeMonth 控制
+  - 交易操作通过 handleTradeAction 方法处理
+-->
 <template>
   <div class="trade-flow">
     <div class="flow-header">

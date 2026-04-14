@@ -1,3 +1,20 @@
+<!--
+  ChartSection.vue - 资产分布和收益曲线组件
+
+  功能说明：
+  - 展示饼图和折线图
+  - 饼图支持多种维度切换：风险状态分布、IP分布、持仓周期分布、仓位分层分布
+  - 折线图展示收益走势
+  - 饼图支持自动轮播
+
+  组件依赖：
+  - 接收 dashboardData 作为 props
+  - 使用 ECharts 库绘制图表
+
+  维护提示：
+  - 饼图切换通过 switchPieChart 方法处理
+  - 图表初始化和数据更新在 mounted 和 watch 中处理
+-->
 <template>
   <div class="chart-section">
     <div class="chart-item">

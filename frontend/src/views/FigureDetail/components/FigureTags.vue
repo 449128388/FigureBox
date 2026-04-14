@@ -1,3 +1,19 @@
+<!--
+  FigureTags.vue - 手办标签组件
+
+  功能说明：
+  - 展示手办的标签信息
+  - 使用 Element Plus 的 el-tag 组件显示标签
+  - 仅在有标签时显示
+
+  组件依赖：
+  - 接收 figure 作为 props，包含 tags 数组
+  - 使用 Element Plus 的 el-tag 组件
+
+  维护提示：
+  - 使用 v-if 条件渲染，仅当有标签时显示（figure.tags && figure.tags.length > 0）
+  - 标签使用 light 效果样式
+-->
 <template>
   <div class="info-section" v-if="figure.tags && figure.tags.length > 0">
     <h2>标签</h2>

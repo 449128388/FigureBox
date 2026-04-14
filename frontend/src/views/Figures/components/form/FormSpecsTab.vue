@@ -1,3 +1,19 @@
+<!--
+  FormSpecsTab.vue - 手办表单规格信息标签页组件
+
+  功能说明：
+  - 提供手办规格相关信息的输入表单
+  - 包含制造商、比例、材质、尺寸等字段
+  - 支持表单验证和错误提示
+
+  组件依赖：
+  - 使用 Element Plus 的 el-input 组件
+
+  维护提示：
+  - 接收 figure 作为 props，双向绑定表单数据
+  - 接收各种错误信息作为 props 显示错误提示
+  - 输入事件通过 validate-* 事件向父组件传递，触发验证
+-->
 <template>
   <div class="form-grid">
     <div class="form-group">

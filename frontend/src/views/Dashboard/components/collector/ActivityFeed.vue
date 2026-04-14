@@ -1,3 +1,18 @@
+<!--
+  ActivityFeed.vue - 收藏家模式动态流组件
+
+  功能说明：
+  - 展示手办收藏相关的动态信息
+  - 显示活动日期、内容和可执行操作
+  - 支持点击操作按钮触发相应功能
+
+  组件依赖：
+  - 接收 collectorData 作为 props，包含 activities 数组
+
+  维护提示：
+  - 动态数据通过父组件传入
+  - 操作按钮点击事件通过 handleActivityAction 方法处理
+-->
 <template>
   <div class="activity-feed">
     <div class="section-title">

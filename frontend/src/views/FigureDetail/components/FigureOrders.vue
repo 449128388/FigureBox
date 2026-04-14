@@ -1,3 +1,20 @@
+<!--
+  FigureOrders.vue - 手办订单信息组件
+
+  功能说明：
+  - 展示手办关联的订单信息（尾款信息）
+  - 支持多个订单的标签切换
+  - 订单数量超过4个时支持折叠展开
+  - 显示订单的详细信息，包括金额、状态、支付期限等
+
+  组件依赖：
+  - 接收 relatedOrders 作为 props，包含订单数组
+
+  维护提示：
+  - 活动订单索引通过 activeOrderIndex 控制
+  - 订单展开状态通过 isOrdersExpanded 控制
+  - 仅在有订单时显示（relatedOrders.length > 0）
+-->
 <template>
   <div class="info-section" v-if="relatedOrders.length > 0">
     <h2>尾款信息</h2>

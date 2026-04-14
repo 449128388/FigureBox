@@ -1,3 +1,18 @@
+<!--
+  CollectorHeader.vue - 收藏家模式头部组件
+
+  功能说明：
+  - 展示收藏家头像和标题
+  - 提供分享海报和隐私设置按钮
+  - 通过事件向父组件传递操作
+
+  组件依赖：
+  - 无外部组件依赖
+
+  维护提示：
+  - 点击事件通过 $emit 传递给父组件
+  - 使用 Element Plus 图标组件
+-->
 <template>
   <div class="collector-header">
     <div class="avatar">[头像]</div>

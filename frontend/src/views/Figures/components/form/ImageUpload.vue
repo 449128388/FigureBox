@@ -1,3 +1,21 @@
+<!--
+  ImageUpload.vue - 图片上传组件
+
+  功能说明：
+  - 提供手办图片的上传和管理功能
+  - 支持多图上传（最多10张）
+  - 支持图片预览和删除
+  - 显示上传进度
+  - 限制单张图片大小不超过20MB
+
+  组件依赖：
+  - 无外部组件依赖
+
+  维护提示：
+  - 接收 images 作为 props，显示已上传的图片
+  - 图片操作通过 view-image、remove-image、file-upload 事件向父组件传递
+  - 使用隐藏的 input[type="file"] 处理文件选择
+-->
 <template>
   <div class="form-group full-width">
     <label>图片上传 (最多10张，每张不超过20MB)</label>

@@ -1,3 +1,23 @@
+<!--
+  FigureItem.vue - 手办卡片组件
+
+  功能说明：
+  - 展示单个手办的卡片信息
+  - 包含手办图片、名称、定价、市场价、入手价格、入手时间、标签等信息
+  - 支持点击手办名称跳转到详情页
+  - 支持点击标签进行筛选
+  - 无图片时显示默认占位图
+
+  组件依赖：
+  - 接收 figure 作为 props，包含手办的详细信息
+  - 接收 searchTagIds 作为 props，用于高亮当前筛选的标签
+
+  维护提示：
+  - 使用 router-link 实现详情页跳转
+  - 使用 getCurrencySymbol 方法获取货币符号
+  - 使用 getSortedTags 方法对标签进行排序
+  - 标签点击事件通过 filter-by-tag 事件向父组件传递
+-->
 <template>
   <div class="figure-item">
     <div class="figure-image">

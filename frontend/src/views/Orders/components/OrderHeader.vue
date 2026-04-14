@@ -1,3 +1,20 @@
+<!--
+  OrderHeader.vue - 订单管理页面头部组件
+
+  功能说明：
+  - 展示页面标题"尾款管理"
+  - 提供添加订单按钮
+  - 显示当前登录用户信息和退出按钮
+
+  组件依赖：
+  - 使用 useUserStore 获取用户信息
+
+  维护提示：
+  - 添加订单按钮通过 openAddForm 事件向父组件传递
+  - 用户信息显示根据 userStore.isAuthenticated 判断
+  - 退出按钮通过 logout 事件向父组件传递
+  - 用户名点击通过 navigateToProfile 事件向父组件传递
+-->
 <template>
   <div class="header">
     <h2>尾款管理</h2>

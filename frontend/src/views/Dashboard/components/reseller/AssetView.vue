@@ -1,3 +1,24 @@
+<!--
+  AssetView.vue - 倒狗模式资产模块组件
+
+  功能说明：
+  - 整合资产相关的所有子组件
+  - 包含资产概览、指数对比、资产分布、收益曲线、盈亏分析、持仓列表
+  - 处理资产操作事件（卖出、加仓、止损、修改价格）
+
+  组件依赖：
+  - AssetOverview.vue - 资产概览组件
+  - IndexComparison.vue - 指数对比组件
+  - ChartSection.vue - 资产分布和收益曲线组件
+  - ProfitAnalysis.vue - 盈亏分析组件
+  - HoldingsList.vue - 持仓列表组件
+  - PriceUpdateDialog.vue - 修改市场价弹窗
+
+  维护提示：
+  - 接收 dashboardData 作为 props
+  - 通过事件向父组件传递操作
+  - 价格更新通过 PriceUpdateDialog 组件处理
+-->
 <template>
   <div class="asset-view">
     <!-- 资产概览区 -->

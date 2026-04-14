@@ -1,3 +1,18 @@
+<!--
+  FigureAuthorInfo.vue - 手办作者信息组件
+
+  功能说明：
+  - 展示手办的作者相关信息
+  - 包括涂装、原画、作品等字段
+  - 仅在有相关信息时显示
+
+  组件依赖：
+  - 接收 figure 作为 props，包含 painting、original_art、work 等字段
+
+  维护提示：
+  - 使用 v-if 条件渲染，仅当有相关信息时显示
+  - 布局采用 info-section 样式
+-->
 <template>
   <div class="info-section" v-if="figure.painting || figure.original_art || figure.work">
     <h2>作者信息</h2>

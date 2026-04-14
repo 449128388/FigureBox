@@ -1,3 +1,23 @@
+<!--
+  FigureForm.vue - 手办表单组件
+
+  功能说明：
+  - 提供手办添加和编辑功能
+  - 包含多个标签页：基础、作者、规格、标签
+  - 支持表单验证和错误提示
+  - 集成图片上传和预览功能
+
+  组件依赖：
+  - FormBasicTab.vue - 基础信息标签页
+  - FormAuthorTab.vue - 作者信息标签页
+  - FormSpecsTab.vue - 规格信息标签页
+  - FormTagsTab.vue - 标签管理标签页
+
+  维护提示：
+  - 通过 isEditing 属性判断是添加还是编辑模式
+  - 表单验证通过事件向父组件传递
+  - 图片操作通过事件向父组件传递
+-->
 <template>
   <div class="form-overlay" v-if="show" @click.self="$emit('close')">
     <div class="form-container">

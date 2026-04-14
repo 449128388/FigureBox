@@ -70,19 +70,8 @@ class FigureImportService:
         Returns:
             (Figure对象, 是否为新创建)
         """
-        # 检查是否已存在同名手办
-        existing_figure = db.query(Figure).filter(
-            Figure.name == figure_data.get('name')
-        ).first()
-        
-        if existing_figure:
-            figure = existing_figure
-            is_new = False
-        else:
-            figure = Figure()
-            is_new = True
-        
-        # 更新手办基本信息
+        # 总是创建新的手办，不检查是否存在
+        figure = Figure()
         figure.name = figure_data.get('name', '')
         figure.japanese_name = figure_data.get('japanese_name')
         figure.manufacturer = figure_data.get('manufacturer')
@@ -105,21 +94,19 @@ class FigureImportService:
         figure.images = figure_data.get('images', [])
         figure.quantity = figure_data.get('quantity', 1)
         
-        if is_new:
-            db.add(figure)
-            db.flush()
+        db.add(figure)
+        db.flush()
         
         # 处理标签
         tags_data = figure_data.get('tags', [])
         if tags_data:
-            figure.tags = []  # 清空现有标签
             for tag_data in tags_data:
                 tag_name = tag_data.get('name') if isinstance(tag_data, dict) else tag_data
                 if tag_name:
                     tag = FigureImportService.get_or_create_tag(db, tag_name)
                     figure.tags.append(tag)
         
-        return figure, is_new
+        return figure, True
     
     @staticmethod
     def import_orders(db: Session, figure: Figure, orders_data: List[Dict[str, Any]], user_id: int) -> int:
@@ -138,21 +125,11 @@ class FigureImportService:
         imported_count = 0
         
         for order_data in orders_data:
-            # 检查是否已存在相同ID的订单
-            existing_order = None
-            if 'id' in order_data:
-                existing_order = db.query(Order).filter(
-                    Order.id == order_data['id']
-                ).first()
-            
-            if existing_order:
-                order = existing_order
-            else:
-                order = Order()
-                order.figure_id = figure.id
-                order.user_id = user_id
-            
-            # 更新订单信息
+            # 总是创建新的订单，不检查是否存在
+            # 创建新订单
+            order = Order()
+            order.figure_id = figure.id
+            order.user_id = user_id
             order.deposit = order_data.get('deposit', 0)
             order.balance = order_data.get('balance', 0)
             order.due_date = FigureImportService.parse_date(order_data.get('due_date'))
@@ -161,9 +138,7 @@ class FigureImportService:
             order.shop_contact = order_data.get('shop_contact', '')
             order.tracking_number = order_data.get('tracking_number')
             
-            if not existing_order:
-                db.add(order)
-            
+            db.add(order)
             imported_count += 1
         
         return imported_count
@@ -202,8 +177,7 @@ class FigureImportService:
                     
                     if is_new:
                         result['imported_figures'] += 1
-                    else:
-                        result['updated_figures'] += 1
+                    # 不再增加 updated_figures 计数，因为我们不会更新已存在的手办
                     
                     # 导入关联订单
                     orders_data = figure_data.get('orders', [])

@@ -1,3 +1,18 @@
+<!--
+  ResearchSection.vue - 智能投研组件
+
+  功能说明：
+  - 展示手办投研报告信息
+  - 包含评级、机构、目标价、止损价、推荐理由、发布日期等信息
+  - 提供专业的投资建议
+
+  组件依赖：
+  - 接收 marketData 作为 props，包含 research 数据
+
+  维护提示：
+  - 数据为空时显示默认值
+  - 布局采用卡片式设计
+-->
 <template>
   <div class="research-section">
     <div class="section-title">💡 智能投研</div>

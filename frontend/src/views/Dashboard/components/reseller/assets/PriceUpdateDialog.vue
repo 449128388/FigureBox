@@ -1,3 +1,21 @@
+<!--
+  PriceUpdateDialog.vue - 修改市场价弹窗组件
+
+  功能说明：
+  - 提供修改手办市场价的界面
+  - 显示手办当前价格和上次更新时间
+  - 支持价格输入和确认修改
+  - 显示加载状态和操作结果
+
+  组件依赖：
+  - 无外部组件依赖
+  - 使用 Element Plus 的 el-dialog 和 el-input-number
+
+  维护提示：
+  - 通过 openDialog 方法打开弹窗并传入价格信息
+  - 价格更新成功后触发 update-success 事件
+  - 价格格式通过 formatMoney 方法处理
+-->
 <template>
   <el-dialog
     v-model="dialogVisible"

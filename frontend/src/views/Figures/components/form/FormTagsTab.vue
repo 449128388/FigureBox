@@ -1,3 +1,20 @@
+<!--
+  FormTagsTab.vue - 手办表单标签管理标签页组件
+
+  功能说明：
+  - 提供手办标签的选择和管理功能
+  - 支持多选、搜索、创建新标签
+  - 显示现有标签列表
+
+  组件依赖：
+  - 使用 Element Plus 的 el-select 组件
+  - 接收 tagStore 作为 props，用于获取标签数据
+
+  维护提示：
+  - 接收 figure 作为 props，双向绑定 tag_ids
+  - 标签变更通过 tag-change 事件向父组件传递
+  - 支持动态创建新标签（allow-create）
+-->
 <template>
   <div class="form-grid">
     <div class="form-group">

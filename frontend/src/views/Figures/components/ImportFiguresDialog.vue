@@ -1,3 +1,22 @@
+<!--
+  ImportFiguresDialog.vue - 导入手办数据对话框组件
+
+  功能说明：
+  - 提供手办数据导入功能
+  - 支持点击选择和拖拽上传JSON文件
+  - 显示文件选择状态
+  - 支持数据预览（显示前5条记录）
+  - 显示导入进度和结果
+
+  组件依赖：
+  - 无外部组件依赖
+
+  维护提示：
+  - 接收 show 作为 props 控制显示
+  - 关闭事件通过 close 事件向父组件传递
+  - 导入操作通过 import 事件向父组件传递
+  - 支持拖拽上传功能
+-->
 <template>
   <div class="dialog-overlay" v-if="show" @click.self="$emit('close')">
     <div class="dialog-container">
@@ -160,7 +179,10 @@ export default {
 
       isImporting.value = true
       try {
-        const result = await emit('import', previewData.value)
+        // 使用 Promise 包装 emit，等待父组件处理完成
+        const result = await new Promise((resolve) => {
+          emit('import', previewData.value, resolve)
+        })
         if (result && result.success) {
           importResult.value = {
             imported: result.imported || 0,

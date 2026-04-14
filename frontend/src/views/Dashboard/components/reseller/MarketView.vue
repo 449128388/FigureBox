@@ -1,3 +1,22 @@
+<!--
+  MarketView.vue - 倒狗模式行情模块组件
+
+  功能说明：
+  - 整合行情相关的所有子组件
+  - 包含塑料小人指数、K线图、板块涨幅排行、自选股、智能投研
+  - 提供市场数据的集中展示
+
+  组件依赖：
+  - MarketIndex.vue - 塑料小人指数组件
+  - KlineSection.vue - K线图组件
+  - SectorRanking.vue - 板块涨幅排行组件
+  - WatchlistSection.vue - 自选股组件
+  - ResearchSection.vue - 智能投研组件
+
+  维护提示：
+  - 接收 marketData 作为 props
+  - 所有子组件通过 props 接收数据
+-->
 <template>
   <div class="market-view">
     <div class="market-section">

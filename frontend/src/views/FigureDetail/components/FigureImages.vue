@@ -1,3 +1,20 @@
+<!--
+  FigureImages.vue - 手办图片展示组件
+
+  功能说明：
+  - 展示手办的主图片和缩略图列表
+  - 支持点击缩略图切换主图片
+  - 支持点击主图片查看原图（图片预览功能）
+  - 无图片时显示默认占位图
+
+  组件依赖：
+  - 接收 figure 作为 props，包含 images 数组
+
+  维护提示：
+  - 主图片索引通过 activeImageIndex 控制
+  - 图片预览通过 showImagePreview 控制显示
+  - 无图片时使用 /imgs/no_image.png 作为占位图
+-->
 <template>
   <div class="figure-images">
     <div class="main-image" @click="openImagePreview">

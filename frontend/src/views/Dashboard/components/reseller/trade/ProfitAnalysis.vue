@@ -1,3 +1,20 @@
+<!--
+  ProfitAnalysis.vue - 交易盈亏分析组件
+
+  功能说明：
+  - 展示交易相关的盈亏分析报表
+  - 包含本年已实现收益、本年交易胜率、平均盈利、平均亏损等指标
+  - 显示最大单笔盈利和最大单笔亏损
+  - 根据盈亏情况显示不同颜色
+
+  组件依赖：
+  - 接收 displayTradeData 作为 props，包含 profit_analysis 数据
+  - 接收 formatNumber 作为 props 用于数字格式化
+
+  维护提示：
+  - 盈亏为正时显示绿色，为负时显示红色
+  - 使用 Math.abs 处理负值显示
+-->
 <template>
   <div class="profit-analysis">
     <h4>📊 盈亏分析报表</h4>

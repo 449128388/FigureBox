@@ -1,3 +1,20 @@
+<!--
+  KlineSection.vue - K线图组件
+
+  功能说明：
+  - 展示塑料小人指数的K线图表
+  - 支持不同时间周期切换（日K、周K、月K）
+  - 显示MACD、RSI等技术指标
+  - 根据RSI值显示超买超卖状态
+
+  组件依赖：
+  - 接收 marketData 作为 props，包含 kline 数据
+  - 使用 ECharts 库绘制K线图
+
+  维护提示：
+  - K线图切换通过 selectedKlineTab 控制
+  - 技术指标显示根据 marketData 数据动态更新
+-->
 <template>
   <div class="kline-section">
     <div class="kline-header">

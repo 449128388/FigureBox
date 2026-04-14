@@ -1,3 +1,21 @@
+<!--
+  FiguresSearch.vue - 手办搜索筛选组件
+
+  功能说明：
+  - 提供手办搜索和筛选功能
+  - 支持按名称、入手形式、入手时间范围搜索
+  - 支持标签筛选和显示当前筛选的标签
+  - 提供搜索和重置按钮
+
+  组件依赖：
+  - 使用 Element Plus 的 el-input、el-select、el-date-picker、el-button、el-tag 组件
+  - 接收 tagStore 作为 props，用于获取标签信息
+
+  维护提示：
+  - 本地状态 localSearchName、localSearchPurchaseType、localSearchPurchaseDateRange 用于双向绑定
+  - 搜索和重置事件通过 $emit 传递给父组件
+  - 标签筛选通过 filter-by-tag 事件向父组件传递
+-->
 <template>
   <div class="search-section">
     <div class="search-form">

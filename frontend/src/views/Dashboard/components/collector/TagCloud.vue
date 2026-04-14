@@ -1,3 +1,18 @@
+<!--
+  TagCloud.vue - 收藏家模式标签云组件
+
+  功能说明：
+  - 展示手办标签的分布情况
+  - 显示标签名称和对应数量
+  - 支持点击标签进行筛选
+
+  组件依赖：
+  - 接收 collectorData 作为 props，包含 tags 数组
+
+  维护提示：
+  - 点击标签事件通过 filterByTag 方法处理
+  - 使用 Element Plus 图标组件
+-->
 <template>
   <div class="tag-cloud">
     <div class="section-title">

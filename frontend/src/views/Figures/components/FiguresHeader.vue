@@ -1,3 +1,19 @@
+<!--
+  FiguresHeader.vue - 手办管理页面头部组件
+
+  功能说明：
+  - 展示页面标题和操作按钮
+  - 提供添加手办、导入手办、下载数据、刷新数据等按钮
+  - 显示当前登录用户信息和退出按钮
+
+  组件依赖：
+  - 接收 userStore 作为 props，用于显示用户信息
+
+  维护提示：
+  - 所有操作按钮通过事件向父组件传递
+  - 用户信息显示根据 userStore.isAuthenticated 判断
+  - 退出按钮通过 logout 事件向父组件传递
+-->
 <template>
   <div class="header">
     <h2>手办管理</h2>

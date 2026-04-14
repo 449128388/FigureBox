@@ -1,3 +1,22 @@
+<!--
+  FormBasicTab.vue - 手办表单基础信息标签页组件
+
+  功能说明：
+  - 提供手办基础信息的输入表单
+  - 包含名称、定价、币种、日文名、制造商、入手价格、入手形式、入手时间、市场价等字段
+  - 支持图片上传和预览功能
+  - 支持表单验证和错误提示
+
+  组件依赖：
+  - 使用 Element Plus 的 el-input、el-input-number、el-select、el-date-picker 组件
+  - 集成 ImageUpload 组件处理图片上传
+
+  维护提示：
+  - 接收 figure 作为 props，双向绑定表单数据
+  - 接收各种错误信息作为 props 显示错误提示
+  - 输入事件通过 validate-* 事件向父组件传递，触发验证
+  - 图片操作通过 view-image、remove-image、file-upload 事件向父组件传递
+-->
 <template>
   <div class="form-grid">
     <div class="form-group">

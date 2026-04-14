@@ -1,3 +1,22 @@
+<!--
+  HoldingsList.vue - 持仓列表组件
+
+  功能说明：
+  - 展示手办持仓列表，按盈亏排序
+  - 支持风险状态筛选
+  - 提供手办卡片展示，包含基本信息、收益情况
+  - 支持点击手办名字跳转到详情页
+  - 支持修改市场价功能
+
+  组件依赖：
+  - 接收 dashboardData 作为 props
+  - 触发 edit-price 事件给父组件
+
+  维护提示：
+  - 风险状态通过 statusTable 提供帮助信息
+  - 筛选功能通过 showFilter 控制显示
+  - 手办卡片点击事件通过 $router.push 跳转
+-->
 <template>
   <div class="holdings-section">
     <div class="section-header">

@@ -1,3 +1,19 @@
+<!--
+  MarketIndex.vue - 塑料小人指数组件
+
+  功能说明：
+  - 展示塑料小人指数(HPI)的核心数据
+  - 显示指数值、涨跌幅、成交量等关键指标
+  - 展示上涨、持平、下跌的手办数量
+  - 显示涨停和跌停的手办信息
+
+  组件依赖：
+  - 接收 marketData 作为 props，包含 index 数据
+
+  维护提示：
+  - 使用 formatNumber 方法格式化数字显示
+  - 涨跌情况通过条件样式展示
+-->
 <template>
   <div class="market-index">
     <div class="index-header">

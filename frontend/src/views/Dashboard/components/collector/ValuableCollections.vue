@@ -1,3 +1,19 @@
+<!--
+  ValuableCollections.vue - 收藏家模式高价值藏品组件
+
+  功能说明：
+  - 展示高价值手办藏品列表
+  - 显示藏品图片、状态和收益情况
+  - 区分已转卖和在售藏品的显示样式
+  - 支持点击查看更多藏品
+
+  组件依赖：
+  - 接收 collectorData 作为 props，包含 valuable_items 数组
+
+  维护提示：
+  - 根据藏品状态显示不同样式
+  - 收益为正负数时显示不同颜色
+-->
 <template>
   <div class="valuable-collections">
     <div class="section-title">

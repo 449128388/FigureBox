@@ -1,3 +1,24 @@
+<!--
+  OrderItem.vue - 订单卡片组件
+
+  功能说明：
+  - 展示单个订单的卡片信息
+  - 包含手办图片、名称、定金、尾款、出荷日期、状态等信息
+  - 显示购买店铺、联系方式、物流订单等可选信息
+  - 支持点击手办名称跳转到详情页
+  - 显示倒计时标签（对于未完成和未取消的订单）
+  - 提供编辑、收货、删除按钮
+
+  组件依赖：
+  - 接收 order 作为 props，包含订单的详细信息
+
+  维护提示：
+  - 使用 router-link 实现详情页跳转
+  - 倒计时标签样式通过 getCountdownClass 方法获取
+  - 倒计时文本通过 getCountdownText 方法获取
+  - 收货按钮仅在订单状态为 '已支付' 时显示
+  - 按钮点击事件通过 editOrder、receiveOrder、deleteOrder 事件向父组件传递
+-->
 <template>
   <div class="order-item">
     <div class="figure-image">

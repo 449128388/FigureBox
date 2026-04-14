@@ -1,3 +1,18 @@
+<!--
+  AssetOverview.vue - 资产概览组件
+
+  功能说明：
+  - 展示总资产、日涨跌、仓位等核心资产指标
+  - 根据涨跌情况显示不同颜色
+  - 仓位状态根据风险等级显示不同样式
+
+  组件依赖：
+  - 接收 dashboardData 作为 props，包含 summary 数据
+
+  维护提示：
+  - 使用 formatNumber 方法格式化数字显示
+  - 日涨跌和仓位状态通过条件样式展示
+-->
 <template>
   <div class="asset-overview">
     <div class="overview-item">

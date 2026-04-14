@@ -39,7 +39,7 @@ export function useImportFigures() {
 
       importResult.value = response
       return {
-        success: true,
+        success: response.success,
         imported: response.imported_count || 0,
         orders: response.orders_count || 0,
         message: response.message || '导入成功'

@@ -1,3 +1,18 @@
+<!--
+  ProfitAnalysis.vue - 盈亏分析组件
+
+  功能说明：
+  - 展示浮动盈亏、实现盈亏和总收益率等关键指标
+  - 根据盈亏情况显示不同颜色
+  - 提供盈亏相关的辅助信息
+
+  组件依赖：
+  - 接收 dashboardData 作为 props，包含 profit 数据
+
+  维护提示：
+  - 使用 formatNumber 方法格式化数字显示
+  - 盈亏为正时显示绿色，为负时显示红色
+-->
 <template>
   <div class="profit-analysis">
     <div class="section-title">盈亏分析</div>

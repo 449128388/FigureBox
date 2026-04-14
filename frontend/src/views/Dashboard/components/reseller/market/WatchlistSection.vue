@@ -1,3 +1,19 @@
+<!--
+  WatchlistSection.vue - 自选股组件
+
+  功能说明：
+  - 展示用户关注的手办列表（自选股）
+  - 显示手办名称、现价、涨跌幅、目标价、距离目标等信息
+  - 根据涨跌幅情况显示不同颜色
+  - 采用表格形式展示数据
+
+  组件依赖：
+  - 接收 marketData 作为 props，包含 watchlist 数据
+
+  维护提示：
+  - 使用 formatNumber 方法格式化价格显示
+  - 涨跌情况通过条件样式展示
+-->
 <template>
   <div class="watchlist-section">
     <div class="section-title">📈 我的自选股 (关注列表)</div>

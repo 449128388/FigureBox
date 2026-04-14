@@ -1,3 +1,22 @@
+<!--
+  TradeView.vue - 倒狗模式交易模块组件
+
+  功能说明：
+  - 整合交易相关的所有子组件
+  - 包含交易统计、快速操作、交易流水、盈亏分析报表
+  - 处理交易相关的操作事件
+
+  组件依赖：
+  - TradeStats.vue - 交易统计组件
+  - QuickActions.vue - 快速操作组件
+  - TradeFlow.vue - 交易流水组件
+  - ProfitAnalysis.vue - 盈亏分析组件
+
+  维护提示：
+  - 接收 displayTradeData、tradeData 等作为 props
+  - 通过事件向父组件传递操作
+  - 提供 formatNumber 方法给子组件使用
+-->
 <template>
   <div class="trade-view">
     <!-- 本月交易统计 -->

@@ -1,3 +1,20 @@
+<!--
+  OrderStatusTabs.vue - 订单状态标签组件
+
+  功能说明：
+  - 提供订单状态筛选标签
+  - 包含全部、未支付、已支付、已取消等状态
+  - 显示各状态的订单数量
+  - 支持点击切换状态
+
+  组件依赖：
+  - 接收 currentStatus 作为 props，显示当前选中状态
+  - 接收 statusCounts 作为 props，显示各状态的订单数量
+
+  维护提示：
+  - 状态切换通过 changeStatus 事件向父组件传递
+  - 激活状态通过 active 类名控制
+-->
 <template>
   <div class="status-tabs">
     <div 

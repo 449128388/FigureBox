@@ -1,3 +1,18 @@
+<!--
+  CollectorOverview.vue - 收藏家模式概览组件
+
+  功能说明：
+  - 展示收藏家的核心数据概览
+  - 包括总投入、现估值、回血额三个关键指标
+  - 提供数字格式化功能
+
+  组件依赖：
+  - 接收 collectorData 作为 props，包含 summary 数据
+
+  维护提示：
+  - 使用 formatNumber 方法格式化数字显示
+  - 数据为空时显示默认值 0
+-->
 <template>
   <div class="collector-overview">
     <div class="overview-card">

@@ -1,3 +1,18 @@
+<!--
+  FigureSpecInfo.vue - 手办规格信息组件
+
+  功能说明：
+  - 展示手办的规格相关信息
+  - 包括比例、材质、尺寸等字段
+  - 仅在有相关信息时显示
+
+  组件依赖：
+  - 接收 figure 作为 props，包含 scale、material、size 等字段
+
+  维护提示：
+  - 使用 v-if 条件渲染，仅当有相关信息时显示
+  - 布局采用 info-section 样式
+-->
 <template>
   <div class="info-section" v-if="figure.scale || figure.material || figure.size">
     <h2>规格信息</h2>

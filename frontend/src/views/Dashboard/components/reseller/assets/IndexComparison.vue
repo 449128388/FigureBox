@@ -1,3 +1,18 @@
+<!--
+  IndexComparison.vue - 指数对比组件
+
+  功能说明：
+  - 展示上证指数、沪深300、塑料小人指数的对比数据
+  - 根据指数涨跌显示不同方向和颜色
+  - 无历史数据时显示默认值
+
+  组件依赖：
+  - 接收 dashboardData 作为 props，包含 summary 数据
+
+  维护提示：
+  - 指数趋势通过 trend 属性判断（up/down/flat）
+  - 无历史数据时显示 --
+-->
 <template>
   <div class="index-comparison">
     <!-- 上证指数 -->
