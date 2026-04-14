@@ -1,3 +1,25 @@
+<!--
+  FigureDetail.vue - 手办详情页面
+  
+  功能说明：
+  - 展示单个手办的完整详细信息
+  - 包含基本信息、图片展示、标签、关联订单、作者信息、规格参数等模块
+  - 支持从手办列表点击跳转进入
+  
+  组件依赖：
+  - FigureHeader.vue - 手办标题和返回按钮
+  - FigureImages.vue - 图片轮播展示
+  - FigureBasicInfo.vue - 基础信息（价格、发售日期等）
+  - FigureTags.vue - 标签展示
+  - FigureOrders.vue - 关联订单列表
+  - FigureAuthorInfo.vue - 作者/涂装/原画信息
+  - FigureSpecInfo.vue - 规格参数（比例、材质、尺寸等）
+  
+  维护提示：
+  - 通过路由参数 figureId 获取手办ID
+  - 使用 useFigureDetail composable 管理数据获取逻辑
+  - 加载状态单独处理，避免空白页面
+-->
 <template>
   <div class="figure-detail-container">
     <!-- 加载状态 -->
@@ -71,7 +93,6 @@ export default {
         this.figure = figureData
         this.relatedOrders = getRelatedOrders(this.$route.params.id, orders)
       } catch (error) {
-        console.error('Failed to fetch figure detail:', error)
       } finally {
         this.loading = false
       }

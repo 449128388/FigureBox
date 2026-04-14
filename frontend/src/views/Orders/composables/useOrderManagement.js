@@ -212,7 +212,6 @@ export function useOrderManagement() {
       // 重置表单
       resetForm()
     } catch (error) {
-      console.error('Failed to save order:', error)
     }
   }
   
@@ -221,7 +220,6 @@ export function useOrderManagement() {
       try {
         await orderStore.deleteOrder(id)
       } catch (error) {
-        console.error('Failed to delete order:', error)
       }
     }
   }
@@ -231,7 +229,6 @@ export function useOrderManagement() {
       try {
         await orderStore.updateOrder(order.id, { status: '已完成' })
       } catch (error) {
-        console.error('Failed to receive order:', error)
       }
     }
   }

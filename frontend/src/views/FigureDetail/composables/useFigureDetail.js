@@ -12,7 +12,6 @@ export function useFigureDetail() {
       const data = await axios.get(`/figures/${figureId}`)
       return data
     } catch (error) {
-      console.error('获取手办详情失败:', error)
       // 如果API调用失败，尝试从store中获取
       const figure = figureStore.figures.find(f => f.id == figureId)
       return figure || {}

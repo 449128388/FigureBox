@@ -28,7 +28,7 @@ export const useUserStore = defineStore('user', {
         const response = await axios.get('/users/me')
         this.user = response
       } catch (error) {
-        console.error('Failed to fetch user:', error)
+        return null
       }
     },
     logout() {
@@ -170,8 +170,8 @@ export const useOrderStore = defineStore('order', {
         const response = await axios.get('/orders/unpaid-balance/')
         this.totalUnpaidBalance = response.total_unpaid_balance
       } catch (error) {
-        console.error('Failed to fetch unpaid balance:', error)
         this.totalUnpaidBalance = 0
+        return 0
       }
     }
   }

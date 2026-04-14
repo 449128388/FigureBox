@@ -216,7 +216,6 @@ export function useFigureManagement() {
       resetForm()
       await fetchFiguresWithSearch()
     } catch (error) {
-      console.error('Failed to add figure:', error)
     }
   }
 
@@ -226,7 +225,6 @@ export function useFigureManagement() {
         await figureStore.deleteFigure(id)
         alert('手办删除成功')
       } catch (error) {
-        console.error('Failed to delete figure:', error)
         if (error.response && error.response.status === 400) {
           alert('无法删除有关联尾款的手办')
         } else {
@@ -258,7 +256,6 @@ export function useFigureManagement() {
         quantity: fullFigure.quantity || 1
       }
     } catch (error) {
-      console.error('Failed to fetch figure details:', error)
       newFigure.value = {
         ...figure,
         tag_ids: figure.tags ? figure.tags.map(tag => tag.id) : [],
@@ -383,7 +380,6 @@ export function useFigureManagement() {
 
       return { success: true }
     } catch (error) {
-      console.error('下载失败:', error)
       return { success: false, error }
     }
   }

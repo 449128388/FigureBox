@@ -1,8 +1,35 @@
+<!--
+  Figures.vue - 手办管理主页面
+
+  功能说明：
+  - 手办CRUD完整功能：添加、编辑、删除手办
+  - 数据导入导出：支持JSON格式批量导入和下载
+  - 多维度搜索：按名称、购买类型、购买日期范围、标签筛选
+  - 分页展示：支持自定义每页显示数量
+  - 图片管理：支持多图上传、预览、删除
+  - 标签管理：支持多标签关联和筛选
+
+  组件依赖：
+  - FiguresHeader.vue - 页面头部（添加、导入、下载、刷新按钮）
+  - FiguresSearch.vue - 搜索筛选区域
+  - FiguresList.vue - 手办卡片列表
+  - FiguresPagination.vue - 分页组件
+  - FigureForm.vue - 手办表单（添加/编辑）
+  - ImagePreview.vue - 图片预览弹窗
+  - ImportFiguresDialog.vue - 数据导入对话框
+
+  维护提示：
+  - 使用 useFigureManagement composable 管理业务逻辑
+  - 使用 useImportFigures composable 管理导入功能
+  - 表单验证在提交时统一处理
+  - 搜索条件变化自动触发重新查询
+-->
 <template>
   <div class="figures-container">
     <FiguresHeader
       :user-store="userStore"
       @open-add-form="openAddForm"
+      @import-figures="openImportDialog"
       @download-figures="handleDownload"
       @refresh-figures="fetchFigures"
       @logout="logout($router)"
@@ -75,6 +102,12 @@
       :image="previewImage"
       @close="closeImagePreview"
     />
+
+    <ImportFiguresDialog
+      :show="showImportDialog"
+      @close="closeImportDialog"
+      @import="handleImport"
+    />
   </div>
 </template>
 
@@ -85,7 +118,9 @@ import FiguresList from './Figures/components/FiguresList.vue'
 import FiguresPagination from './Figures/components/FiguresPagination.vue'
 import FigureForm from './Figures/components/FigureForm.vue'
 import ImagePreview from './Figures/components/ImagePreview.vue'
+import ImportFiguresDialog from './Figures/components/ImportFiguresDialog.vue'
 import { useFigureManagement } from './Figures/composables/useFigureManagement'
+import { useImportFigures } from './Figures/composables/useImportFigures'
 
 export default {
   name: 'Figures',
@@ -95,7 +130,8 @@ export default {
     FiguresList,
     FiguresPagination,
     FigureForm,
-    ImagePreview
+    ImagePreview,
+    ImportFiguresDialog
   },
   setup() {
     const {
@@ -178,6 +214,23 @@ export default {
       }
     }
 
+    // 导入功能
+    const {
+      showImportDialog,
+      openImportDialog,
+      closeImportDialog,
+      importFigures
+    } = useImportFigures()
+
+    const handleImport = async (data) => {
+      const result = await importFigures(data)
+      if (result.success) {
+        // 刷新手办列表
+        await fetchFigures()
+      }
+      return result
+    }
+
     return {
       figureStore,
       userStore,
@@ -242,7 +295,11 @@ export default {
       viewImage,
       closeImagePreview,
       removeImage,
-      handleFileUpload
+      handleFileUpload,
+      showImportDialog,
+      openImportDialog,
+      closeImportDialog,
+      handleImport
     }
   },
   mounted() {

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, date
 from typing import List, Optional
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from pydantic import BaseModel
 
 from app.models.database import get_db
 from app.models.asset import (
@@ -17,7 +18,8 @@ from app.schemas.asset import (
     AssetSummary, AssetDetail, AssetKlineData, AssetRanking, AssetAdvice,
     AssetDashboard, AssetPriceHistoryCreate, AssetPriceHistory as AssetPriceHistorySchema,
     AssetAlertCreate, AssetAlert as AssetAlertSchema,
-    AssetTransactionCreate, AssetTransaction as AssetTransactionSchema
+    AssetTransactionCreate, AssetTransaction as AssetTransactionSchema,
+    AnnualLimitSetting
 )
 from app.api.users import get_current_user
 from app.models.user import User
@@ -26,7 +28,8 @@ from app.models.user import User
 from app.services import (
     IndexService,
     AssetCalculationService,
-    HoldingAnalysisService
+    HoldingAnalysisService,
+    PriceUpdateService
 )
 
 router = APIRouter()
@@ -228,11 +231,12 @@ def get_annual_spending_limit(
 
 @router.post("/settings/annual-limit")
 def update_annual_spending_limit(
-    limit: float,
+    request: AnnualLimitSetting,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """更新用户年度手办消费上限"""
+    limit = request.limit
     if limit < 0:
         raise HTTPException(status_code=400, detail="消费上限不能为负数")
     
@@ -257,3 +261,74 @@ def update_annual_spending_limit(
         "updated_at": settings.updated_at,
         "message": "年度消费上限设置成功"
     }
+
+
+@router.get("/figures/{figure_id}/price-info")
+def get_figure_price_info(
+    figure_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取手办价格信息（用于修改现价弹窗）"""
+    figure = PriceUpdateService.get_figure_current_price(db, figure_id)
+    if not figure:
+        raise HTTPException(status_code=404, detail="手办不存在")
+    
+    # 获取最新价格历史
+    latest_history = PriceUpdateService.get_price_history(db, figure_id)
+    
+    # 计算影响（使用当前价格，即无变化时的影响）
+    current_price = figure.market_price or figure.price or 0
+    impact = PriceUpdateService.calculate_impact(db, current_user.id, figure, current_price)
+    
+    return {
+        "figure_id": figure.id,
+        "figure_name": figure.name,
+        "current_price": current_price,
+        "last_updated": latest_history.date if latest_history else figure.purchase_date,
+        "quantity": figure.quantity or 1,
+        "total_assets": impact["old_total_assets"],
+        "profit_percentage": impact["old_profit_percentage"]
+    }
+
+
+class PriceUpdateRequest(BaseModel):
+    new_price: float
+
+
+@router.post("/figures/{figure_id}/update-price")
+def update_figure_price(
+    figure_id: int,
+    request: PriceUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """更新手办现价"""
+    try:
+        result = PriceUpdateService.update_figure_price(
+            db, figure_id, request.new_price, current_user.id
+        )
+        
+        # 确定新状态
+        new_status = PriceUpdateService.determine_status(
+            result["impact"]["new_profit_percentage"]
+        )
+        
+        return {
+            "message": "价格更新成功",
+            "figure_id": figure_id,
+            "figure_name": result["figure"].name,
+            "old_price": result["old_price"],
+            "new_price": result["new_price"],
+            "new_status": new_status,
+            "impact": {
+                "old_total_assets": result["impact"]["old_total_assets"],
+                "new_total_assets": result["impact"]["new_total_assets"],
+                "old_profit_percentage": result["impact"]["old_profit_percentage"],
+                "new_profit_percentage": result["impact"]["new_profit_percentage"]
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"价格更新失败: {str(e)}")

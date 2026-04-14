@@ -4,6 +4,9 @@
     <div class="header-actions">
       <div class="action-buttons">
         <button class="btn btn-add" @click="$emit('open-add-form')">添加手办</button>
+        <button class="btn btn-import" @click="$emit('import-figures')">
+          <i class="fa-solid fa-upload"></i> 导入手办
+        </button>
         <button class="btn btn-download" @click="$emit('download-figures')">
           <i class="fa-solid fa-download"></i> 下载数据
         </button>
@@ -29,7 +32,7 @@ export default {
       required: true
     }
   },
-  emits: ['open-add-form', 'download-figures', 'refresh-figures', 'logout']
+  emits: ['open-add-form', 'import-figures', 'download-figures', 'refresh-figures', 'logout']
 }
 </script>
 
@@ -140,6 +143,23 @@ export default {
 
 .btn-refresh:hover {
   background-color: #0b7dda;
+}
+
+.btn-import {
+  background-color: #9C27B0;
+  color: white;
+  padding: 12px 24px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  box-sizing: border-box;
+}
+
+.btn-import:hover {
+  background-color: #7B1FA2;
 }
 
 .btn-logout {

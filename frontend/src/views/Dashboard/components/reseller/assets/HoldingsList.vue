@@ -54,7 +54,11 @@
         </div>
         <div class="card-content">
           <div class="card-header">
-            <div class="card-title">{{ item.figure_name }}</div>
+            <div class="card-title">
+              <router-link :to="`/figures/${item.figure_id}`" class="figure-name-link">
+                {{ item.figure_name }}
+              </router-link>
+            </div>
             <el-dropdown>
               <span class="el-dropdown-link">
                 操作 ▼
@@ -64,7 +68,7 @@
                   <el-dropdown-item @click="$emit('sell-asset', item)">卖出</el-dropdown-item>
                   <el-dropdown-item @click="$emit('add-position', item)">补仓</el-dropdown-item>
                   <el-dropdown-item v-if="item.status && item.status.includes('破位')" @click="$emit('cut-loss', item)">斩仓</el-dropdown-item>
-                  <el-dropdown-item @click="$emit('edit-price', item)">修改现价</el-dropdown-item>
+                  <el-dropdown-item @click="$emit('edit-price', item)">修改市场价</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -87,7 +91,7 @@
                 <span class="value">¥{{ formatNumber(item.cost_price) }}</span>
               </div>
               <div class="price-item">
-                <span class="label">现价:</span>
+                <span class="label">市场价:</span>
                 <span class="value">¥{{ formatNumber(item.current_price) }}</span>
               </div>
               <div class="price-item">
@@ -205,7 +209,7 @@ export default {
     }
     
     const handleLongPress = (item) => {
-      console.log('长按:', item)
+
     }
     
     return {
@@ -372,6 +376,16 @@ export default {
   margin-right: 10px;
 }
 
+.figure-name-link {
+  color: #333;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.figure-name-link:hover {
+  color: #409eff;
+}
+
 .card-body {
   display: flex;
   flex-direction: column;
@@ -457,5 +471,31 @@ export default {
 .footer-item .value {
   font-weight: bold;
   color: #666;
+}
+
+/* 操作下拉按钮样式 - 移除hover时的黑框 */
+.el-dropdown-link {
+  cursor: pointer;
+  color: #409EFF;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: none;
+  background-color: transparent;
+}
+
+.el-dropdown-link:hover {
+  background-color: transparent;
+  color: #66b1ff;
+}
+
+/* 深度选择器覆盖Element Plus默认样式 */
+:deep(.el-dropdown-link:hover) {
+  background-color: transparent !important;
+  color: #66b1ff !important;
+}
+
+:deep(.el-dropdown-link:focus) {
+  background-color: transparent !important;
+  outline: none !important;
 }
 </style>

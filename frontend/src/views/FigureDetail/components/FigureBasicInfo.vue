@@ -13,6 +13,10 @@
       <span class="label">定价:</span>
       <span class="value">{{ figure.price }} {{ getCurrencySymbol(figure.currency) }}</span>
     </div>
+    <div class="info-item" v-if="figure.market_price !== null && figure.market_price !== undefined">
+      <span class="label">市场价:</span>
+      <span class="value">{{ figure.market_price }} {{ getCurrencySymbol(figure.market_currency) }}</span>
+    </div>
     <div class="info-item" v-if="figure.release_date">
       <span class="label">出货日:</span>
       <span class="value">{{ figure.release_date }}</span>

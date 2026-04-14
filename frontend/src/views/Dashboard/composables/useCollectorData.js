@@ -13,7 +13,6 @@ export function useCollectorData() {
       const res = await axios.get('/assets/collector/dashboard')
       collectorData.value = res
     } catch (error) {
-      console.error('获取收藏家模式数据失败:', error)
       // 生成模拟数据
       collectorData.value = {
         summary: {

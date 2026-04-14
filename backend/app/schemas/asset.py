@@ -89,3 +89,7 @@ class AssetDashboard(BaseModel):
     rankings: List[AssetRanking]
     advice: List[AssetAdvice]
     holdings: List[AssetDetail]
+
+
+class AnnualLimitSetting(BaseModel):
+    limit: float

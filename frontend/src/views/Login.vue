@@ -1,3 +1,18 @@
+<!--
+  Login.vue - 用户登录页面
+
+  功能说明：
+  - 提供用户登录表单，包含邮箱和密码输入
+  - 表单验证：邮箱格式、密码必填
+  - 登录成功后跳转到首页
+  - 提供注册入口链接
+  - 登录失败时显示错误提示
+
+  维护提示：
+  - 使用 userStore.login() 处理登录逻辑
+  - 登录成功后使用 Vue Router 导航到首页
+  - 表单使用 @submit.prevent 阻止默认提交行为
+-->
 <template>
   <div class="login-container">
     <h2>登录</h2>

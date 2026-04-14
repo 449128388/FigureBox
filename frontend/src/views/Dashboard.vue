@@ -1,3 +1,22 @@
+<!--
+  Dashboard.vue - 资产看板主页面
+  
+  功能说明：
+  - 提供双模式切换：倒狗模式（投资视角）和收藏家模式（收藏视角）
+  - 倒狗模式包含资产、行情、交易三大模块，支持塑料小人指数(HPI)追踪、盈亏分析等
+  - 收藏家模式展示收藏统计、价值藏品、标签云等收藏维度数据
+  - 集成年度消费上限设置、资产刷新等快捷操作
+  
+  组件依赖：
+  - AssetView.vue - 资产模块（资产概览、持仓列表、收益曲线等）
+  - MarketView.vue - 行情模块（K线图、板块排行、投研观点等）
+  - TradeView.vue - 交易模块（交易统计、流水记录等）
+  - CollectorOverview.vue - 收藏家概览
+  
+  维护提示：
+  - 模式切换通过 currentMode 控制，数据独立维护
+  - 子组件通过 Props 接收数据，通过 Events 触发父组件刷新
+-->
 <template>
   <div class="orders-container">
     <div class="header">
@@ -72,6 +91,7 @@
         @add-position="addPosition"
         @cut-loss="cutLoss"
         @edit-price="editPrice"
+        @refresh-data="fetchDashboardData"
       />
 
       <!-- 行情视图 -->
@@ -278,11 +298,14 @@ export default {
     
     // 获取资产数据
     const fetchDashboardData = async () => {
+      loading.value = true
       try {
         const res = await axios.get('/assets/dashboard')
         dashboardData.value = res
       } catch (error) {
-        console.error('获取资产数据失败:', error)
+        ElMessage.error('获取数据失败')
+      } finally {
+        loading.value = false
       }
     }
     
@@ -292,7 +315,6 @@ export default {
         const res = await axios.get('/assets/trade/records')
         tradeData.value = res
       } catch (error) {
-        console.error('获取交易数据失败:', error)
       }
     }
     
@@ -302,7 +324,6 @@ export default {
         const res = await axios.get('/assets/market/dashboard')
         marketData.value = res
       } catch (error) {
-        console.error('获取行情数据失败:', error)
         // 生成模拟数据
         marketData.value = {
           index: {
@@ -400,7 +421,17 @@ export default {
     }
     
     // 显示年度消费上限对话框
-    const showAnnualLimitDialog = () => {
+    const showAnnualLimitDialog = async () => {
+      try {
+        const response = await axios.get('/assets/settings/annual-limit')
+        if (response && response.annual_spending_limit !== undefined) {
+          annualLimitForm.value.limit = Number(response.annual_spending_limit) || 0
+        } else {
+          annualLimitForm.value.limit = 0
+        }
+      } catch (error) {
+        annualLimitForm.value.limit = 0
+      }
       annualLimitDialogVisible.value = true
     }
     
@@ -408,11 +439,13 @@ export default {
     const saveAnnualLimit = async () => {
       annualLimitLoading.value = true
       try {
-        await axios.post('/assets/annual-limit', {
+        await axios.post('/assets/settings/annual-limit', {
           limit: annualLimitForm.value.limit
         })
         ElMessage.success('年度消费上限设置成功')
         annualLimitDialogVisible.value = false
+        // 刷新当前页面
+        window.location.reload()
       } catch (error) {
         ElMessage.error('设置失败')
       } finally {
@@ -455,7 +488,8 @@ export default {
     }
     
     const editPrice = (item) => {
-      ElMessage.info(`修改 ${item.figure_name} 现价功能开发中`)
+      // 价格修改功能已在 PriceUpdateDialog 组件中实现
+      // 此函数保留用于兼容性，实际逻辑在 AssetView.vue 中处理
     }
     
     // 添加到自选股
@@ -555,7 +589,8 @@ export default {
       openCancelDialog,
       viewRecord,
       deleteRecord,
-      logout
+      logout,
+      fetchDashboardData
     }
   }
 }

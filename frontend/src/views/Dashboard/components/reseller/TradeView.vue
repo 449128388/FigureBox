@@ -118,7 +118,7 @@ export default {
     
     const handleTradeAction = (action, record) => {
       // 处理交易操作
-      console.log(`执行交易操作: ${action}`, record)
+
     }
     
     // 计算显示的交易数据（优先使用真实数据，无数据时使用模拟数据）

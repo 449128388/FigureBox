@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from fastapi.responses import Response
 from datetime import datetime
+from typing import List, Dict, Any
 
 from app.models.database import get_db
 from app.models.figure import Figure
@@ -13,7 +14,7 @@ from app.api.users import get_current_user
 from app.models.user import User
 
 # 引入服务层
-from app.services import FigureService, TagService, FigureExportService
+from app.services import FigureService, TagService, FigureExportService, FigureImportService
 
 router = APIRouter()
 
@@ -215,4 +216,44 @@ def delete_figure(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
+        )
+
+
+@router.post("/import")
+def import_figures(
+    data: Dict[str, List[Dict[str, Any]]],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    从JSON数据导入手办和订单
+    """
+    try:
+        figures_data = data.get('figures', [])
+        if not figures_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="没有提供要导入的数据"
+            )
+        
+        result = FigureImportService.import_figures_from_json(
+            db=db,
+            json_data=figures_data,
+            user_id=current_user.id
+        )
+        
+        return {
+            "success": result['success'],
+            "imported_count": result['imported_figures'],
+            "updated_count": result['updated_figures'],
+            "orders_count": result['imported_orders'],
+            "message": f"成功导入 {result['imported_figures']} 个新手办，更新 {result['updated_figures']} 个手办，导入 {result['imported_orders']} 个订单",
+            "errors": result['errors']
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"导入失败: {str(e)}"
         )

@@ -1,3 +1,18 @@
+<!--
+  Profile.vue - 个人资料页面
+
+  功能说明：
+  - 展示当前登录用户的基本信息（用户名、邮箱）
+  - 支持编辑个人资料（用户名、邮箱）
+  - 提供退出登录功能
+  - 未获取用户信息时自动拉取
+
+  维护提示：
+  - 使用 userStore 管理用户状态
+  - 编辑模式通过 isEditing 控制
+  - 保存功能目前仅前端模拟，可扩展为API调用
+  - 退出登录后跳转到登录页面
+-->
 <template>
   <div class="profile-container">
     <h2>个人资料</h2>
@@ -66,12 +81,10 @@ export default {
     async saveChanges() {
       try {
         // 这里可以添加API调用，更新用户信息
-        console.log('保存用户信息:', this.editUser)
         // 模拟保存成功
         this.userStore.user = this.editUser
         this.isEditing = false
       } catch (error) {
-        console.error('保存失败:', error)
       }
     },
     logout() {
