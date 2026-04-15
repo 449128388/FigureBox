@@ -157,7 +157,7 @@ export function useOrderManagement() {
   
   const validateForm = () => {
     let isValid = true
-    
+
     // 验证手办
     if (!newOrder.value.figure_id) {
       figureError.value = '请选择手办'
@@ -165,15 +165,16 @@ export function useOrderManagement() {
     } else {
       figureError.value = ''
     }
-    
-    // 验证出荷日期
-    if (!newOrder.value.due_date) {
+
+    // 【修复】验证出荷日期 - 已取消状态的订单不需要填写出荷日期
+    const isCancelled = newOrder.value.status === '已取消'
+    if (!isCancelled && !newOrder.value.due_date) {
       dueDateError.value = '请选择出荷日期'
       isValid = false
     } else {
       dueDateError.value = ''
     }
-    
+
     return isValid
   }
   

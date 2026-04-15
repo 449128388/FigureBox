@@ -11,6 +11,7 @@ from app.models.figure import Figure
 from app.models.tag import Tag, figure_tag
 from app.schemas.figure import FigureCreate, FigureUpdate, FigureListItem
 from app.services.asset_transaction_service import AssetTransactionService
+from app.services.order_transaction_service import OrderTransactionService
 
 
 class FigureService:
@@ -68,7 +69,8 @@ class FigureService:
         Returns:
             Query对象
         """
-        query = db.query(Figure)
+        # 只查询激活状态的手办
+        query = db.query(Figure).filter(Figure.is_active == True)
         
         # 按名称搜索（模糊匹配）
         if name:
@@ -239,9 +241,11 @@ class FigureService:
             db.commit()
             db.refresh(db_figure)
         
-        # 自动创建资产交易记录（如果提供了用户ID和入手价格）
-        if user_id and figure_data.get('purchase_price') and figure_data.get('purchase_price') > 0:
+        # 【新增】同时创建资产交易记录（库存账）和资金流水记录（资金账）
+        # 【修复】无论入手价格是否为0，都创建交易记录，保证数据完整性
+        if user_id:
             try:
+                # 1. 创建资产交易记录（库存账）- 记录数量变动
                 AssetTransactionService.create_transaction_from_figure(
                     db=db,
                     user_id=user_id,
@@ -249,13 +253,23 @@ class FigureService:
                     price=figure_data['purchase_price'],
                     quantity=figure_data.get('quantity', 1)
                 )
+
+                # 2. 创建资金流水记录（资金账）- 记录资金变动
+                OrderTransactionService.create_transaction_from_figure(
+                    db=db,
+                    user_id=user_id,
+                    figure=db_figure,
+                    transaction_type="full",
+                    notes=f"自动创建：从手办管理数据中创建 - {db_figure.name}"
+                )
+
                 db.commit()
             except Exception as e:
                 # 如果创建交易记录失败，不影响手办创建
                 db.rollback()
                 # 可以在这里记录日志
-                print(f"创建资产交易记录失败: {e}")
-        
+                print(f"创建交易记录失败: {e}")
+
         return db_figure
     
     @staticmethod
@@ -275,7 +289,11 @@ class FigureService:
         Returns:
             更新后的Figure对象或None（不存在时）
         """
-        db_figure = db.query(Figure).filter(Figure.id == figure_id).first()
+        # 只更新激活状态的手办
+        db_figure = db.query(Figure).filter(
+            Figure.id == figure_id,
+            Figure.is_active == True
+        ).first()
         if not db_figure:
             return None
         
@@ -313,7 +331,11 @@ class FigureService:
         Returns:
             bool: 是否删除成功
         """
-        db_figure = db.query(Figure).filter(Figure.id == figure_id).first()
+        # 只删除激活状态的手办
+        db_figure = db.query(Figure).filter(
+            Figure.id == figure_id,
+            Figure.is_active == True
+        ).first()
         if not db_figure:
             return False
         
@@ -326,6 +348,28 @@ class FigureService:
         if associated_orders:
             raise ValueError("无法删除有关联尾款的手办")
         
-        db.delete(db_figure)
+        # 【修改】软删除关联的资产交易记录（库存账）
+        from app.models.asset import AssetTransaction, OrderTransaction
+        from datetime import datetime
+        
+        # 软删除资产交易记录
+        db.query(AssetTransaction).filter(
+            AssetTransaction.figure_id == figure_id
+        ).update({
+            'is_active': False,
+            'deleted_at': datetime.now()
+        })
+
+        # 软删除资金流水记录（资金账）
+        db.query(OrderTransaction).filter(
+            OrderTransaction.figure_id == figure_id
+        ).update({
+            'is_active': False,
+            'deleted_at': datetime.now()
+        })
+
+        # 软删除手办
+        db_figure.is_active = False
+        db_figure.deleted_at = datetime.now()
         db.commit()
         return True

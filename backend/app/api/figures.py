@@ -15,6 +15,7 @@ from app.models.user import User
 
 # 引入服务层
 from app.services import FigureService, TagService, FigureExportService, FigureImportService
+from app.services.asset_transaction_service import AssetTransactionService
 
 router = APIRouter()
 
@@ -177,23 +178,83 @@ def create_figure(
 
 @router.put("/{figure_id}", response_model=FigureSchema)
 def update_figure(
-    figure_id: int, 
-    figure: FigureUpdate, 
-    current_user: User = Depends(get_current_user), 
+    figure_id: int,
+    figure: FigureUpdate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     更新手办
+
+    支持冲正交易：
+    - 修改数量（增加）：创建补录买入交易
+    - 修改数量（减少）：创建冲正交易
+    - 修改入手价格：创建价格调整记录
     """
     figure_data = figure.model_dump(exclude_unset=True)
+
+    # 获取原始手办数据（用于冲正计算）
+    original_figure = FigureService.get_figure_by_id(db, figure_id)
+    if not original_figure:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Figure not found"
+        )
+
+    original_quantity = original_figure.quantity or 1
+    original_price = original_figure.purchase_price or 0
+
+    # 更新手办
     db_figure = FigureService.update_figure(db, figure_id, figure_data)
-    
+
     if not db_figure:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Figure not found"
         )
-    
+
+    # 处理冲正交易
+    try:
+        # 检查数量变化
+        new_quantity = db_figure.quantity or 1
+        if 'quantity' in figure_data and new_quantity != original_quantity:
+            quantity_change = new_quantity - original_quantity
+            # 使用当前入手价格作为冲正价格
+            adjustment_price = db_figure.purchase_price or original_price or 0
+
+            if adjustment_price > 0:  # 只有价格大于0时才创建冲正记录
+                AssetTransactionService.create_quantity_adjustment_transaction(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=figure_id,
+                    quantity_change=quantity_change,
+                    price=adjustment_price,
+                    original_quantity=original_quantity,
+                    new_quantity=new_quantity
+                )
+                db.commit()
+
+        # 检查价格变化（数量未变化时）
+        new_price = db_figure.purchase_price or 0
+        if ('purchase_price' in figure_data and
+            new_price != original_price and
+            new_quantity == original_quantity):
+            # 创建价格调整记录
+            AssetTransactionService.create_price_adjustment_transaction(
+                db=db,
+                user_id=current_user.id,
+                figure_id=figure_id,
+                old_price=original_price,
+                new_price=new_price,
+                quantity=original_quantity
+            )
+            db.commit()
+
+    except Exception as e:
+        # 冲正交易失败不影响手办更新
+        db.rollback()
+        print(f"创建冲正交易记录失败: {e}")
+
     return db_figure
 
 

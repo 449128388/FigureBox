@@ -346,3 +346,129 @@ class AssetTransactionService:
         db.delete(transaction)
         db.flush()
         return True
+
+    @staticmethod
+    def create_quantity_adjustment_transaction(
+        db: Session,
+        user_id: int,
+        figure_id: int,
+        quantity_change: int,
+        price: float,
+        original_quantity: int,
+        new_quantity: int
+    ) -> AssetTransaction:
+        """
+        创建数量调整冲正交易记录
+
+        使用场景：
+        - 用户在手办管理中修改手办数量时
+        - 数量增加：创建买入交易（补录）
+        - 数量减少：创建冲正交易（adjust类型，quantity为负数）
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            figure_id: 手办ID
+            quantity_change: 数量变化（正数表示增加，负数表示减少）
+            price: 单价（使用当前手办的入手价格）
+            original_quantity: 原始数量
+            new_quantity: 新数量
+
+        Returns:
+            创建的交易记录对象
+        """
+        total_amount = price * abs(quantity_change)
+
+        if quantity_change > 0:
+            # 数量增加：创建补录买入交易
+            transaction = AssetTransaction(
+                user_id=user_id,
+                figure_id=figure_id,
+                order_id=None,
+                transaction_type="buy",
+                price=price,
+                quantity=quantity_change,
+                total_amount=total_amount,
+                remaining_quantity=quantity_change,
+                notes=f"数量调整补录：{original_quantity} → {new_quantity}（+{quantity_change}）"
+            )
+        else:
+            # 数量减少：创建冲正交易
+            transaction = AssetTransaction(
+                user_id=user_id,
+                figure_id=figure_id,
+                order_id=None,
+                transaction_type="adjust",
+                price=price,
+                quantity=quantity_change,  # 负数
+                total_amount=-total_amount,  # 负数表示减少金额
+                remaining_quantity=0,  # 冲正交易不增加持仓
+                notes=f"数量调整冲正：{original_quantity} → {new_quantity}（{quantity_change}）"
+            )
+
+            # 【修复】扣减买入记录的剩余数量（后进先出 LIFO）
+            # 冲正场景应该撤销最近补录的数量，而不是最早的原始数量
+            remaining_to_deduct = abs(quantity_change)
+            buy_transactions = db.query(AssetTransaction).filter(
+                AssetTransaction.user_id == user_id,
+                AssetTransaction.figure_id == figure_id,
+                AssetTransaction.transaction_type.in_(["buy"]),
+                AssetTransaction.remaining_quantity > 0
+            ).order_by(AssetTransaction.transaction_date.desc()).all()  # 【修复】desc 后进先出
+
+            for buy_tx in buy_transactions:
+                if remaining_to_deduct <= 0:
+                    break
+                deduct_amount = min(buy_tx.remaining_quantity, remaining_to_deduct)
+                buy_tx.remaining_quantity -= deduct_amount
+                remaining_to_deduct -= deduct_amount
+
+        db.add(transaction)
+        db.flush()
+        return transaction
+
+    @staticmethod
+    def create_price_adjustment_transaction(
+        db: Session,
+        user_id: int,
+        figure_id: int,
+        old_price: float,
+        new_price: float,
+        quantity: int
+    ) -> AssetTransaction:
+        """
+        创建价格调整记录
+
+        使用场景：
+        - 用户在手办管理中修改入手价格时
+        - 记录价格变更历史
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            figure_id: 手办ID
+            old_price: 原价格
+            new_price: 新价格
+            quantity: 手办数量
+
+        Returns:
+            创建的交易记录对象
+        """
+        price_diff = new_price - old_price
+        total_diff = price_diff * quantity
+
+        transaction = AssetTransaction(
+            user_id=user_id,
+            figure_id=figure_id,
+            order_id=None,
+            transaction_type="adjust",
+            price=price_diff,  # 记录价格差值
+            quantity=quantity,
+            total_amount=total_diff,  # 记录金额差值
+            remaining_quantity=None,  # 价格调整不影响持仓数量
+            notes=f"价格调整：¥{old_price} → ¥{new_price}（差值：¥{price_diff}）"
+        )
+
+        db.add(transaction)
+        db.flush()
+        return transaction

@@ -142,6 +142,9 @@ def update_order(order_id: int, order: OrderUpdate, current_user: User = Depends
 
 @router.delete("/{order_id}/")
 def delete_order(order_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.models.asset import AssetTransaction, OrderTransaction
+    from datetime import datetime
+
     db_order = db.query(Order).filter(Order.id == order_id).first()
     if not db_order:
         raise HTTPException(
@@ -153,6 +156,23 @@ def delete_order(order_id: int, current_user: User = Depends(get_current_user), 
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
         )
+
+    # 【修复】软删除关联的资产交易记录（库存账）
+    db.query(AssetTransaction).filter(
+        AssetTransaction.order_id == order_id
+    ).update({
+        'is_active': False,
+        'deleted_at': datetime.now()
+    })
+
+    # 【修复】软删除关联的资金流水记录（资金账）
+    db.query(OrderTransaction).filter(
+        OrderTransaction.order_id == order_id
+    ).update({
+        'is_active': False,
+        'deleted_at': datetime.now()
+    })
+
     db.delete(db_order)
     db.commit()
     return {"message": "Order deleted successfully"}

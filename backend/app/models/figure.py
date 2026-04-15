@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, Text, Date, JSON
+from sqlalchemy import Column, Integer, String, Float, Text, Date, JSON, Boolean, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from app.models.database import Base
 
 class Figure(Base):
@@ -60,3 +61,7 @@ class Figure(Base):
     tags = relationship("Tag", secondary="figure_tag", back_populates="figures")
     # 关联的价格历史
     price_histories = relationship("AssetPriceHistory", back_populates="figure")
+    
+    # 软删除字段
+    is_active = Column(Boolean, default=True)  # 是否激活
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # 删除时间

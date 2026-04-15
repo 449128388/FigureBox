@@ -12,6 +12,8 @@ class OrderBase(BaseModel):
 
 class OrderCreate(OrderBase):
     status: str
+    # 【修复】已取消状态的订单不需要出荷日期，设置为可选
+    due_date: date | None = None
 
 class OrderUpdate(BaseModel):
     deposit: float | None = None

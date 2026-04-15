@@ -13,6 +13,7 @@ from app.models.order import Order
 from app.models.tag import Tag, figure_tag
 from app.services.figure_service import FigureService
 from app.services.asset_transaction_service import AssetTransactionService
+from app.services.order_transaction_service import OrderTransactionService
 
 
 class FigureImportService:
@@ -150,8 +151,9 @@ class FigureImportService:
             db.add(order)
             db.flush()  # 获取订单ID
             
-            # 【修复】创建资产交易记录（买入类型）
+            # 【修复】创建资产交易记录（库存账）和资金流水记录（资金账）
             try:
+                # 1. 创建资产交易记录（库存账）- 记录数量变动
                 AssetTransactionService.create_buy_transaction_from_order(
                     db=db,
                     user_id=user_id,
@@ -159,9 +161,18 @@ class FigureImportService:
                     order=order,
                     quantity=1  # 导入的订单默认数量为1
                 )
+
+                # 2. 创建资金流水记录（资金账）- 记录资金变动
+                OrderTransactionService.create_transaction_from_order(
+                    db=db,
+                    user_id=user_id,
+                    figure_id=figure.id,
+                    order=order,
+                    notes=f"订单导入 - {figure.name}"
+                )
             except Exception as e:
                 # 如果创建交易记录失败，不影响订单导入
-                print(f"导入订单时创建资产交易记录失败: {e}")
+                print(f"导入订单时创建交易记录失败: {e}")
             
             imported_count += 1
         

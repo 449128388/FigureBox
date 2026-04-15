@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.database import Base
@@ -102,9 +102,13 @@ class AssetTransaction(Base):
     price = Column(Float, nullable=False)  # 交易价格（单价）
     quantity = Column(Integer, nullable=False, default=1)  # 交易数量
     total_amount = Column(Float, nullable=False)  # 交易总金额（price × quantity）
-    remaining_quantity = Column(Integer, nullable=True)  # 剩余持仓数量（用于部分卖出后的持仓计算）
+    remaining_quantity = Column(Integer, nullable=True)  # 单条交易记录剩余持仓数量（用于部分卖出后的持仓计算）,不是总库存的汇总值
     transaction_date = Column(DateTime(timezone=True), server_default=func.now())  # 交易日期时间
     notes = Column(String(255))  # 交易备注/说明
+    
+    # 软删除字段
+    is_active = Column(Boolean, default=True)  # 是否激活
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # 删除时间
 
     # 关系
     user = relationship("User")  # 关联用户对象
@@ -223,3 +227,53 @@ class UserSettings(Base):
 
     # 关系
     user = relationship("User") # 关联用户对象
+
+
+class OrderTransaction(Base):
+    """
+    订单资金流水记录模型 - 记录手办的资金变动（资金账）
+
+    功能说明：
+    - 记录手办相关的所有资金流水
+    - 与 asset_transactions（库存账）解耦但字段保持一致
+    - 支持资金统计和分析
+
+    交易类型说明：
+    - deposit: 定金支付
+    - balance: 尾款支付
+    - full: 全款支付
+    - refund: 退款
+
+    关联关系：
+    - user: 多对一关联 User 表
+    - figure: 多对一关联 Figure 表
+    - order: 多对一关联 Order 表（可选）
+    """
+    __tablename__ = "order_transactions"
+
+    # 主键
+    id = Column(Integer, primary_key=True, index=True)  # 资金流水记录唯一标识ID
+
+    # 外键关联
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
+    figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # 关联订单ID（可选）
+
+    # 交易信息（与 asset_transactions 保持一致）
+    transaction_type = Column(String(50), nullable=False)  # 交易类型：deposit（定金）、balance（尾款）、full（全款）、refund（退款）
+    quantity = Column(Integer, default=1)  # 交易数量
+    price = Column(Float, nullable=False)  # 交易单价
+    total_amount = Column(Float, nullable=False)  # 交易总金额（price × quantity）
+    remaining_quantity = Column(Integer, default=0)  # 剩余持仓数量（用于计算部分卖出后的持仓）
+    currency = Column(String(10), default="CNY")  # 货币类型
+    transaction_date = Column(DateTime(timezone=True), server_default=func.now())  # 交易日期时间
+    notes = Column(String(255))  # 交易备注/说明
+    
+    # 软删除字段
+    is_active = Column(Boolean, default=True)  # 是否激活
+    deleted_at = Column(DateTime(timezone=True), nullable=True)  # 删除时间
+
+    # 关系
+    user = relationship("User")  # 关联用户对象
+    figure = relationship("Figure")  # 关联手办对象
+    order = relationship("Order")  # 关联订单对象
