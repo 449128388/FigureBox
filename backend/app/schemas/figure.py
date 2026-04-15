@@ -24,8 +24,8 @@ class Tag(TagBase):
         from_attributes = True
 
 # 定义正则表达式模式
-# 允许中文、英文、日文、数字、空格，常见符号（如 /、×、（）、&）
-ALLOWED_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312fa-zA-Z0-9\s\/\×\(\)\&\-\.\,\:\;\!\?\#\@\$\%\*\+\=\[\]\{\}\|\<\>\~\`\"\'\\]*$')
+# 允许中文、英文、日文、数字、空格，常见符号（如 /、×、（）、&、中文冒号、英文冒号等）
+ALLOWED_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312fa-zA-Z0-9\s\/\×\(\)\&\-\.\,\:\;\!\?\#\@\$\%\*\+\=\[\]\{\}\|\<\>\~\`\"\'\\\uff1a\uff08\uff09]*$')
 # 材质和尺寸允许更少的特殊字符
 SIMPLE_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312fa-zA-Z0-9\s]*$')
 # Emoji 过滤模式

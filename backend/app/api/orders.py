@@ -6,6 +6,7 @@ from app.models.figure import Figure
 from app.schemas.order import Order as OrderSchema, OrderCreate, OrderUpdate, OrderListItem
 from app.api.users import get_current_user
 from app.models.user import User
+from app.services.asset_transaction_service import AssetTransactionService
 from sqlalchemy import func
 
 router = APIRouter()
@@ -71,6 +72,11 @@ def get_order(order_id: int, current_user: User = Depends(get_current_user), db:
 
 @router.post("/", response_model=OrderSchema)
 def create_order(order: OrderCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    创建订单
+    
+    创建订单时会自动关联或创建对应的资产交易记录
+    """
     # 检查手办是否存在
     db_figure = db.query(Figure).filter(Figure.id == order.figure_id).first()
     if not db_figure:
@@ -96,6 +102,21 @@ def create_order(order: OrderCreate, current_user: User = Depends(get_current_us
     db.add(db_order)
     db.commit()
     db.refresh(db_order)
+    
+    # 创建或更新资产交易记录
+    try:
+        AssetTransactionService.create_buy_transaction_from_order(
+            db=db,
+            user_id=current_user.id,
+            figure_id=order.figure_id,
+            order=db_order
+        )
+        db.commit()
+    except Exception as e:
+        # 如果创建交易记录失败，不影响订单创建
+        db.rollback()
+        print(f"创建资产交易记录失败: {e}")
+    
     return db_order
 
 

@@ -18,7 +18,7 @@
 <template>
   <div class="figures-list">
     <div v-if="figures.length === 0" class="empty-state">
-      <p>暂无数据</p>
+      <el-empty description="暂无数据" />
     </div>
     <FigureItem
       v-else

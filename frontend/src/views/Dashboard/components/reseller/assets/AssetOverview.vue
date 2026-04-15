@@ -17,7 +17,7 @@
   <div class="asset-overview">
     <div class="overview-item">
       <span class="label">总资产:</span>
-      <span class="value">¥{{ formatNumber(dashboardData?.summary?.total_assets || 128500) }}</span>
+      <span class="value">¥{{ formatNumber(dashboardData?.summary?.total_assets || 0) }}</span>
     </div>
     <div class="overview-item">
       <span class="label">日涨跌:</span>

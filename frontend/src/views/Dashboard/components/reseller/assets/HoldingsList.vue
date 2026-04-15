@@ -122,7 +122,7 @@
             </div>
             <div class="card-footer">
               <div class="footer-item" v-if="item.purchase_date">
-                <span class="label">入手:</span>
+                <span class="label">入手时间:</span>
                 <span class="value">{{ item.purchase_date }}</span>
               </div>
               <div class="footer-item" v-if="item.holding_days">

@@ -10,6 +10,7 @@ from sqlalchemy import desc
 from app.models.figure import Figure
 from app.models.tag import Tag, figure_tag
 from app.schemas.figure import FigureCreate, FigureUpdate, FigureListItem
+from app.services.asset_transaction_service import AssetTransactionService
 
 
 class FigureService:
@@ -198,13 +199,14 @@ class FigureService:
         return db.query(Figure).filter(Figure.id == figure_id).first()
     
     @staticmethod
-    def create_figure(db: Session, figure_data: Dict[str, Any]) -> Figure:
+    def create_figure(db: Session, figure_data: Dict[str, Any], user_id: int = None) -> Figure:
         """
         创建手办
         
         Args:
             db: 数据库会话
             figure_data: 手办数据字典
+            user_id: 用户ID，用于创建资产交易记录
             
         Returns:
             创建的Figure对象
@@ -236,6 +238,23 @@ class FigureService:
             db_figure.tags = tags
             db.commit()
             db.refresh(db_figure)
+        
+        # 自动创建资产交易记录（如果提供了用户ID和入手价格）
+        if user_id and figure_data.get('purchase_price') and figure_data.get('purchase_price') > 0:
+            try:
+                AssetTransactionService.create_transaction_from_figure(
+                    db=db,
+                    user_id=user_id,
+                    figure_id=db_figure.id,
+                    price=figure_data['purchase_price'],
+                    quantity=figure_data.get('quantity', 1)
+                )
+                db.commit()
+            except Exception as e:
+                # 如果创建交易记录失败，不影响手办创建
+                db.rollback()
+                # 可以在这里记录日志
+                print(f"创建资产交易记录失败: {e}")
         
         return db_figure
     

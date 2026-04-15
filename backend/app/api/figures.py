@@ -168,9 +168,11 @@ def create_figure(
 ):
     """
     创建手办
+    
+    创建手办时会自动创建对应的资产交易记录（买入类型）
     """
     figure_data = figure.model_dump()
-    return FigureService.create_figure(db, figure_data)
+    return FigureService.create_figure(db, figure_data, user_id=current_user.id)
 
 
 @router.put("/{figure_id}", response_model=FigureSchema)

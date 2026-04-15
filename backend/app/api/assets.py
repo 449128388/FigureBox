@@ -139,7 +139,7 @@ async def get_asset_dashboard(
     
     # 构建资产摘要
     summary = {
-        "total_assets": total_assets or 128500,
+        "total_assets": total_assets or 0,
         "daily_change": daily_change,
         "daily_change_percentage": daily_change_percentage,
         "has_daily_change": has_daily_change,
@@ -154,30 +154,50 @@ async def get_asset_dashboard(
         "position_color": position_info["position_color"],
         "investment_budget": position_info["investment_budget"],
         "invested_cost": position_info["invested_cost"],
-        "monthly_purchases": monthly_purchases
+        "monthly_purchases": monthly_purchases,
+        "has_figures": len(figures) > 0  # 是否有手办，用于控制前端显示
     }
-    
-    # 构建盈亏分析数据（模拟数据）
+
+    # 构建盈亏分析数据（从实际数据计算）
+    total_cost = AssetCalculationService.calculate_total_cost(figures)
+    realized_profit = sum(
+        (fig.market_price or fig.price or 0) - (fig.purchase_price or 0)
+        for fig in figures if fig.purchase_price and fig.purchase_price > 0
+    ) if figures else 0
     profit = {
-        "floating": 23400,
-        "realized": 8200,
-        "total_rate": 24.6
+        "floating": total_assets - total_cost if figures else 0,
+        "realized": 0,
+        "total_rate": ((total_assets - total_cost) / total_cost * 100) if total_cost > 0 else 0
     }
-    
-    # 构建K线数据（模拟数据）
+
+    # 构建K线数据（从实际历史数据计算）
     kline_data = []
-    for i in range(30):
-        kline_data.append({
-            "date": datetime.now() - timedelta(days=30 - i),
-            "value": 2500 + i * 10 + (i % 5)
-        })
-    
-    # 构建涨跌排行（模拟数据）
-    rankings = [
-        {"figure_id": 1, "figure_name": "初音韶华", "change_percentage": 15, "trend": "up"},
-        {"figure_id": 2, "figure_name": "蕾姆婚纱", "change_percentage": 8, "trend": "up"},
-        {"figure_id": 3, "figure_name": "Saber", "change_percentage": -12, "trend": "down"}
-    ]
+    if figures:
+        # 获取历史缓存数据
+        from app.models.asset import AssetValueCache
+        history = db.query(AssetValueCache).filter(
+            AssetValueCache.user_id == current_user.id
+        ).order_by(AssetValueCache.cache_date.desc()).limit(30).all()
+        for record in reversed(history):
+            kline_data.append({
+                "date": record.cache_date.isoformat(),
+                "value": record.total_value
+            })
+
+    # 构建涨跌排行（从实际数据计算）
+    rankings = []
+    for fig in figures:
+        if fig.price and fig.price > 0 and fig.market_price and fig.market_price > 0:
+            change_percentage = ((fig.market_price - fig.price) / fig.price) * 100
+            rankings.append({
+                "figure_id": fig.id,
+                "figure_name": fig.name,
+                "change_percentage": round(change_percentage, 2),
+                "trend": "up" if change_percentage >= 0 else "down"
+            })
+    # 按涨跌幅度排序
+    rankings.sort(key=lambda x: abs(x["change_percentage"]), reverse=True)
+    rankings = rankings[:10]
     
     # 构建操作建议（模拟数据）
     advice = [

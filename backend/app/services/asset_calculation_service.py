@@ -120,7 +120,7 @@ class AssetCalculationService:
         total_assets: float
     ) -> Tuple[float, date]:
         """
-        计算塑料指数（手办总价值指数）
+        计算塑料指数（市值加权复权指数）
         
         公式：塑料指数 = 基准日指数 × (当前总市值 / 基准日总市值)
         基准日指数 = 1000
@@ -139,25 +139,28 @@ class AssetCalculationService:
             fig.purchase_date for fig in figures if fig.purchase_date
         ]
         
-        if purchase_dates:
-            base_date = min(purchase_dates)
-            # 基准日总市值 = 开户首日所有手办的成本总价（使用入手价格）
-            base_total_value = sum(
-                (fig.purchase_price or 0) * (fig.quantity or 1) 
-                for fig in figures
-            )
-        else:
-            # 如果没有购买日期，使用当前日期作为基准日
-            base_date = date.today()
-            base_total_value = 1  # 避免除以0
+        if not purchase_dates:
+            # 没有手办时，返回基准指数1000和当前日期
+            return cls.BASE_INDEX, date.today()
+        
+        base_date = min(purchase_dates)
+        
+        # 基准日总市值 = 基准日当天所有持仓手办的入手价格总和
+        # 这是用户的初始投入成本
+        base_total_value = sum(
+            (fig.purchase_price or 0) * (fig.quantity or 1) 
+            for fig in figures
+        )
+        
+        # 如果没有成本数据，使用当前总资产作为基准（避免除以0）
+        if base_total_value <= 0:
+            base_total_value = total_assets if total_assets > 0 else cls.BASE_INDEX
         
         # 计算塑料指数
-        if base_total_value > 0:
-            plastic_index = round(
-                cls.BASE_INDEX * (total_assets / base_total_value), 2
-            )
-        else:
-            plastic_index = cls.BASE_INDEX
+        # 公式：塑料指数 = 基准日指数 × (当前总市值 / 基准日总市值)
+        plastic_index = round(
+            cls.BASE_INDEX * (total_assets / base_total_value), 2
+        )
         
         return plastic_index, base_date
     

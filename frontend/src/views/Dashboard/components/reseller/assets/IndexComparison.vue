@@ -70,11 +70,11 @@
     <!-- 塑料手办指数 -->
     <div class="index-item">
       <span class="label">塑料手办指数:</span>
-      <span class="value">{{ dashboardData?.summary?.plastic_index || 2847 }}</span>
+      <span class="value">{{ dashboardData?.summary?.plastic_index || '--' }}</span>
     </div>
     
-    <!-- 跑赢/跑输大盘 -->
-    <div class="index-item">
+    <!-- 跑赢/跑输大盘 - 仅当有手办时显示 -->
+    <div class="index-item" v-if="dashboardData?.summary?.has_figures">
       <span
         class="value"
         :class="{

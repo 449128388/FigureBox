@@ -41,7 +41,7 @@
     <!-- 订单列表 -->
     <div class="orders-list">
       <div v-if="filteredOrders.length === 0" class="empty-state">
-        <p>暂无数据</p>
+        <el-empty description="暂无数据" />
       </div>
       <OrderItem 
         v-else 

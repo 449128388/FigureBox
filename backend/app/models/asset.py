@@ -71,38 +71,45 @@ class AssetAlert(Base):
 class AssetTransaction(Base):
     """
     资产交易记录模型 - 记录手办的买卖交易
-    
+
     功能说明：
     - 记录手办的买入和卖出交易
     - 用于计算投资收益
     - 支持交易备注记录
-    
+    - 支持股票式补仓功能（记录数量、剩余持仓等）
+
     交易类型说明：
     - buy: 买入/购买
     - sell: 卖出/转让
-    
+
     关联关系：
     - user: 多对一关联 User 表
     - figure: 多对一关联 Figure 表
+    - order: 多对一关联 Order 表（买入交易关联订单）
     """
     __tablename__ = "asset_transactions"
 
     # 主键
     id = Column(Integer, primary_key=True, index=True)  # 交易记录唯一标识ID
-    
+
     # 外键关联
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID
-    
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # 关联订单ID（买入交易时关联）
+
     # 交易信息
     transaction_type = Column(String(50), nullable=False)  # 交易类型：buy（买入）、sell（卖出）
     price = Column(Float, nullable=False)  # 交易价格（单价）
+    quantity = Column(Integer, nullable=False, default=1)  # 交易数量
+    total_amount = Column(Float, nullable=False)  # 交易总金额（price × quantity）
+    remaining_quantity = Column(Integer, nullable=True)  # 剩余持仓数量（用于部分卖出后的持仓计算）
     transaction_date = Column(DateTime(timezone=True), server_default=func.now())  # 交易日期时间
     notes = Column(String(255))  # 交易备注/说明
 
     # 关系
     user = relationship("User")  # 关联用户对象
     figure = relationship("Figure")  # 关联手办对象
+    order = relationship("Order")  # 关联订单对象
 
 
 class StockIndexCache(Base):

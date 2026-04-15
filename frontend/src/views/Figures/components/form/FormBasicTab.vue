@@ -31,9 +31,9 @@
       <div v-if="nameError" class="error-message">{{ nameError }}</div>
     </div>
     <div class="form-group">
-      <label>定价</label>
+      <label>官方定价</label>
       <div class="price-currency-container">
-        <el-input-number v-model="localFigure.price" placeholder="请输入定价" :min="0" :step="1" required style="width: 200px;"></el-input-number>
+        <el-input-number v-model="localFigure.price" placeholder="请输入官方定价" :min="0" :step="1" required style="width: 200px;"></el-input-number>
         <el-select v-model="localFigure.currency" placeholder="选择币种" style="width: 120px;">
           <el-option value="CNY" label="人民币" />
           <el-option value="JPY" label="日元" />

@@ -3,7 +3,7 @@
 
   功能说明：
   - 展示手办的基本信息
-  - 包括日文名、制造商、定价、市场价、出货日、入手价格、入手时间等字段
+  - 包括日文名、制造商、官方定价、市场价、出货日、入手价格、入手时间等字段
   - 仅在有相关信息时显示对应字段
   - 支持多货币符号显示
 
@@ -26,7 +26,7 @@
       <span class="value">{{ figure.manufacturer }}</span>
     </div>
     <div class="info-item" v-if="figure.price !== null && figure.price !== undefined">
-      <span class="label">定价:</span>
+      <span class="label">官方定价:</span>
       <span class="value">{{ figure.price }} {{ getCurrencySymbol(figure.currency) }}</span>
     </div>
     <div class="info-item" v-if="figure.market_price !== null && figure.market_price !== undefined">

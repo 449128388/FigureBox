@@ -29,7 +29,7 @@
       >
     </div>
     <h3><router-link :to="`/figures/${figure.id}`" class="figure-name-link">{{ figure.name }}</router-link></h3>
-    <p>定价: {{ figure.price !== null && figure.price !== undefined ? figure.price : '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
+    <p>官方定价: {{ figure.price !== null && figure.price !== undefined ? figure.price : '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
     <p v-if="figure.market_price !== null && figure.market_price !== undefined">市场价: {{ figure.market_price }} {{ getCurrencySymbol(figure.market_currency) }}</p>
     <p v-else>市场价: 未设置</p>
     <p v-if="figure.purchase_price !== null && figure.purchase_price !== undefined">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</p>

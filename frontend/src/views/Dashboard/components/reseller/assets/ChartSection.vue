@@ -19,7 +19,11 @@
   <div class="chart-section">
     <div class="chart-item">
       <div class="section-title">{{ pieChartTitle }}</div>
-      <div ref="pieChart" class="pie-chart"></div>
+      <!-- 饼图空数据提示 -->
+      <div v-if="!hasPieData" class="empty-chart">
+        <el-empty description="暂无数据" />
+      </div>
+      <div v-else ref="pieChart" class="pie-chart"></div>
       <!-- 饼图切换指示器 -->
       <div class="pie-chart-dots">
         <span 
@@ -50,7 +54,11 @@
     </div>
     <div class="chart-item">
       <div class="section-title">收益曲线(近1月)</div>
-      <div ref="profitChart" class="profit-chart"></div>
+      <!-- 收益曲线空数据提示 -->
+      <div v-if="!hasProfitData" class="empty-chart">
+        <el-empty description="暂无数据" />
+      </div>
+      <div v-else ref="profitChart" class="profit-chart"></div>
     </div>
   </div>
 </template>
@@ -86,6 +94,24 @@ export default {
       } else {
         return '资产仓位分层饼图'
       }
+    })
+
+    // 判断饼图是否有数据
+    const hasPieData = computed(() => {
+      if (currentPieChart.value === 'risk') {
+        return (props.dashboardData?.risk_distribution || []).length > 0
+      } else if (currentPieChart.value === 'manufacturer') {
+        return (props.dashboardData?.manufacturer_distribution || []).length > 0
+      } else if (currentPieChart.value === 'holding_period') {
+        return (props.dashboardData?.holding_period_distribution || []).length > 0
+      } else {
+        return (props.dashboardData?.tier_distribution || []).length > 0
+      }
+    })
+
+    // 判断收益曲线是否有数据
+    const hasProfitData = computed(() => {
+      return (props.dashboardData?.profit_trend || []).length > 0
     })
     
     const formatNumber = (num) => {
@@ -293,7 +319,9 @@ export default {
       profitChart,
       currentPieChart,
       pieChartTitle,
-      switchPieChart
+      switchPieChart,
+      hasPieData,
+      hasProfitData
     }
   }
 }
@@ -353,5 +381,13 @@ export default {
 
 .pie-chart-dots .dot.active {
   background-color: #409eff;
+}
+
+/* 空数据图表样式 */
+.empty-chart {
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
