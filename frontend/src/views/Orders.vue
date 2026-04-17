@@ -68,11 +68,13 @@
     </div>
     
     <!-- 添加订单表单 -->
-    <OrderForm 
+    <OrderForm
       :visible="showAddForm"
       :isEditing="isEditing"
       :newOrder="newOrder"
       :availableFigures="availableFigures"
+      :figureError="figureError"
+      :dueDateError="dueDateError"
       @saveOrder="handleSaveOrder"
       @cancel="showAddForm = false"
     />
@@ -96,6 +98,8 @@ const {
   pageSize,
   pageSizes,
   currentStatus,
+  figureError,
+  dueDateError,
   newOrder,
   filteredOrders,
   paginatedOrders,

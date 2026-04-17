@@ -41,6 +41,7 @@ class OrderListItem(OrderBase):
     tracking_number: str | None = None
     figure_name: str
     figure_image: str | None = None
-    
+    due_date: date | None = None
+
     class Config:
         from_attributes = True

@@ -231,18 +231,22 @@ class UserSettings(Base):
 
 class OrderTransaction(Base):
     """
-    订单资金流水记录模型 - 记录手办的资金变动（资金账）
+    订单资金流水记录模型 - 记录手办的真实资金变动（资金账）
 
     功能说明：
-    - 记录手办相关的所有资金流水
-    - 与 asset_transactions（库存账）解耦但字段保持一致
-    - 支持资金统计和分析
+    - 只记录有真实资金流动的交易
+    - 严禁记录无资金流动的场景（库存调整、价格调整等）
+    - 支持资金流向分析和财务报表
 
     交易类型说明：
-    - deposit: 定金支付
-    - balance: 尾款支付
-    - full: 全款支付
-    - refund: 退款
+    - buy: 买入支出（订单支付、定金、尾款）
+    - sell: 卖出收入（闲鱼出售等）
+    - refund: 退款收入（退货/取消订单）
+    - fee: 手续费支出（平台扣费）
+
+    资金流向说明：
+    - in: 资金流入（收入）
+    - out: 资金流出（支出）
 
     关联关系：
     - user: 多对一关联 User 表
@@ -259,16 +263,25 @@ class OrderTransaction(Base):
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # 关联订单ID（可选）
 
-    # 交易信息（与 asset_transactions 保持一致）
-    transaction_type = Column(String(50), nullable=False)  # 交易类型：deposit（定金）、balance（尾款）、full（全款）、refund（退款）
+    # 交易信息
+    transaction_type = Column(String(50), nullable=False)  # 交易类型：buy(买入)/sell(卖出)/refund(退款)/fee(手续费)
+    direction = Column(String(10), nullable=False, default="out")  # 资金流向：in(收入)/out(支出)
     quantity = Column(Integer, default=1)  # 交易数量
-    price = Column(Float, nullable=False)  # 交易单价
-    total_amount = Column(Float, nullable=False)  # 交易总金额（price × quantity）
-    remaining_quantity = Column(Integer, default=0)  # 剩余持仓数量（用于计算部分卖出后的持仓）
+    unit_price = Column(Float, nullable=False)  # 交易单价
+    total_amount = Column(Float, nullable=False)  # 交易总金额（unit_price × quantity）
     currency = Column(String(10), default="CNY")  # 货币类型
-    transaction_date = Column(DateTime(timezone=True), server_default=func.now())  # 交易日期时间
+
+    # 交易详情
+    payment_method = Column(String(50))  # 支付方式：支付宝/微信/银行卡/现金等
+    platform = Column(String(50))  # 交易平台：淘宝/闲鱼/AmiAmi/京东/线下等
+
+    # 时间字段
+    transaction_date = Column(DateTime(timezone=True), nullable=False)  # 交易发生时间（业务时间）
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 系统记录时间
+
+    # 备注
     notes = Column(String(255))  # 交易备注/说明
-    
+
     # 软删除字段
     is_active = Column(Boolean, default=True)  # 是否激活
     deleted_at = Column(DateTime(timezone=True), nullable=True)  # 删除时间

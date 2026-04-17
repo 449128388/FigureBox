@@ -159,7 +159,7 @@ class FigureImportService:
                     user_id=user_id,
                     figure_id=figure.id,
                     order=order,
-                    quantity=1  # 导入的订单默认数量为1
+                    quantity=figure.quantity or 1
                 )
 
                 # 2. 创建资金流水记录（资金账）- 记录资金变动
@@ -168,6 +168,7 @@ class FigureImportService:
                     user_id=user_id,
                     figure_id=figure.id,
                     order=order,
+                    transaction_date=order.purchase_date,
                     notes=f"订单导入 - {figure.name}"
                 )
             except Exception as e:

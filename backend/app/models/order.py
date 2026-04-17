@@ -34,7 +34,7 @@ class Order(Base):
     # 付款信息（支持定金+尾款模式）
     deposit = Column(Float, nullable=False)  # 定金金额（预付款）
     balance = Column(Float, nullable=False)  # 尾款金额（剩余款项）
-    due_date = Column(Date, nullable=False)  # 尾款截止日期/预计出货日期
+    due_date = Column(Date, nullable=True)  # 尾款截止日期/预计出货日期
     
     # 订单状态
     status = Column(String(20), default="未支付")  # 订单状态：未支付、已支付、已取消、已完成

@@ -16,6 +16,7 @@ from app.models.user import User
 # 引入服务层
 from app.services import FigureService, TagService, FigureExportService, FigureImportService
 from app.services.asset_transaction_service import AssetTransactionService
+from app.services.order_transaction_service import OrderTransactionService
 
 router = APIRouter()
 
@@ -223,6 +224,8 @@ def update_figure(
             adjustment_price = db_figure.purchase_price or original_price or 0
 
             if adjustment_price > 0:  # 只有价格大于0时才创建冲正记录
+                # 【重构】只创建资产交易记录（库存账）
+                # 数量调整属于库存纠错，无真实资金流动，不记录到资金账
                 AssetTransactionService.create_quantity_adjustment_transaction(
                     db=db,
                     user_id=current_user.id,
@@ -235,20 +238,6 @@ def update_figure(
                 db.commit()
 
         # 检查价格变化（数量未变化时）
-        new_price = db_figure.purchase_price or 0
-        if ('purchase_price' in figure_data and
-            new_price != original_price and
-            new_quantity == original_quantity):
-            # 创建价格调整记录
-            AssetTransactionService.create_price_adjustment_transaction(
-                db=db,
-                user_id=current_user.id,
-                figure_id=figure_id,
-                old_price=original_price,
-                new_price=new_price,
-                quantity=original_quantity
-            )
-            db.commit()
 
     except Exception as e:
         # 冲正交易失败不影响手办更新

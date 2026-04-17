@@ -254,14 +254,8 @@ class FigureService:
                     quantity=figure_data.get('quantity', 1)
                 )
 
-                # 2. 创建资金流水记录（资金账）- 记录资金变动
-                OrderTransactionService.create_transaction_from_figure(
-                    db=db,
-                    user_id=user_id,
-                    figure=db_figure,
-                    transaction_type="full",
-                    notes=f"自动创建：从手办管理数据中创建 - {db_figure.name}"
-                )
+                # 【重构】自动创建手办（无订单）不记录到资金账
+                # 资金账只记录有真实资金流动的交易，等补录订单后再记录
 
                 db.commit()
             except Exception as e:

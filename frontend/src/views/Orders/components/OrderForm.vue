@@ -24,13 +24,12 @@
         <div class="form-grid">
           <div class="form-group">
             <label>手办</label>
-            <el-select 
-              v-model="newOrder.figure_id" 
-              placeholder="请选择手办" 
+            <el-select
+              v-model="newOrder.figure_id"
+              placeholder="请选择手办"
               style="width: 100%;"
               :class="{ 'error-input': figureError }"
               :disabled="isEditing"
-              @change="validateFigureOnChange"
             >
               <el-option 
                 v-for="figure in availableFigures" 
@@ -51,13 +50,12 @@
           </div>
           <div class="form-group">
             <label>出荷日期</label>
-            <el-date-picker 
-              v-model="newOrder.due_date" 
-              type="date" 
-              placeholder="选择出荷日期" 
+            <el-date-picker
+              v-model="newOrder.due_date"
+              type="date"
+              placeholder="选择出荷日期"
               style="width: 100%;"
               :class="{ 'error-input': dueDateError }"
-              @change="validateDueDateOnChange"
             ></el-date-picker>
             <div v-if="dueDateError" class="error-message">{{ dueDateError }}</div>
           </div>
@@ -112,34 +110,17 @@ export default {
     availableFigures: {
       type: Array,
       default: () => []
-    }
-  },
-  emits: ['saveOrder', 'cancel'],
-  data() {
-    return {
-      figureError: '',
-      dueDateError: ''
-    }
-  },
-  methods: {
-    // 验证手办字段
-    validateFigureOnChange() {
-      if (!this.newOrder.figure_id) {
-        this.figureError = '请选择手办'
-      } else {
-        this.figureError = ''
-      }
     },
-    
-    // 验证出荷日期字段
-    validateDueDateOnChange() {
-      if (!this.newOrder.due_date) {
-        this.dueDateError = '请选择出荷日期'
-      } else {
-        this.dueDateError = ''
-      }
+    figureError: {
+      type: String,
+      default: ''
+    },
+    dueDateError: {
+      type: String,
+      default: ''
     }
-  }
+  },
+  emits: ['saveOrder', 'cancel']
 }
 </script>
 
@@ -219,6 +200,19 @@ export default {
 }
 
 :deep(.error-input .el-select .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+/* 【新增】日期选择器错误样式 */
+:deep(.error-input .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #f56c6c inset !important;
+}
+
+:deep(.error-input .el-input__wrapper.is-focus) {
   box-shadow: 0 0 0 1px #f56c6c inset !important;
 }
 

@@ -162,16 +162,20 @@ def delete_order(order_id: int, current_user: User = Depends(get_current_user), 
         AssetTransaction.order_id == order_id
     ).update({
         'is_active': False,
-        'deleted_at': datetime.now()
-    })
+        'deleted_at': datetime.now(),
+        'order_id': None  # 解除外键关联，避免外键约束错误
+    }, synchronize_session=False)
 
     # 【修复】软删除关联的资金流水记录（资金账）
     db.query(OrderTransaction).filter(
         OrderTransaction.order_id == order_id
     ).update({
         'is_active': False,
-        'deleted_at': datetime.now()
-    })
+        'deleted_at': datetime.now(),
+        'order_id': None  # 解除外键关联，避免外键约束错误
+    }, synchronize_session=False)
+
+    db.commit()  
 
     db.delete(db_order)
     db.commit()

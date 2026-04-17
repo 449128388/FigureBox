@@ -69,19 +69,7 @@
           </div>
         </div>
 
-        <div v-if="importStatus === 'success'" class="result-section success">
-          <i class="fa-solid fa-check-circle"></i>
-          <p>导入成功！</p>
-          <p class="result-detail">
-            成功导入 {{ importResult.imported }} 个手办，{{ importResult.orders }} 个订单
-          </p>
-        </div>
 
-        <div v-if="importStatus === 'error'" class="result-section error">
-          <i class="fa-solid fa-exclamation-circle"></i>
-          <p>导入失败</p>
-          <p class="result-detail">{{ errorMessage }}</p>
-        </div>
       </div>
 
       <div class="dialog-actions">
@@ -103,6 +91,7 @@
 
 <script>
 import { ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 
 export default {
   name: 'ImportFiguresDialog',
@@ -188,13 +177,15 @@ export default {
             imported: result.imported || 0,
             orders: result.orders || 0
           }
-          importStatus.value = 'success'
+          ElMessage.success(`成功导入 ${result.imported || 0} 个手办，${result.orders || 0} 个订单`)
+          emit('close')
         } else {
           throw new Error(result?.message || '导入失败')
         }
       } catch (error) {
         importStatus.value = 'error'
         errorMessage.value = error.message || '导入过程中发生错误'
+        ElMessage.error(error.message || '导入过程中发生错误')
       } finally {
         isImporting.value = false
       }
