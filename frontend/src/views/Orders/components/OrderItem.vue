@@ -16,34 +16,63 @@
   - 使用 router-link 实现详情页跳转
   - 倒计时标签样式通过 getCountdownClass 方法获取
   - 倒计时文本通过 getCountdownText 方法获取
+  - 定金/尾款金额后显示币种单位（元/日元/美元/欧元）
+  - 使用 getCurrencySymbol 方法获取币种对应的单位
   - 收货按钮仅在订单状态为 '已支付' 时显示
   - 按钮点击事件通过 editOrder、receiveOrder、deleteOrder 事件向父组件传递
+  - 使用 Element Plus 的 ElButton 和 ElButtonGroup 实现编辑/收货/删除按钮
 -->
 <template>
   <div class="order-item">
     <div class="figure-image">
-      <img 
-        :src="order.figure_image || '/imgs/no_image.png'" 
+      <img
+        :src="order.figure_image || '/imgs/no_image.png'"
         :alt="order.figure_name"
         loading="lazy"
         decoding="async"
       >
     </div>
     <h3><router-link :to="`/figures/${order.figure_id}`" class="figure-name-link">{{ order.figure_name }}</router-link><span v-if="order.status !== '已完成' && order.status !== '已取消'" class="countdown-tag" :class="getCountdownClass(order.due_date)">{{ getCountdownText(order.due_date) }}</span></h3>
-    <p>定金: ¥{{ order.deposit }}</p>
-    <p>尾款: ¥{{ order.balance }}</p>
+    <p>定金: {{ order.deposit }} {{ getCurrencySymbol(order.deposit_currency) }}</p>
+    <p>尾款: {{ order.balance }} {{ getCurrencySymbol(order.balance_currency) }}</p>
     <p>出荷日期: {{ order.due_date }}</p>
     <p>尾款状态: {{ order.status }}</p>
     <p v-if="order.shop_name">购买店铺: {{ order.shop_name }}</p>
     <p v-if="order.shop_contact">店铺联系方式: {{ order.shop_contact }}</p>
     <p v-if="order.tracking_number">物流订单: {{ order.tracking_number }}</p>
-    <button class="btn btn-edit" @click="$emit('editOrder', order)">编辑</button>
-    <button v-if="order.status === '已支付'" class="btn btn-receive" @click="$emit('receiveOrder', order)">收货</button>
-    <button class="btn btn-delete" @click="$emit('deleteOrder', order.id)">删除</button>
+    <div class="order-actions">
+      <!-- 编辑/收货/删除按钮组 -->
+      <el-button-group class="action-button-group">
+        <el-button
+          type="primary"
+          :icon="Edit"
+          @click="$emit('editOrder', order)"
+        >
+          编辑
+        </el-button>
+        <el-button
+          v-if="order.status === '已支付'"
+          type="success"
+          :icon="Check"
+          @click="$emit('receiveOrder', order)"
+        >
+          收货
+        </el-button>
+        <el-button
+          type="danger"
+          :icon="Delete"
+          @click="$emit('deleteOrder', order)"
+        >
+          删除
+        </el-button>
+      </el-button-group>
+    </div>
   </div>
 </template>
 
 <script>
+import { Edit, Delete, Check } from '@element-plus/icons-vue'
+
 export default {
   name: 'OrderItem',
   props: {
@@ -53,20 +82,38 @@ export default {
     }
   },
   emits: ['editOrder', 'receiveOrder', 'deleteOrder'],
+  setup() {
+    return {
+      Edit,
+      Delete,
+      Check
+    }
+  },
   methods: {
+    // 获取币种符号
+    getCurrencySymbol(currency) {
+      switch(currency) {
+        case 'CNY': return '元'
+        case 'JPY': return '日元'
+        case 'USD': return '美元'
+        case 'EUR': return '欧元'
+        default: return '元'
+      }
+    },
+
     // 获取倒计时文本
     getCountdownText(dueDate) {
       if (!dueDate) return ''
-      
+
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      
+
       const due = new Date(dueDate)
       due.setHours(0, 0, 0, 0)
-      
+
       const diffTime = due - today
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
+
       if (diffDays < 0) {
         return `已出荷 ${Math.abs(diffDays)} 天`
       } else if (diffDays === 0) {
@@ -75,20 +122,20 @@ export default {
         return `还有 ${diffDays} 天`
       }
     },
-    
+
     // 获取倒计时样式类
     getCountdownClass(dueDate) {
       if (!dueDate) return ''
-      
+
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      
+
       const due = new Date(dueDate)
       due.setHours(0, 0, 0, 0)
-      
+
       const diffTime = due - today
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
+
       if (diffDays < 0) {
         return 'countdown-overdue'
       } else if (diffDays === 0) {
@@ -205,40 +252,21 @@ export default {
   }
 }
 
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-right: 10px;
-  margin-top: 10px;
+.order-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
 }
 
-.btn-edit {
-  background-color: #2196F3;
-  color: white;
+/* Element Plus 按钮组样式优化 - 按钮居中分布 */
+.action-button-group {
+  display: flex;
+  gap: 0;
 }
 
-.btn-edit:hover {
-  background-color: #0b7dda;
-}
-
-.btn-delete {
-  background-color: #f44336;
-  color: white;
-}
-
-.btn-delete:hover {
-  background-color: #da190b;
-}
-
-.btn-receive {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.btn-receive:hover {
-  background-color: #45a049;
+.action-button-group :deep(.el-button) {
+  min-width: 80px;
 }
 </style>

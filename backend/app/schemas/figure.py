@@ -278,6 +278,7 @@ class FigureUpdate(BaseModel):
 class Figure(FigureBase):
     id: int
     tags: List[Tag] = []  # 返回完整的标签信息
+    average_purchase_price: float = 0  # 平均入手价格（根据订单自动计算）
 
     class Config:
         from_attributes = True

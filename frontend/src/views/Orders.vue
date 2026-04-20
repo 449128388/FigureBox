@@ -14,12 +14,13 @@
   - OrderStatusTabs.vue - 状态筛选标签页
   - OrderItem.vue - 单个订单卡片
   - OrderForm.vue - 订单表单（添加/编辑）
+  - OrderDeleteConfirmDialog.vue - 删除确认对话框
 
   维护提示：
   - 使用 useOrderManagement composable 管理业务逻辑
   - 订单状态变化时自动重新计算统计信息
   - 确认收货操作需要二次确认
-  - 删除订单前需要用户确认
+  - 删除订单前需要勾选确认复选框才能启用删除按钮
 -->
 <template>
   <div class="orders-container">
@@ -50,7 +51,7 @@
         :order="order"
         @editOrder="handleEditOrder"
         @receiveOrder="handleReceiveOrder"
-        @deleteOrder="handleDeleteOrder"
+        @deleteOrder="openDeleteConfirmDialog"
       />
     </div>
     
@@ -78,6 +79,14 @@
       @saveOrder="handleSaveOrder"
       @cancel="showAddForm = false"
     />
+
+    <!-- 删除确认对话框 -->
+    <OrderDeleteConfirmDialog
+      v-model:show="showDeleteConfirmDialog"
+      :order="orderToDelete"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
   </div>
 </template>
 
@@ -88,6 +97,7 @@ import OrderHeader from './Orders/components/OrderHeader.vue'
 import OrderStatusTabs from './Orders/components/OrderStatusTabs.vue'
 import OrderItem from './Orders/components/OrderItem.vue'
 import OrderForm from './Orders/components/OrderForm.vue'
+import OrderDeleteConfirmDialog from './Orders/components/OrderDeleteConfirmDialog.vue'
 import { useOrderManagement } from './Orders/composables/useOrderManagement'
 
 // 使用订单管理逻辑
@@ -101,6 +111,8 @@ const {
   figureError,
   dueDateError,
   newOrder,
+  showDeleteConfirmDialog,
+  orderToDelete,
   filteredOrders,
   paginatedOrders,
   totalOrders,
@@ -109,7 +121,9 @@ const {
   totalUnpaidBalance,
   openAddForm,
   handleSaveOrder,
-  handleDeleteOrder,
+  openDeleteConfirmDialog,
+  cancelDelete,
+  confirmDelete,
   handleReceiveOrder,
   handleEditOrder,
   handleSizeChange,

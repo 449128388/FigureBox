@@ -55,10 +55,23 @@
       <div v-if="japaneseNameError" class="error-message">{{ japaneseNameError }}</div>
     </div>
     <div class="form-group">
-      <label>入手价格</label>
+      <label>
+        平均入手价格
+        <el-tag size="small" type="info">自动计算</el-tag>
+        <el-tooltip
+          content="根据关联订单的（定金+尾款）自动计算加权平均价格，无订单时默认为0"
+          placement="top"
+        >
+          <el-icon class="tooltip-icon"><QuestionFilled /></el-icon>
+        </el-tooltip>
+      </label>
       <div class="price-currency-container">
-        <el-input-number v-model="localFigure.purchase_price" placeholder="请输入入手价格" :min="0" :step="1" style="width: 200px;"></el-input-number>
-        <el-select v-model="localFigure.purchase_currency" placeholder="选择币种" style="width: 120px;">
+        <el-input
+          :value="localFigure.average_purchase_price !== undefined && localFigure.average_purchase_price !== null ? localFigure.average_purchase_price.toFixed(2) : '0.00'"
+          disabled
+          style="width: 200px;"
+        />
+        <el-select v-model="localFigure.purchase_currency" placeholder="选择币种" style="width: 120px;" disabled>
           <el-option value="CNY" label="人民币" />
           <el-option value="JPY" label="日元" />
           <el-option value="USD" label="美元" />
@@ -124,10 +137,11 @@
 
 <script>
 import ImageUpload from './ImageUpload.vue'
+import { QuestionFilled } from '@element-plus/icons-vue'
 
 export default {
   name: 'FormBasicTab',
-  components: { ImageUpload },
+  components: { ImageUpload, QuestionFilled },
   props: {
     figure: {
       type: Object,
@@ -188,6 +202,14 @@ export default {
   color: #f56c6c;
   font-size: 12px;
   margin-top: 4px;
+}
+
+/* 提示图标样式 - 距离标签5px，上下居中 */
+.tooltip-icon {
+  margin-left: 5px;
+  vertical-align: middle;
+  cursor: pointer;
+  color: #909399;
 }
 
 @media (max-width: 768px) {

@@ -63,50 +63,54 @@ class AssetTransactionService:
         return transaction
 
     @staticmethod
-    def create_buy_transaction_from_order(
+    def link_order_to_existing_transaction(
         db: Session,
         user_id: int,
         figure_id: int,
         order: Order,
         quantity: int = 1
-    ) -> AssetTransaction:
+    ) -> Optional[AssetTransaction]:
         """
-        从订单创建资产交易记录（买入类型）
+        将订单关联到现有的库存交易记录（补录凭证模式）
 
         使用场景：
-        - 用户创建订单时，独立创建对应的买入交易记录
-        - 不修改手办创建时的原始交易记录，保留历史数据完整性
-        - 每个订单对应一条独立的交易记录
+        - 用户创建订单时，将订单关联到手办创建时的原始交易记录
+        - 不新增交易记录，避免手办数量虚增
+        - 更新原有记录的 order_id 和备注信息
+
+        查找逻辑：
+        1. 查找该手办下无订单关联的买入记录（order_id IS NULL）
+        2. 如果找到，更新 order_id 并添加补录备注
+        3. 如果没找到，返回 None（表示所有库存记录都已关联订单）
 
         Args:
-            db: 数据库会话
+            db: Session: 数据库会话
             user_id: 用户ID
             figure_id: 手办ID
             order: 订单对象
             quantity: 数量，默认为1
 
         Returns:
-            创建的交易记录对象
+            更新的交易记录对象，如果没有可关联的记录则返回 None
         """
-        # 计算订单总价（定金 + 尾款）
-        total_price = order.deposit + order.balance
+        # 查找该手办下无订单关联的买入记录
+        existing_transaction = db.query(AssetTransaction).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id == figure_id,
+            AssetTransaction.transaction_type == "buy",
+            AssetTransaction.order_id.is_(None)
+        ).first()
 
-        # 【修复】始终创建新的交易记录，不更新现有记录
-        # 这样可以保留手办创建的原始记录，同时记录订单的独立信息
-        transaction = AssetTransaction(
-            user_id=user_id,
-            figure_id=figure_id,
-            order_id=order.id,
-            transaction_type="buy",
-            price=total_price,
-            quantity=quantity,
-            total_amount=total_price * quantity,
-            remaining_quantity=quantity,  # 新订单的剩余数量等于订单数量
-            notes=f"从订单 #{order.id} 创建"
-        )
-        db.add(transaction)
-        db.flush()
-        return transaction
+        if existing_transaction:
+            # 更新现有记录，关联订单
+            existing_transaction.order_id = order.id
+            existing_transaction.notes = f"补录凭证：订单 #{order.id} 关联到原有库存记录"
+            db.flush()
+            return existing_transaction
+
+        # 没有找到可关联的记录，返回 None
+        # 这种情况可能发生在：手办创建时的记录已经关联了其他订单
+        return None
 
     @staticmethod
     def create_sell_transaction(

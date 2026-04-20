@@ -5,7 +5,9 @@ from app.schemas.figure import Figure
 class OrderBase(BaseModel):
     figure_id: int
     deposit: float
+    deposit_currency: str = "CNY"
     balance: float
+    balance_currency: str = "CNY"
     due_date: date
     shop_name: str | None = None
     shop_contact: str | None = None
@@ -17,7 +19,9 @@ class OrderCreate(OrderBase):
 
 class OrderUpdate(BaseModel):
     deposit: float | None = None
+    deposit_currency: str | None = None
     balance: float | None = None
+    balance_currency: str | None = None
     due_date: date | None = None
     status: str | None = None
     shop_name: str | None = None

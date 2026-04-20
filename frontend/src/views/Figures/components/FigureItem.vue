@@ -17,12 +17,13 @@
   - 使用 getCurrencySymbol 方法获取货币符号
   - 使用 getSortedTags 方法对标签进行排序
   - 标签点击事件通过 filter-by-tag 事件向父组件传递
+  - 使用 Element Plus 的 ElButton 和 ElButtonGroup 实现编辑/删除/更多按钮
 -->
 <template>
   <div class="figure-item">
     <div class="figure-image">
-      <img 
-        :src="figure.image || '/imgs/no_image.png'" 
+      <img
+        :src="figure.image || '/imgs/no_image.png'"
         :alt="figure.name"
         loading="lazy"
         decoding="async"
@@ -32,8 +33,7 @@
     <p>官方定价: {{ figure.price !== null && figure.price !== undefined ? figure.price : '未设置' }} {{ getCurrencySymbol(figure.currency) }}</p>
     <p v-if="figure.market_price !== null && figure.market_price !== undefined">市场价: {{ figure.market_price }} {{ getCurrencySymbol(figure.market_currency) }}</p>
     <p v-else>市场价: 未设置</p>
-    <p v-if="figure.purchase_price !== null && figure.purchase_price !== undefined">入手价格: {{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</p>
-    <p v-else>入手价格: 未设置</p>
+    <!-- 【优化】列表中不显示入手价格，改为在详情/编辑中显示计算后的平均入手价格 -->
     <p v-if="figure.purchase_date">入手时间: {{ figure.purchase_date }}</p>
     <div v-if="figure.tags && figure.tags.length > 0" class="tags-container">
       <span class="tags-label">标签:</span>
@@ -51,13 +51,35 @@
       </el-tag>
     </div>
     <div class="figure-actions">
-      <button class="btn btn-edit" @click="$emit('edit', figure)">编辑</button>
-      <button class="btn btn-delete" @click="$emit('delete', figure.id)">删除</button>
+      <!-- 编辑/删除/更多按钮组 -->
+      <el-button-group class="action-button-group">
+        <el-button
+          type="primary"
+          :icon="Edit"
+          @click="$emit('edit', figure)"
+        >
+          编辑
+        </el-button>
+        <el-button
+          type="danger"
+          :icon="Delete"
+          @click="$emit('delete', figure)"
+        >
+          删除
+        </el-button>
+        <el-button
+          type="info"
+        >
+          更多
+        </el-button>
+      </el-button-group>
     </div>
   </div>
 </template>
 
 <script>
+import { Edit, Delete, More } from '@element-plus/icons-vue'
+
 export default {
   name: 'FigureItem',
   props: {
@@ -71,6 +93,13 @@ export default {
     }
   },
   emits: ['edit', 'delete', 'filter-by-tag'],
+  setup() {
+    return {
+      Edit,
+      Delete,
+      More
+    }
+  },
   methods: {
     getCurrencySymbol(currency) {
       switch(currency) {
@@ -131,42 +160,20 @@ export default {
 
 .figure-actions {
   display: flex;
-  gap: 10px;
+  justify-content: center;
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px solid #eee;
 }
 
-.figure-actions .btn {
-  margin: 0;
-  flex: 1;
+/* Element Plus 按钮组样式优化 - 三个按钮居中分布 */
+.action-button-group {
+  display: flex;
+  gap: 0;
 }
 
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s ease;
-}
-
-.btn-edit {
-  background-color: #2196F3;
-  color: white;
-}
-
-.btn-edit:hover {
-  background-color: #0b7dda;
-}
-
-.btn-delete {
-  background-color: #f44336;
-  color: white;
-}
-
-.btn-delete:hover {
-  background-color: #da190b;
+.action-button-group :deep(.el-button) {
+  min-width: 80px;
 }
 
 /* 手办图片样式 */

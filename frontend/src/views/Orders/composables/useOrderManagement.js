@@ -1,12 +1,13 @@
 import { ref, computed, watch } from 'vue'
 import { useOrderStore, useUserStore, useFigureStore } from '../../../store'
+import { ElMessage } from 'element-plus'
 
 export function useOrderManagement() {
   // 状态管理
   const orderStore = useOrderStore()
   const userStore = useUserStore()
   const figureStore = useFigureStore()
-  
+
   // 响应式数据
   const showAddForm = ref(false)
   const isEditing = ref(false)
@@ -20,12 +21,18 @@ export function useOrderManagement() {
   const newOrder = ref({
     figure_id: '',
     deposit: 0,
+    deposit_currency: 'CNY',
     balance: 0,
+    balance_currency: 'CNY',
     due_date: '',
     status: '未支付',
     shop_name: '',
     shop_contact: ''
   })
+
+  // 删除确认对话框状态
+  const showDeleteConfirmDialog = ref(false)
+  const orderToDelete = ref(null)
   
   // 计算属性
   const filteredOrders = computed(() => {
@@ -139,7 +146,9 @@ export function useOrderManagement() {
     newOrder.value = {
       figure_id: '',
       deposit: 0,
+      deposit_currency: 'CNY',
       balance: 0,
+      balance_currency: 'CNY',
       due_date: '',
       status: '未支付',
       shop_name: '',
@@ -216,20 +225,39 @@ export function useOrderManagement() {
     }
   }
   
-  const handleDeleteOrder = async (id) => {
-    if (confirm('确定要删除这个订单吗？')) {
-      try {
-        await orderStore.deleteOrder(id)
-      } catch (error) {
-      }
+  // 打开删除确认对话框
+  const openDeleteConfirmDialog = (order) => {
+    orderToDelete.value = order
+    showDeleteConfirmDialog.value = true
+  }
+
+  // 取消删除
+  const cancelDelete = () => {
+    showDeleteConfirmDialog.value = false
+    orderToDelete.value = null
+  }
+
+  // 确认删除
+  const confirmDelete = async () => {
+    if (!orderToDelete.value) return
+
+    try {
+      await orderStore.deleteOrder(orderToDelete.value.id)
+      showDeleteConfirmDialog.value = false
+      orderToDelete.value = null
+      ElMessage.success('订单删除成功')
+    } catch (error) {
+      ElMessage.error('删除失败，请稍后重试')
     }
   }
-  
+
   const handleReceiveOrder = async (order) => {
     if (confirm('确认已收到货物？')) {
       try {
         await orderStore.updateOrder(order.id, { status: '已完成' })
+        ElMessage.success('确认收货成功')
       } catch (error) {
+        ElMessage.error('操作失败，请稍后重试')
       }
     }
   }
@@ -287,7 +315,11 @@ export function useOrderManagement() {
     figureError,
     dueDateError,
     newOrder,
-    
+
+    // 删除确认对话框状态
+    showDeleteConfirmDialog,
+    orderToDelete,
+
     // 计算属性
     filteredOrders,
     paginatedOrders,
@@ -295,13 +327,15 @@ export function useOrderManagement() {
     statusCounts,
     availableFigures,
     totalUnpaidBalance: computed(() => orderStore.totalUnpaidBalance),
-    
+
     // 方法
     resetForm,
     openAddForm,
     validateForm,
     handleSaveOrder,
-    handleDeleteOrder,
+    openDeleteConfirmDialog,
+    cancelDelete,
+    confirmDelete,
     handleReceiveOrder,
     handleEditOrder,
     handleSizeChange,

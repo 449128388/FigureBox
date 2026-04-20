@@ -3,18 +3,19 @@
 
   功能说明：
   - 提供订单添加和编辑功能
-  - 包含手办选择、定金、尾款、总价、购买日期、出货日期、状态等字段
+  - 包含手办选择、定金、尾款、购买日期、出货日期、状态等字段
   - 支持表单验证和错误提示
   - 编辑模式下禁用手办选择
 
   组件依赖：
-  - 使用 Element Plus 的 el-select、el-input-number、el-date-picker、el-radio-group 组件
+  - 使用 Element Plus 的 el-select、el-input-number、el-date-picker 组件
 
   维护提示：
   - 通过 visible 属性控制显示
   - 通过 isEditing 属性判断是添加还是编辑模式
   - 表单提交通过 saveOrder 事件向父组件传递
   - 手办选择在编辑模式下被禁用
+  - 表单容器最大宽度 800px，禁止水平滚动
 -->
 <template>
   <div class="form-overlay" v-if="visible">
@@ -42,11 +43,27 @@
           </div>
           <div class="form-group">
             <label>定金</label>
-            <el-input-number v-model="newOrder.deposit" placeholder="请输入定金" :min="0" :step="1" style="width: 100%;"></el-input-number>
+            <div class="price-currency-container">
+              <el-input-number v-model="newOrder.deposit" placeholder="请输入定金" :min="0" :step="1" style="flex: 1;"></el-input-number>
+              <el-select v-model="newOrder.deposit_currency" placeholder="选择币种" style="width: 100px;">
+                <el-option value="CNY" label="人民币" />
+                <el-option value="JPY" label="日元" />
+                <el-option value="USD" label="美元" />
+                <el-option value="EUR" label="欧元" />
+              </el-select>
+            </div>
           </div>
           <div class="form-group">
             <label>尾款</label>
-            <el-input-number v-model="newOrder.balance" placeholder="请输入尾款" :min="0" :step="1" style="width: 100%;"></el-input-number>
+            <div class="price-currency-container">
+              <el-input-number v-model="newOrder.balance" placeholder="请输入尾款" :min="0" :step="1" style="flex: 1;"></el-input-number>
+              <el-select v-model="newOrder.balance_currency" placeholder="选择币种" style="width: 100px;">
+                <el-option value="CNY" label="人民币" />
+                <el-option value="JPY" label="日元" />
+                <el-option value="USD" label="美元" />
+                <el-option value="EUR" label="欧元" />
+              </el-select>
+            </div>
           </div>
           <div class="form-group">
             <label>出荷日期</label>
@@ -145,9 +162,11 @@ export default {
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   width: 90%;
-  max-width: 600px;
+  max-width: 800px;
   max-height: 80vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .form-container h3 {
@@ -176,6 +195,14 @@ export default {
   margin-bottom: 8px;
   font-weight: 500;
   color: #333;
+}
+
+/* 价格和币种组合容器 */
+.price-currency-container {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 错误提示样式 */

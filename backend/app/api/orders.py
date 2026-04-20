@@ -16,15 +16,21 @@ router = APIRouter()
 def get_unpaid_balance(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     获取未支付状态的尾款总额
+    
+    只统计未软删除的订单（is_active=1）
     """
     if current_user.is_admin:
         # 管理员查看所有未支付订单的尾款总额
-        total_balance = db.query(func.sum(Order.balance)).filter(Order.status == "未支付").scalar()
+        total_balance = db.query(func.sum(Order.balance)).filter(
+            Order.status == "未支付",
+            Order.is_active == 1
+        ).scalar()
     else:
         # 普通用户只查看自己的未支付订单的尾款总额
         total_balance = db.query(func.sum(Order.balance)).filter(
             Order.status == "未支付",
-            Order.user_id == current_user.id
+            Order.user_id == current_user.id,
+            Order.is_active == 1
         ).scalar()
     
     # 如果没有未支付订单，返回0
@@ -33,10 +39,18 @@ def get_unpaid_balance(current_user: User = Depends(get_current_user), db: Sessi
 
 @router.get("/", response_model=list[OrderListItem])
 def get_orders(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    获取订单列表
+    
+    只返回未软删除的订单（is_active=1）
+    """
     if current_user.is_admin:
-        orders = db.query(Order).join(Figure).all()
+        orders = db.query(Order).join(Figure).filter(Order.is_active == 1).all()
     else:
-        orders = db.query(Order).join(Figure).filter(Order.user_id == current_user.id).all()
+        orders = db.query(Order).join(Figure).filter(
+            Order.user_id == current_user.id,
+            Order.is_active == 1
+        ).all()
         
     return [OrderListItem(
         id=order.id,
@@ -45,7 +59,9 @@ def get_orders(current_user: User = Depends(get_current_user), db: Session = Dep
         figure_name=order.figure.name,
         figure_image=order.figure.images[0] if order.figure.images else None,
         deposit=order.deposit,
+        deposit_currency=order.deposit_currency,
         balance=order.balance,
+        balance_currency=order.balance_currency,
         due_date=order.due_date,
         status=order.status,
         shop_name=order.shop_name,
@@ -56,7 +72,12 @@ def get_orders(current_user: User = Depends(get_current_user), db: Session = Dep
 
 @router.get("/{order_id}/", response_model=OrderSchema)
 def get_order(order_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    order = db.query(Order).filter(Order.id == order_id).first()
+    """
+    获取单个订单详情
+    
+    只返回未软删除的订单（is_active=1）
+    """
+    order = db.query(Order).filter(Order.id == order_id, Order.is_active == 1).first()
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -85,8 +106,11 @@ def create_order(order: OrderCreate, current_user: User = Depends(get_current_us
             detail="手办不存在"
         )
     
-    # 检查手办的订单数量是否超过手办的数量字段值
-    order_count = db.query(func.count(Order.id)).filter(Order.figure_id == order.figure_id).scalar()
+    # 检查手办的订单数量是否超过手办的数量字段值（只计算未软删除的订单）
+    order_count = db.query(func.count(Order.id)).filter(
+        Order.figure_id == order.figure_id,
+        Order.is_active == 1
+    ).scalar()
     figure_quantity = db_figure.quantity or 1
     
     if order_count >= figure_quantity:
@@ -103,26 +127,52 @@ def create_order(order: OrderCreate, current_user: User = Depends(get_current_us
     db.commit()
     db.refresh(db_order)
     
-    # 创建或更新资产交易记录
+    # 【修复】创建资产交易记录（补录凭证模式）和资金流水记录
     try:
-        AssetTransactionService.create_buy_transaction_from_order(
+        # 1. 将订单关联到现有的库存记录（不新增记录）
+        AssetTransactionService.link_order_to_existing_transaction(
             db=db,
             user_id=current_user.id,
             figure_id=order.figure_id,
             order=db_order
         )
+
+        # 2. 创建资金流水记录（资金账）
+        from app.services.order_transaction_service import OrderTransactionService
+
+        # 计算订单总价（定金 + 尾款）
+        total_price = db_order.deposit + db_order.balance
+
+        OrderTransactionService.create_buy_transaction(
+            db=db,
+            user_id=current_user.id,
+            figure_id=order.figure_id,
+            order_id=db_order.id,
+            quantity=1,
+            unit_price=total_price,
+            total_amount=total_price,
+            payment_method=None,  # 可在订单中扩展此字段
+            platform=None,  # 可在订单中扩展此字段
+            notes=f"订单 #{db_order.id} 资金流水"
+        )
+
         db.commit()
     except Exception as e:
         # 如果创建交易记录失败，不影响订单创建
         db.rollback()
-        print(f"创建资产交易记录失败: {e}")
-    
+        print(f"创建交易记录失败: {e}")
+
     return db_order
 
 
 @router.put("/{order_id}/", response_model=OrderSchema)
 def update_order(order_id: int, order: OrderUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    db_order = db.query(Order).filter(Order.id == order_id).first()
+    """
+    更新订单
+    
+    只能更新未软删除的订单（is_active=1）
+    """
+    db_order = db.query(Order).filter(Order.id == order_id, Order.is_active == 1).first()
     if not db_order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -142,6 +192,12 @@ def update_order(order_id: int, order: OrderUpdate, current_user: User = Depends
 
 @router.delete("/{order_id}/")
 def delete_order(order_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    软删除订单
+    
+    不物理删除订单记录，仅标记 is_active=False 和 deleted_at
+    同时软删除关联的资产交易记录和资金流水记录
+    """
     from app.models.asset import AssetTransaction, OrderTransaction
     from datetime import datetime
 
@@ -157,7 +213,7 @@ def delete_order(order_id: int, current_user: User = Depends(get_current_user), 
             detail="Not enough permissions"
         )
 
-    # 【修复】软删除关联的资产交易记录（库存账）
+    # 软删除关联的资产交易记录（库存账）
     db.query(AssetTransaction).filter(
         AssetTransaction.order_id == order_id
     ).update({
@@ -166,7 +222,7 @@ def delete_order(order_id: int, current_user: User = Depends(get_current_user), 
         'order_id': None  # 解除外键关联，避免外键约束错误
     }, synchronize_session=False)
 
-    # 【修复】软删除关联的资金流水记录（资金账）
+    # 软删除关联的资金流水记录（资金账）
     db.query(OrderTransaction).filter(
         OrderTransaction.order_id == order_id
     ).update({
@@ -175,8 +231,9 @@ def delete_order(order_id: int, current_user: User = Depends(get_current_user), 
         'order_id': None  # 解除外键关联，避免外键约束错误
     }, synchronize_session=False)
 
-    db.commit()  
-
-    db.delete(db_order)
+    # 软删除订单本身
+    db_order.is_active = 0
+    db_order.deleted_at = datetime.now()
+    
     db.commit()
     return {"message": "Order deleted successfully"}

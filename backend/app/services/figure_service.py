@@ -324,6 +324,9 @@ class FigureService:
             
         Returns:
             bool: 是否删除成功
+            
+        Raises:
+            ValueError: 当手办存在未软删除的关联订单时
         """
         # 只删除激活状态的手办
         db_figure = db.query(Figure).filter(
@@ -333,14 +336,15 @@ class FigureService:
         if not db_figure:
             return False
         
-        # 检查是否有关联的订单
+        # 检查是否有关联的未软删除订单（is_active=1）
         from app.models.order import Order
-        associated_orders = db.query(Order).filter(
-            Order.figure_id == figure_id
+        active_orders = db.query(Order).filter(
+            Order.figure_id == figure_id,
+            Order.is_active == 1
         ).first()
         
-        if associated_orders:
-            raise ValueError("无法删除有关联尾款的手办")
+        if active_orders:
+            raise ValueError("无法删除有关联尾款的手办，请先删除或软删除所有关联订单")
         
         # 【修改】软删除关联的资产交易记录（库存账）
         from app.models.asset import AssetTransaction, OrderTransaction

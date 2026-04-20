@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { useFigureStore, useUserStore, useTagStore } from '../../../store'
 import axios from '../../../axios'
+import { ElMessage } from 'element-plus'
 
 export function useFigureManagement() {
   const figureStore = useFigureStore()
@@ -16,6 +17,11 @@ export function useFigureManagement() {
   // 图片预览
   const showImagePreview = ref(false)
   const previewImage = ref('')
+
+  // 删除确认对话框
+  const showDeleteConfirmDialog = ref(false)
+  const figureToDelete = ref(null)
+  const figureToDeleteOrderCount = ref(0)
 
   // 分页
   const currentPage = ref(1)
@@ -219,17 +225,42 @@ export function useFigureManagement() {
     }
   }
 
-  const deleteFigure = async (id) => {
-    if (confirm('确定要删除这个手办吗？')) {
-      try {
-        await figureStore.deleteFigure(id)
-        alert('手办删除成功')
-      } catch (error) {
-        if (error.response && error.response.status === 400) {
-          alert('无法删除有关联尾款的手办')
-        } else {
-          alert('删除失败，请稍后重试')
-        }
+  // 打开删除确认对话框
+  const openDeleteConfirmDialog = async (figure) => {
+    figureToDelete.value = figure
+    showDeleteConfirmDialog.value = true
+
+    // 获取手办关联的订单数量
+    try {
+      const response = await axios.get(`/figures/${figure.id}/orders/count`)
+      figureToDeleteOrderCount.value = response.count || 0
+    } catch (error) {
+      figureToDeleteOrderCount.value = 0
+    }
+  }
+
+  // 取消删除
+  const cancelDelete = () => {
+    showDeleteConfirmDialog.value = false
+    figureToDelete.value = null
+    figureToDeleteOrderCount.value = 0
+  }
+
+  // 确认删除
+  const confirmDelete = async () => {
+    if (!figureToDelete.value) return
+
+    try {
+      await figureStore.deleteFigure(figureToDelete.value.id)
+      showDeleteConfirmDialog.value = false
+      figureToDelete.value = null
+      figureToDeleteOrderCount.value = 0
+      ElMessage.success('手办删除成功')
+    } catch (error) {
+      if (error.response && error.response.status === 400) {
+        ElMessage.error('无法删除有关联尾款的手办')
+      } else {
+        ElMessage.error('删除失败，请稍后重试')
       }
     }
   }
@@ -425,6 +456,9 @@ export function useFigureManagement() {
     activeTab,
     showImagePreview,
     previewImage,
+    showDeleteConfirmDialog,
+    figureToDelete,
+    figureToDeleteOrderCount,
     currentPage,
     pageSize,
     pageSizes,
@@ -464,7 +498,9 @@ export function useFigureManagement() {
     openAddForm,
     handleTagChange,
     addFigure,
-    deleteFigure,
+    openDeleteConfirmDialog,
+    cancelDelete,
+    confirmDelete,
     editFigure,
     getCurrencySymbol,
     handleSizeChange,

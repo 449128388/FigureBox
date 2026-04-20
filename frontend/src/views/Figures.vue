@@ -17,6 +17,7 @@
   - FigureForm.vue - 手办表单（添加/编辑）
   - ImagePreview.vue - 图片预览弹窗
   - ImportFiguresDialog.vue - 数据导入对话框
+  - FigureDeleteConfirmDialog.vue - 删除确认对话框
 
   维护提示：
   - 使用 useFigureManagement composable 管理业务逻辑
@@ -50,7 +51,7 @@
       :figures="paginatedFigures"
       :search-tag-ids="searchTagIds"
       @edit="editFigure"
-      @delete="deleteFigure"
+      @delete="openDeleteConfirmDialog"
       @filter-by-tag="filterByTag"
     />
     
@@ -108,6 +109,14 @@
       @close="closeImportDialog"
       @import="handleImport"
     />
+
+    <FigureDeleteConfirmDialog
+      v-model:show="showDeleteConfirmDialog"
+      :figure="figureToDelete"
+      :order-count="figureToDeleteOrderCount"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
   </div>
 </template>
 
@@ -119,6 +128,7 @@ import FiguresPagination from './Figures/components/FiguresPagination.vue'
 import FigureForm from './Figures/components/FigureForm.vue'
 import ImagePreview from './Figures/components/ImagePreview.vue'
 import ImportFiguresDialog from './Figures/components/ImportFiguresDialog.vue'
+import FigureDeleteConfirmDialog from './Figures/components/FigureDeleteConfirmDialog.vue'
 import { useFigureManagement } from './Figures/composables/useFigureManagement'
 import { useImportFigures } from './Figures/composables/useImportFigures'
 
@@ -131,7 +141,8 @@ export default {
     FiguresPagination,
     FigureForm,
     ImagePreview,
-    ImportFiguresDialog
+    ImportFiguresDialog,
+    FigureDeleteConfirmDialog
   },
   setup() {
     const {
@@ -144,6 +155,9 @@ export default {
       activeTab,
       showImagePreview,
       previewImage,
+      showDeleteConfirmDialog,
+      figureToDelete,
+      figureToDeleteOrderCount,
       currentPage,
       pageSize,
       pageSizes,
@@ -181,7 +195,9 @@ export default {
       openAddForm,
       handleTagChange,
       addFigure,
-      deleteFigure,
+      openDeleteConfirmDialog,
+      cancelDelete,
+      confirmDelete,
       editFigure,
       getCurrencySymbol,
       handleSizeChange,
@@ -245,6 +261,9 @@ export default {
       activeTab,
       showImagePreview,
       previewImage,
+      showDeleteConfirmDialog,
+      figureToDelete,
+      figureToDeleteOrderCount,
       currentPage,
       pageSize,
       pageSizes,
@@ -282,7 +301,9 @@ export default {
       openAddForm,
       handleTagChange,
       addFigure,
-      deleteFigure,
+      openDeleteConfirmDialog,
+      cancelDelete,
+      confirmDelete,
       editFigure,
       getCurrencySymbol,
       handleSizeChange,

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.models.database import Base
 
@@ -33,7 +33,9 @@ class Order(Base):
     
     # 付款信息（支持定金+尾款模式）
     deposit = Column(Float, nullable=False)  # 定金金额（预付款）
+    deposit_currency = Column(String(10), default="CNY")  # 定金币种：CNY/JPY/USD/EUR
     balance = Column(Float, nullable=False)  # 尾款金额（剩余款项）
+    balance_currency = Column(String(10), default="CNY")  # 尾款币种：CNY/JPY/USD/EUR
     due_date = Column(Date, nullable=True)  # 尾款截止日期/预计出货日期
     
     # 订单状态
@@ -44,6 +46,10 @@ class Order(Base):
     shop_contact = Column(String(200))  # 店铺联系方式（客服、QQ群等）
     tracking_number = Column(String(100))  # 物流订单号/快递单号
 
+    # 软删除标记
+    is_active = Column(Integer, default=1)  # 是否激活：1=正常，0=已删除
+    deleted_at = Column(DateTime, nullable=True)  # 删除时间（软删除标记）
+
     # 关系
     user = relationship("User")  # 关联用户对象
-    figure = relationship("Figure")  # 关联手办对象
+    figure = relationship("Figure", back_populates="orders")  # 关联手办对象

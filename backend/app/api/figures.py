@@ -152,6 +152,10 @@ def delete_tag(
 def get_figure(figure_id: int, db: Session = Depends(get_db)):
     """
     获取手办详情
+
+    返回的手办数据包含：
+    - 基础信息（名称、定价等）
+    - 平均入手价格（根据关联订单自动计算）
     """
     figure = FigureService.get_figure_by_id(db, figure_id)
     if not figure:
@@ -159,6 +163,19 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Figure not found"
         )
+
+    # 【优化】加载关联的订单并计算平均入手价格
+    from sqlalchemy.orm import joinedload
+    figure_with_orders = db.query(Figure).options(
+        joinedload(Figure.orders)
+    ).filter(Figure.id == figure_id).first()
+
+    if figure_with_orders:
+        # 计算平均入手价格
+        avg_price = figure_with_orders.calculate_average_purchase_price()
+        # 将计算结果添加到返回数据中
+        figure.average_purchase_price = avg_price
+
     return figure
 
 
@@ -247,10 +264,35 @@ def update_figure(
     return db_figure
 
 
+@router.get("/{figure_id}/orders/count")
+def get_figure_orders_count(
+    figure_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    获取手办关联的未软删除订单数量
+
+    用于删除确认对话框显示关联订单信息
+    只统计 is_active=1 的订单（未软删除）
+    """
+    from app.models.order import Order
+
+    # 查询该手办的未软删除订单数量
+    order_count = db.query(Order).filter(
+        Order.figure_id == figure_id,
+        Order.is_active == 1
+    ).count()
+
+    return {
+        "figure_id": figure_id,
+        "count": order_count
+    }
+
+
 @router.delete("/{figure_id}")
 def delete_figure(
-    figure_id: int, 
-    current_user: User = Depends(get_current_user), 
+    figure_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
