@@ -3,7 +3,7 @@
 
   功能说明：
   - 展示手办的基本信息
-  - 包括日文名、制造商、官方定价、市场价、出货日、入手价格、入手时间等字段
+  - 包括日文名、制造商、官方定价、市场价、出货日、平均入手价格、入手时间等字段
   - 仅在有相关信息时显示对应字段
   - 支持多货币符号显示
 
@@ -13,6 +13,7 @@
   维护提示：
   - 使用 v-if 条件渲染，仅当有相关信息时显示
   - 使用 getCurrencySymbol 方法获取货币符号
+  - 【注意】入手价格显示的是 average_purchase_price（根据订单计算的平均价格）
 -->
 <template>
   <div class="info-section">
@@ -37,9 +38,9 @@
       <span class="label">出货日:</span>
       <span class="value">{{ figure.release_date }}</span>
     </div>
-    <div class="info-item" v-if="figure.purchase_price !== null && figure.purchase_price !== undefined">
-      <span class="label">入手价格:</span>
-      <span class="value">{{ figure.purchase_price }} {{ getCurrencySymbol(figure.purchase_currency) }}</span>
+    <div class="info-item" v-if="figure.average_purchase_price !== null && figure.average_purchase_price !== undefined && figure.average_purchase_price > 0">
+      <span class="label">平均入手价格:</span>
+      <span class="value">{{ figure.average_purchase_price.toFixed(2) }} {{ getCurrencySymbol(figure.purchase_currency) }}</span>
     </div>
     <div class="info-item" v-if="figure.purchase_date">
       <span class="label">入手时间:</span>
@@ -107,7 +108,7 @@ export default {
 }
 
 .label {
-  flex: 0 0 100px;
+  flex: 0 0 120px;
   font-weight: 500;
   color: #666;
 }

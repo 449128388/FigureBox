@@ -171,8 +171,8 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
     ).filter(Figure.id == figure_id).first()
 
     if figure_with_orders:
-        # 计算平均入手价格
-        avg_price = figure_with_orders.calculate_average_purchase_price()
+        # 【重构】使用服务层方法计算平均入手价格
+        avg_price = FigureService.calculate_figure_average_purchase_price(figure_with_orders)
         # 将计算结果添加到返回数据中
         figure.average_purchase_price = avg_price
 
@@ -220,7 +220,7 @@ def update_figure(
         )
 
     original_quantity = original_figure.quantity or 1
-    original_price = original_figure.purchase_price or 0
+    original_price = original_figure.average_purchase_price or 0
 
     # 更新手办
     db_figure = FigureService.update_figure(db, figure_id, figure_data)
@@ -238,21 +238,20 @@ def update_figure(
         if 'quantity' in figure_data and new_quantity != original_quantity:
             quantity_change = new_quantity - original_quantity
             # 使用当前入手价格作为冲正价格
-            adjustment_price = db_figure.purchase_price or original_price or 0
+            adjustment_price = db_figure.average_purchase_price or original_price or 0
 
-            if adjustment_price > 0:  # 只有价格大于0时才创建冲正记录
-                # 【重构】只创建资产交易记录（库存账）
-                # 数量调整属于库存纠错，无真实资金流动，不记录到资金账
-                AssetTransactionService.create_quantity_adjustment_transaction(
-                    db=db,
-                    user_id=current_user.id,
-                    figure_id=figure_id,
-                    quantity_change=quantity_change,
-                    price=adjustment_price,
-                    original_quantity=original_quantity,
-                    new_quantity=new_quantity
-                )
-                db.commit()
+            # 【修复】无论价格是否为0，都创建资产交易记录（库存账）
+            # 数量调整属于库存变动，必须记录以保证库存数据完整性
+            AssetTransactionService.create_quantity_adjustment_transaction(
+                db=db,
+                user_id=current_user.id,
+                figure_id=figure_id,
+                quantity_change=quantity_change,
+                price=adjustment_price,
+                original_quantity=original_quantity,
+                new_quantity=new_quantity
+            )
+            db.commit()
 
         # 检查价格变化（数量未变化时）
 

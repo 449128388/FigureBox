@@ -56,7 +56,7 @@ class HoldingAnalysisService:
         Returns:
             Dict包含持仓的详细信息
         """
-        cost_price = figure.purchase_price or 0
+        cost_price = figure.average_purchase_price or 0
         current_price = figure.market_price or figure.price or 0
         profit = current_price - cost_price
         profit_percentage = (profit / cost_price * 100) if cost_price > 0 else 0

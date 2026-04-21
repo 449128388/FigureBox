@@ -113,7 +113,7 @@ class FigureExportService:
             "quantity": figure.quantity,
             "tags": tags_data,
             "release_date": figure.release_date.isoformat() if figure.release_date else None,
-            "purchase_price": figure.purchase_price,
+            "average_purchase_price": figure.average_purchase_price,
             "purchase_currency": figure.purchase_currency,
             "purchase_date": figure.purchase_date.isoformat() if figure.purchase_date else None,
             "purchase_method": figure.purchase_method,

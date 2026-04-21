@@ -6,6 +6,7 @@
   - 显示订单关联的手办名称和金额信息
   - 需要用户勾选确认复选框才能启用删除按钮
   - 采用 Element Plus 的 el-dialog 组件实现
+  - 支持多币种显示和人民币转换
 
   组件依赖：
   - 接收 show、order 作为 props
@@ -15,6 +16,7 @@
   - 复选框未选中时删除按钮禁用
   - 复选框选中后删除按钮变为红色
   - 显示订单关联的手办名称和金额信息
+  - 支持多币种显示和人民币转换
 -->
 <template>
   <el-dialog
@@ -34,12 +36,21 @@
 
       <!-- 订单信息提示 -->
       <div class="order-info">
-        <el-alert
-          :title="`订单金额：定金 ¥${deposit} + 尾款 ¥${balance} = 总计 ¥${totalAmount}`"
-          type="info"
-          :closable="false"
-          show-icon
-        />
+        <el-alert type="info" :closable="false" show-icon>
+          <template #title>
+            <div class="order-amount-info">
+              <div class="original-amount">
+                订单金额：定金 {{ deposit }}{{ depositCurrency }} + 尾款 {{ balance }}{{ balanceCurrency }}
+              </div>
+              <div v-if="hasNonCNYCurrency" class="converted-amount">
+                换算为人民币：定金 {{ depositCNY.toFixed(2) }}元 + 尾款 {{ balanceCNY.toFixed(2) }}元 = 总计 {{ totalCNY.toFixed(2) }}元
+              </div>
+              <div v-else class="total-amount">
+                = 总计 {{ totalAmount.toFixed(2) }}元
+              </div>
+            </div>
+          </template>
+        </el-alert>
       </div>
 
       <!-- 确认复选框 -->
@@ -102,9 +113,61 @@ export default {
       return props.order?.balance || 0
     })
 
+    const depositCurrency = computed(() => {
+      return getCurrencySymbol(props.order?.deposit_currency || 'CNY')
+    })
+
+    const balanceCurrency = computed(() => {
+      return getCurrencySymbol(props.order?.balance_currency || 'CNY')
+    })
+
+    // 汇率转换函数
+    const convertToCNY = (amount, currency) => {
+      if (!amount) return 0
+      
+      const exchangeRates = {
+        'CNY': 1.0,    // 人民币
+        'JPY': 1/23,   // 日元
+        'USD': 7.0,    // 美元
+        'EUR': 8.0     // 欧元
+      }
+      
+      const rate = exchangeRates[currency] || 1.0
+      return amount * rate
+    }
+
+    const depositCNY = computed(() => {
+      return convertToCNY(deposit.value, props.order?.deposit_currency || 'CNY')
+    })
+
+    const balanceCNY = computed(() => {
+      return convertToCNY(balance.value, props.order?.balance_currency || 'CNY')
+    })
+
+    const totalCNY = computed(() => {
+      return depositCNY.value + balanceCNY.value
+    })
+
     const totalAmount = computed(() => {
       return deposit.value + balance.value
     })
+
+    const hasNonCNYCurrency = computed(() => {
+      const depositCurr = props.order?.deposit_currency || 'CNY'
+      const balanceCurr = props.order?.balance_currency || 'CNY'
+      return depositCurr !== 'CNY' || balanceCurr !== 'CNY'
+    })
+
+    // 获取币种符号
+    const getCurrencySymbol = (currency) => {
+      switch(currency) {
+        case 'CNY': return '元'
+        case 'JPY': return '日元'
+        case 'USD': return '美元'
+        case 'EUR': return '欧元'
+        default: return '元'
+      }
+    }
 
     // 对话框关闭时重置确认状态
     watch(() => props.show, (newVal) => {
@@ -131,7 +194,13 @@ export default {
       figureName,
       deposit,
       balance,
+      depositCurrency,
+      balanceCurrency,
+      depositCNY,
+      balanceCNY,
+      totalCNY,
       totalAmount,
+      hasNonCNYCurrency,
       handleConfirm,
       handleCancel
     }
@@ -162,6 +231,25 @@ export default {
 
 .order-info {
   margin-bottom: 20px;
+}
+
+.order-amount-info {
+  line-height: 1.6;
+}
+
+.original-amount {
+  margin-bottom: 4px;
+}
+
+.converted-amount {
+  color: #606266;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.total-amount {
+  color: #606266;
+  font-size: 13px;
 }
 
 .confirm-checkbox {

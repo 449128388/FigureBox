@@ -71,7 +71,6 @@ class FigureBase(BaseModel):
     currency: str = "CNY"
     manufacturer: str | None = None
     release_date: date | None = None
-    purchase_price: float | None = None
     purchase_currency: str = "CNY"
     purchase_date: date | None = None
     purchase_method: str | None = None
@@ -85,7 +84,6 @@ class FigureBase(BaseModel):
     work: str | None = None
     material: str | None = None
     size: str | None = None
-    description: str | None = None
     images: List[str] | None = []
 
     @field_validator('release_date', 'purchase_date', mode='before')
@@ -187,7 +185,6 @@ class FigureUpdate(BaseModel):
     currency: str | None = None
     tag_ids: List[int] | None = None  # 标签ID列表
     release_date: date | None = None
-    purchase_price: float | None = None
     purchase_currency: str | None = None
     purchase_date: date | None = None
     purchase_method: str | None = None
@@ -201,7 +198,6 @@ class FigureUpdate(BaseModel):
     work: str | None = None
     material: str | None = None
     size: str | None = None
-    description: str | None = None
     images: List[str] | None = None
 
     @field_validator('name', mode='before')
@@ -295,7 +291,6 @@ class FigureListItem(BaseModel):
     market_currency: str = "CNY"
     manufacturer: str | None = None
     release_date: date | None = None
-    purchase_price: float | None = None
     purchase_currency: str = "CNY"
     purchase_date: date | None = None
     purchase_method: str | None = None
@@ -307,10 +302,12 @@ class FigureListItem(BaseModel):
     work: str | None = None
     material: str | None = None
     size: str | None = None
-    description: str | None = None
     # 图片只返回第一张或空，减少数据量
     image: str | None = None
     tags: List[Tag] = []
+    # 订单相关字段
+    order_count: int = 0  # 关联订单数量
+    average_purchase_price: float = 0  # 平均入手价格
 
     class Config:
         from_attributes = True

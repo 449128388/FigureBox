@@ -34,10 +34,10 @@ class AssetCalculationService:
     def calculate_total_cost(figures: List[Figure]) -> float:
         """
         计算总成本
-        总成本 = Σ(入手价 × 数量)
+        总成本 = Σ(平均入手价 × 数量)
         """
         return sum(
-            (fig.purchase_price or 0) * (fig.quantity or 1) 
+            (fig.average_purchase_price or 0) * (fig.quantity or 1)
             for fig in figures
         )
     
@@ -145,10 +145,10 @@ class AssetCalculationService:
         
         base_date = min(purchase_dates)
         
-        # 基准日总市值 = 基准日当天所有持仓手办的入手价格总和
+        # 基准日总市值 = 基准日当天所有持仓手办的平均入手价格总和
         # 这是用户的初始投入成本
         base_total_value = sum(
-            (fig.purchase_price or 0) * (fig.quantity or 1) 
+            (fig.average_purchase_price or 0) * (fig.quantity or 1)
             for fig in figures
         )
         
@@ -202,10 +202,10 @@ class AssetCalculationService:
     @staticmethod
     def calculate_invested_cost(figures: List[Figure]) -> float:
         """
-        计算已投入成本（所有持仓手办的买入成本价总和）
+        计算已投入成本（所有持仓手办的平均买入成本价总和）
         """
         return sum(
-            (fig.purchase_price or 0) * (fig.quantity or 1) 
+            (fig.average_purchase_price or 0) * (fig.quantity or 1)
             for fig in figures
         )
     

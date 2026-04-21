@@ -33,8 +33,8 @@ class Figure(Base):
     release_date = Column(Date)  # 官方发售日期/出货日期
     
     # 购买信息
-    purchase_price = Column(Float)  # 实际入手价格
-    purchase_currency = Column(String(10), default="CNY")  # 入手价格货币类型
+    purchase_currency = Column(String(10), default="CNY")  # 入手价格货币类型（默认人民币）
+    average_purchase_price = Column(Float, default=0)  # 平均入手价格（基于订单自动计算）
     purchase_date = Column(Date)  # 实际入手日期
     purchase_method = Column(String(100))  # 购买渠道/方式（如：淘宝、闲鱼、会员购等）
     purchase_type = Column(String(50))  # 购买类型（预定、现货、转单等）
@@ -48,8 +48,7 @@ class Figure(Base):
     material = Column(String(100))  # 材质
     size = Column(String(100))  # 尺寸规格
     
-    # 描述和媒体
-    description = Column(Text)  # 详细描述/备注
+    # 媒体
     images = Column(JSON, default=list)  # 图片URL列表（JSON数组格式）
     
     # 估值和市场价格
@@ -67,34 +66,3 @@ class Figure(Base):
     # 软删除字段
     is_active = Column(Boolean, default=True)  # 是否激活
     deleted_at = Column(DateTime(timezone=True), nullable=True)  # 删除时间
-
-    def calculate_average_purchase_price(self):
-        """
-        计算平均入手价格
-
-        根据关联的订单计算加权平均价格：
-        - 如果有订单，计算所有订单的 (定金+尾款) / 数量 的加权平均
-        - 如果没有订单，返回 0
-
-        Returns:
-            float: 平均入手价格，没有订单时返回 0
-        """
-        if not self.orders:
-            return 0
-
-        total_amount = 0
-        total_quantity = 0
-
-        for order in self.orders:
-            # 计算订单总金额
-            order_amount = (order.deposit or 0) + (order.balance or 0)
-            # 使用订单数量，如果没有则默认为1
-            order_quantity = getattr(order, 'quantity', 1) or 1
-
-            total_amount += order_amount
-            total_quantity += order_quantity
-
-        if total_quantity == 0:
-            return 0
-
-        return total_amount / total_quantity

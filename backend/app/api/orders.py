@@ -7,6 +7,7 @@ from app.schemas.order import Order as OrderSchema, OrderCreate, OrderUpdate, Or
 from app.api.users import get_current_user
 from app.models.user import User
 from app.services.asset_transaction_service import AssetTransactionService
+from app.services.figure_service import FigureService
 from sqlalchemy import func
 
 router = APIRouter()
@@ -156,6 +157,9 @@ def create_order(order: OrderCreate, current_user: User = Depends(get_current_us
             notes=f"订单 #{db_order.id} 资金流水"
         )
 
+        # 【新增】更新手办的平均入手价格
+        FigureService.update_figure_average_purchase_price(db, order.figure_id)
+
         db.commit()
     except Exception as e:
         # 如果创建交易记录失败，不影响订单创建
@@ -183,10 +187,21 @@ def update_order(order_id: int, order: OrderUpdate, current_user: User = Depends
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
         )
+    
+    # 记录原始 figure_id 用于后续更新平均价格
+    original_figure_id = db_order.figure_id
+    
     for key, value in order.dict(exclude_unset=True).items():
         setattr(db_order, key, value)
     db.commit()
     db.refresh(db_order)
+    
+    # 【新增】更新手办的平均入手价格
+    try:
+        FigureService.update_figure_average_purchase_price(db, db_order.figure_id)
+    except Exception as e:
+        print(f"更新平均入手价格失败: {e}")
+    
     return db_order
 
 
@@ -212,6 +227,9 @@ def delete_order(order_id: int, current_user: User = Depends(get_current_user), 
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
         )
+    
+    # 记录 figure_id 用于后续更新平均价格
+    figure_id = db_order.figure_id
 
     # 软删除关联的资产交易记录（库存账）
     db.query(AssetTransaction).filter(
@@ -236,4 +254,11 @@ def delete_order(order_id: int, current_user: User = Depends(get_current_user), 
     db_order.deleted_at = datetime.now()
     
     db.commit()
+    
+    # 【新增】更新手办的平均入手价格
+    try:
+        FigureService.update_figure_average_purchase_price(db, figure_id)
+    except Exception as e:
+        print(f"更新平均入手价格失败: {e}")
+    
     return {"message": "Order deleted successfully"}

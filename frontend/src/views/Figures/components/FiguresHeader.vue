@@ -5,14 +5,19 @@
   - 展示页面标题和操作按钮
   - 提供添加手办、导入手办、下载数据、刷新数据等按钮
   - 显示当前登录用户信息和退出按钮
+  - 【新增】提供批量删除模式的切换按钮
 
   组件依赖：
   - 接收 userStore 作为 props，用于显示用户信息
+  - 【新增】接收 isBatchMode 作为 props，控制批量删除模式状态
+  - 【新增】接收 selectedCount 作为 props，显示已选择数量
 
   维护提示：
   - 所有操作按钮通过事件向父组件传递
   - 用户信息显示根据 userStore.isAuthenticated 判断
   - 退出按钮通过 logout 事件向父组件传递
+  - 【新增】批量删除按钮通过 toggle-batch-mode 事件向父组件传递
+  - 【新增】批量删除按钮通过 batch-delete 事件向父组件传递
 -->
 <template>
   <div class="header">
@@ -28,6 +33,16 @@
         </button>
         <button class="btn btn-refresh" @click="$emit('refresh-figures')">
           <i class="fa-solid fa-refresh"></i>
+        </button>
+        <!-- 【新增】批量删除按钮 -->
+        <button
+          class="btn"
+          :class="isBatchMode ? 'btn-batch-active' : 'btn-batch'"
+          @click="$emit('toggle-batch-mode')"
+        >
+          <i class="fa-solid fa-check-square"></i>
+          {{ isBatchMode ? '退出选择' : '批量删除' }}
+          <span v-if="isBatchMode && selectedCount > 0" class="batch-badge">{{ selectedCount }}</span>
         </button>
       </div>
       <div class="user-info">
@@ -46,9 +61,18 @@ export default {
     userStore: {
       type: Object,
       required: true
+    },
+    // 【新增】批量删除相关 props
+    isBatchMode: {
+      type: Boolean,
+      default: false
+    },
+    selectedCount: {
+      type: Number,
+      default: 0
     }
   },
-  emits: ['open-add-form', 'import-figures', 'download-figures', 'refresh-figures', 'logout']
+  emits: ['open-add-form', 'import-figures', 'download-figures', 'refresh-figures', 'logout', 'toggle-batch-mode', 'batch-delete', 'select-all']
 }
 </script>
 
@@ -187,5 +211,77 @@ export default {
 
 .btn-logout:hover {
   background-color: #da190b;
+}
+
+/* 【新增】批量删除按钮样式 */
+.btn-batch {
+  background-color: #607d8b;
+  color: white;
+  padding: 12px 20px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.btn-batch:hover {
+  background-color: #546e7a;
+}
+
+.btn-batch-active {
+  background-color: #3B82F6;
+  color: white;
+  padding: 12px 20px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  box-sizing: border-box;
+  position: relative;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.btn-batch-active:hover {
+  background-color: #2563eb;
+}
+
+.batch-badge {
+  background-color: #ff4444;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .action-buttons {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .btn {
+    flex: 1;
+    min-width: 100px;
+  }
 }
 </style>

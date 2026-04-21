@@ -86,7 +86,7 @@ class FigureImportService:
             'market_price': figure_data.get('market_price', 0),
             'market_currency': figure_data.get('market_currency', 'CNY'),
             'release_date': figure_data.get('release_date'),
-            'purchase_price': figure_data.get('purchase_price', 0),
+            'average_purchase_price': figure_data.get('average_purchase_price', 0),
             'purchase_currency': figure_data.get('purchase_currency', 'CNY'),
             'purchase_date': figure_data.get('purchase_date'),
             'purchase_method': figure_data.get('purchase_method'),

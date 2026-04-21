@@ -55,7 +55,6 @@ export function useFigureManagement() {
     currency: 'CNY',
     market_price: 0,
     market_currency: 'CNY',
-    purchase_price: 0,
     purchase_currency: 'CNY',
     release_date: null,
     purchase_date: null,
@@ -281,7 +280,6 @@ export function useFigureManagement() {
         currency: fullFigure.currency || 'CNY',
         market_price: fullFigure.market_price || 0,
         market_currency: fullFigure.market_currency || 'CNY',
-        purchase_price: fullFigure.purchase_price || 0,
         purchase_currency: fullFigure.purchase_currency || 'CNY',
         images: fullFigure.images || [],
         quantity: fullFigure.quantity || 1
@@ -294,7 +292,6 @@ export function useFigureManagement() {
         currency: figure.currency || 'CNY',
         market_price: figure.market_price || 0,
         market_currency: figure.market_currency || 'CNY',
-        purchase_price: figure.purchase_price || 0,
         purchase_currency: figure.purchase_currency || 'CNY',
         images: figure.image ? [figure.image] : []
       }

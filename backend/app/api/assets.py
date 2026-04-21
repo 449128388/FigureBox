@@ -161,8 +161,8 @@ async def get_asset_dashboard(
     # 构建盈亏分析数据（从实际数据计算）
     total_cost = AssetCalculationService.calculate_total_cost(figures)
     realized_profit = sum(
-        (fig.market_price or fig.price or 0) - (fig.purchase_price or 0)
-        for fig in figures if fig.purchase_price and fig.purchase_price > 0
+        (fig.market_price or fig.price or 0) - (fig.average_purchase_price or 0)
+        for fig in figures if fig.average_purchase_price and fig.average_purchase_price > 0
     ) if figures else 0
     profit = {
         "floating": total_assets - total_cost if figures else 0,

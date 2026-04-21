@@ -45,6 +45,132 @@ class FigureService:
         return cls.PURCHASE_TYPE_REVERSE_MAP.get(purchase_type, purchase_type)
     
     @staticmethod
+    def _convert_to_cny(amount: float, currency: str) -> float:
+        """
+        将金额转换为人民币
+        
+        汇率：
+        - 1人民币 = 23日元
+        - 1美元 = 7人民币
+        - 1欧元 = 8人民币
+        
+        Args:
+            amount: 金额
+            currency: 币种代码 (CNY/JPY/USD/EUR)
+            
+        Returns:
+            float: 转换后的人民币金额
+        """
+        if not amount:
+            return 0
+        
+        exchange_rates = {
+            'CNY': 1.0,    # 人民币
+            'JPY': 1/23,   # 日元
+            'USD': 7.0,    # 美元
+            'EUR': 8.0     # 欧元
+        }
+        
+        rate = exchange_rates.get(currency, 1.0)
+        return amount * rate
+    
+    @staticmethod
+    def update_figure_average_purchase_price(db: Session, figure_id: int) -> float:
+        """
+        更新手办的平均入手价格
+        
+        根据关联的未软删除订单计算平均入手价格，并保存到数据库
+        
+        Args:
+            db: 数据库会话
+            figure_id: 手办ID
+            
+        Returns:
+            float: 更新后的平均入手价格
+        """
+        from app.models.order import Order
+        
+        # 获取手办
+        figure = db.query(Figure).filter(Figure.id == figure_id).first()
+        if not figure:
+            return 0
+        
+        # 获取所有未软删除的订单
+        orders = db.query(Order).filter(
+            Order.figure_id == figure_id,
+            Order.is_active == 1
+        ).all()
+        
+        # 计算平均入手价格
+        if orders:
+            total_amount = 0
+            for order in orders:
+                deposit_cny = FigureService._convert_to_cny(
+                    order.deposit or 0, 
+                    order.deposit_currency or 'CNY'
+                )
+                balance_cny = FigureService._convert_to_cny(
+                    order.balance or 0, 
+                    order.balance_currency or 'CNY'
+                )
+                total_amount += deposit_cny + balance_cny
+            average_price = total_amount / len(orders)
+        else:
+            average_price = 0
+        
+        # 更新手办的平均入手价格
+        figure.average_purchase_price = average_price
+        db.commit()
+        db.refresh(figure)
+        
+        return average_price
+
+    @staticmethod
+    def calculate_figure_average_purchase_price(figure, orders=None) -> float:
+        """
+        计算手办的平均入手价格（不保存到数据库）
+        
+        根据关联的订单计算平均入手价格，仅返回计算结果而不修改数据库
+        
+        Args:
+            figure: 手办对象
+            orders: 订单列表（可选，如果为None则从figure.orders获取）
+            
+        Returns:
+            float: 计算后的平均入手价格
+        """
+        if orders is None:
+            orders = figure.orders if figure.orders else []
+        
+        if not orders:
+            return 0
+
+        total_amount = 0
+        total_quantity = 0
+
+        for order in orders:
+            # 计算订单总金额（转换为人民币）
+            deposit_cny = FigureService._convert_to_cny(
+                order.deposit or 0, 
+                order.deposit_currency or 'CNY'
+            )
+            balance_cny = FigureService._convert_to_cny(
+                order.balance or 0, 
+                order.balance_currency or 'CNY'
+            )
+            order_amount = deposit_cny + balance_cny
+            # 使用订单数量，如果没有则默认为1
+            order_quantity = getattr(order, 'quantity', 1) or 1
+
+            total_amount += order_amount
+            total_quantity += order_quantity
+
+        if total_quantity == 0:
+            return 0
+
+        return total_amount / total_quantity
+    
+    @staticmethod
     def build_figure_list_query(
         db: Session,
         name: Optional[str] = None,
@@ -143,6 +269,9 @@ class FigureService:
         Returns:
             List[FigureListItem]: 手办列表项
         """
+        from sqlalchemy.orm import selectinload
+        from app.models.order import Order
+        
         query = FigureService.build_figure_list_query(
             db, name, purchase_type, purchase_date_start, 
             purchase_date_end, tag_id, tag_ids
@@ -151,11 +280,29 @@ class FigureService:
         if query is None:
             return []
         
+        # 预加载订单数据
+        query = query.options(selectinload(Figure.orders))
+        
         figures = query.offset(skip).limit(limit).all()
         
         # 转换为精简响应模型
         result = []
         for figure in figures:
+            # 计算订单数量和平均入手价格
+            orders = [o for o in figure.orders if o.is_active == 1] if figure.orders else []
+            order_count = len(orders)
+            
+            # 计算平均入手价格
+            if orders:
+                total_amount = 0
+                for o in orders:
+                    deposit_cny = FigureService._convert_to_cny(o.deposit or 0, o.deposit_currency or 'CNY')
+                    balance_cny = FigureService._convert_to_cny(o.balance or 0, o.balance_currency or 'CNY')
+                    total_amount += deposit_cny + balance_cny
+                average_purchase_price = total_amount / len(orders)
+            else:
+                average_purchase_price = 0
+            
             item = FigureListItem(
                 id=figure.id,
                 name=figure.name,
@@ -166,7 +313,6 @@ class FigureService:
                 market_currency=figure.market_currency,
                 manufacturer=figure.manufacturer,
                 release_date=figure.release_date,
-                purchase_price=figure.purchase_price,
                 purchase_currency=figure.purchase_currency,
                 purchase_date=figure.purchase_date,
                 purchase_method=figure.purchase_method,
@@ -178,9 +324,10 @@ class FigureService:
                 work=figure.work,
                 material=figure.material,
                 size=figure.size,
-                description=figure.description,
                 image=figure.images[0] if figure.images and len(figure.images) > 0 else None,
-                tags=figure.tags
+                tags=figure.tags,
+                order_count=order_count,
+                average_purchase_price=average_purchase_price
             )
             result.append(item)
         
@@ -246,11 +393,12 @@ class FigureService:
         if user_id:
             try:
                 # 1. 创建资产交易记录（库存账）- 记录数量变动
+                # 【修改】使用 average_purchase_price 替代 purchase_price
                 AssetTransactionService.create_transaction_from_figure(
                     db=db,
                     user_id=user_id,
                     figure_id=db_figure.id,
-                    price=figure_data['purchase_price'],
+                    price=figure_data.get('average_purchase_price', 0),
                     quantity=figure_data.get('quantity', 1)
                 )
 
