@@ -103,11 +103,9 @@ export default {
 
 <style scoped>
 .figure-detail-container {
-  margin-top: 20px;
+  margin: 20px auto 0;
   width: 100%;
   max-width: 1200px;
-  margin-left: 50px;
-  margin-right: 50px;
   padding: 20px;
   background-color: #f9f9f9;
   border-radius: 8px;
@@ -156,8 +154,9 @@ export default {
   }
   
   .figure-detail-container {
-    margin-left: 20px;
-    margin-right: 20px;
+    margin-left: 10px;
+    margin-right: 10px;
+    padding: 15px;
   }
 }
 </style>

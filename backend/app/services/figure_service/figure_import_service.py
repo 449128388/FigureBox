@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.figure import Figure
 from app.models.order import Order
 from app.models.tag import Tag, figure_tag
-from app.services.figure_service import FigureService
+from .figure_service import FigureService
 from app.services.asset_transaction_service import AssetTransactionService
 from app.services.order_transaction_service import OrderTransactionService
 

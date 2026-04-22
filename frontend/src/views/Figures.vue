@@ -177,6 +177,7 @@ import { useFigureManagement } from './Figures/composables/useFigureManagement'
 import { useImportFigures } from './Figures/composables/useImportFigures'
 import { useBatchSelection } from './Figures/composables/useBatchSelection'
 import { computed } from 'vue'
+import { ElMessage } from 'element-plus'
 
 export default {
   name: 'Figures',
@@ -257,10 +258,29 @@ export default {
     }
 
     // 【新增】处理批量删除
-    const handleBatchDelete = () => {
+    const handleBatchDelete = async () => {
       if (!hasSelection.value) return
-      // TODO: 实现批量删除逻辑
-      console.log('批量删除选中的手办:', selectedIdsArray.value)
+
+      try {
+        const response = await figureStore.batchDeleteFigures(selectedIdsArray.value)
+
+        // 显示删除结果
+        if (response.failed_count === 0) {
+          ElMessage.success(`成功删除 ${response.success_count} 个手办`)
+        } else if (response.success_count === 0) {
+          ElMessage.warning(`删除失败：${response.errors.join('；')}`)
+        } else {
+          ElMessage.info(`删除完成：成功 ${response.success_count} 个，失败 ${response.failed_count} 个`)
+        }
+
+        // 退出批量选择模式
+        exitBatchMode()
+        // 刷新手办列表
+        await figureStore.fetchFigures()
+      } catch (error) {
+        console.error('批量删除失败:', error)
+        ElMessage.error('批量删除失败，请稍后重试')
+      }
     }
 
     const {
@@ -509,6 +529,11 @@ export default {
 .batch-actions {
   display: flex;
   gap: 10px;
+}
+
+/* 【新增】批量工具栏按钮样式 - 字体大小14px */
+.batch-toolbar .el-button {
+  font-size: 14px !important;
 }
 
 @media (max-width: 768px) {

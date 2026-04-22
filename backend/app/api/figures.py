@@ -216,7 +216,7 @@ def update_figure(
     if not original_figure:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Figure not found"
+            detail="未找到该手办"
         )
 
     original_quantity = original_figure.quantity or 1
@@ -228,7 +228,7 @@ def update_figure(
     if not db_figure:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Figure not found"
+            detail="未找到该手办"
         )
 
     # 处理冲正交易
@@ -309,6 +309,55 @@ def delete_figure(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
+        )
+
+
+@router.post("/batch-delete")
+def batch_delete_figures(
+    data: Dict[str, List[int]],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    批量删除手办（软删除）
+
+    请求体格式：
+    {
+        "figure_ids": [1, 2, 3]
+    }
+
+    响应格式：
+    {
+        "message": "批量删除完成",
+        "success_count": 2,
+        "failed_count": 1,
+        "failed_ids": [3],
+        "errors": ["手办ID 3 有关联未完成订单，无法删除"]
+    }
+    """
+    try:
+        figure_ids = data.get('figure_ids', [])
+        if not figure_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="未提供要删除的手办ID列表"
+            )
+
+        result = FigureService.batch_delete_figures(db, figure_ids)
+
+        return {
+            "message": f"批量删除完成，成功 {result['success_count']} 个，失败 {result['failed_count']} 个",
+            "success_count": result['success_count'],
+            "failed_count": result['failed_count'],
+            "failed_ids": result['failed_ids'],
+            "errors": result['errors']
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"批量删除失败: {str(e)}"
         )
 
 

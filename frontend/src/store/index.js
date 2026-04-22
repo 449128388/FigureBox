@@ -102,6 +102,14 @@ export const useFigureStore = defineStore('figure', {
     async deleteFigure(id) {
       await axios.delete(`/figures/${id}`)
       this.figures = this.figures.filter(f => f.id !== id)
+    },
+    async batchDeleteFigures(figureIds) {
+      const response = await axios.post('/figures/batch-delete', {
+        figure_ids: figureIds
+      })
+      // 从前端列表中移除已删除的手办
+      this.figures = this.figures.filter(f => !figureIds.includes(f.id))
+      return response
     }
   }
 })

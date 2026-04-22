@@ -30,7 +30,7 @@ class FigureExportService:
         """
         if isinstance(obj, datetime):
             return obj.isoformat()
-        raise TypeError(f"Type {type(obj)} not serializable")
+        raise TypeError(f"类型 {type(obj)} 不可序列化")
     
     @staticmethod
     def get_figure_orders(db: Session, figure_id: int) -> List[Dict[str, Any]]:
