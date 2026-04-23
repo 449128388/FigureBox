@@ -1,6 +1,7 @@
 """
 持仓分析服务
-提供持仓相关的分析逻辑，包括风险分布、制造商分布、持仓周期、仓位分层等
+提供持仓相关的分析逻辑，包括持仓明细构建等
+采用企业级服务层架构，分布统计逻辑拆分到 AssetDistributionService
 """
 from datetime import date
 from typing import Dict, Any, List
@@ -9,49 +10,35 @@ from sqlalchemy.orm import Session
 from app.models.figure import Figure
 from app.services.asset_calculation_service import AssetCalculationService
 
+# 引入资产分布服务
+from app.services.dashboard_service.assets_service.asset_distribution_service import (
+    AssetDistributionService
+)
+
 
 class HoldingAnalysisService:
     """持仓分析服务类"""
     
-    # 预定义制造商分布颜色
-    MANUFACTURER_COLORS = [
-        "#5470c6", "#91cc75", "#fac858", "#ee6666", "#73c0de",
-        "#3ba272", "#fc8452", "#9a60b4", "#ea7ccc", "#ff9f7f"
-    ]
-    
-    # 风险状态配置
-    RISK_CONFIG = {
-        "🚀 暴涨": {"color": "#67C23A"},
-        "📈 上涨": {"color": "#95D475"},
-        "➖ 横盘": {"color": "#909399"},
-        "📉 告警": {"color": "#E6A23C"},
-        "🔴 破位": {"color": "#F56C6C"},
-        "💀 退市": {"color": "#303133"}
-    }
-    
-    # 持仓周期配置
-    HOLDING_PERIOD_CONFIG = {
-        "🆕 本月新入": {"color": "#67C23A", "max_days": 30},
-        "📅 1年内": {"color": "#409EFF", "max_days": 365},
-        "🏛️ 1-2年": {"color": "#E6A23C", "max_days": 730},
-        "🦕 2年以上": {"color": "#909399", "max_days": float('inf')}
-    }
-    
-    # 仓位分层配置
-    TIER_CONFIG = {
-        "🏠 海景房": {"color": "#F56C6C", "min_price": 3000},
-        "💎 中端": {"color": "#409EFF", "min_price": 1000, "max_price": 3000},
-        "🧩 入门": {"color": "#67C23A", "max_price": 1000}
-    }
+    # 配置常量保留用于兼容性（实际逻辑已迁移到 AssetDistributionService）
+    MANUFACTURER_COLORS = AssetDistributionService.MANUFACTURER_COLORS
+    RISK_CONFIG = AssetDistributionService.RISK_CONFIG
+    HOLDING_PERIOD_CONFIG = AssetDistributionService.HOLDING_PERIOD_CONFIG
+    TIER_CONFIG = AssetDistributionService.TIER_CONFIG
     
     @classmethod
     def build_holding_detail(
         cls,
         figure: Figure,
-        total_assets: float
+        total_assets: float,
+        order_count: int = 0
     ) -> Dict[str, Any]:
         """
         构建单个持仓明细
+        
+        Args:
+            figure: 手办对象
+            total_assets: 总资产
+            order_count: 该手办的订单数量（排除已取消），默认为0
         
         Returns:
             Dict包含持仓的详细信息
@@ -76,8 +63,11 @@ class HoldingAnalysisService:
                 figure.purchase_date
             )
         
+        # 库存数量：以订单数量为准（排除已取消），如果没有订单则默认为1
+        stock = order_count if order_count > 0 else 1
+        
         # 计算市值占比
-        market_value = current_price * (figure.quantity or 1)
+        market_value = current_price * stock
         market_share = (
             (market_value / total_assets * 100) if total_assets > 0 else 0
         )
@@ -85,7 +75,7 @@ class HoldingAnalysisService:
         return {
             "figure_id": figure.id,
             "figure_name": figure.name,
-            "stock": figure.quantity or 1,
+            "stock": stock,
             "status": status,
             "cost_price": cost_price,
             "current_price": current_price,
@@ -102,13 +92,29 @@ class HoldingAnalysisService:
     def build_all_holdings(
         cls,
         figures: List[Figure],
-        total_assets: float
+        total_assets: float,
+        figure_order_counts: Dict[int, int] = None
     ) -> List[Dict[str, Any]]:
         """
         构建所有持仓明细
+        
+        Args:
+            figures: 手办列表
+            total_assets: 总资产
+            figure_order_counts: 手办ID到订单数量的映射（排除已取消），默认为None
+        
+        Returns:
+            List[Dict[str, Any]]: 持仓明细列表
         """
+        if figure_order_counts is None:
+            figure_order_counts = {}
+        
         return [
-            cls.build_holding_detail(fig, total_assets) 
+            cls.build_holding_detail(
+                fig, 
+                total_assets,
+                figure_order_counts.get(fig.id, 0)
+            ) 
             for fig in figures
         ]
     
@@ -120,34 +126,9 @@ class HoldingAnalysisService:
         """
         计算风险状态分布（健康度仪表盘）
         
-        统计各风险状态的手办数量和市值
+        委托给 AssetDistributionService 处理，保持向后兼容
         """
-        # 初始化分布数据
-        risk_distribution = {
-            status: {"count": 0, "value": 0, "color": config["color"]}
-            for status, config in cls.RISK_CONFIG.items()
-        }
-        
-        # 统计各状态
-        for holding in holdings:
-            status = holding.get("status", "")
-            market_value = holding.get("current_price", 0) * holding.get("stock", 1)
-            if status in risk_distribution:
-                risk_distribution[status]["count"] += 1
-                risk_distribution[status]["value"] += market_value
-        
-        # 转换为饼图数据格式
-        risk_pie_data = []
-        for status, data in risk_distribution.items():
-            if data["count"] > 0:
-                risk_pie_data.append({
-                    "name": status,
-                    "value": round(data["value"], 2),
-                    "count": data["count"],
-                    "itemStyle": {"color": data["color"]}
-                })
-        
-        return risk_pie_data
+        return AssetDistributionService.calculate_risk_distribution(holdings)
     
     @classmethod
     def calculate_manufacturer_distribution(
@@ -157,44 +138,9 @@ class HoldingAnalysisService:
         """
         计算制造商分布（IP分布）
         
-        统计各制造商的手办数量和市值
+        委托给 AssetDistributionService 处理，保持向后兼容
         """
-        manufacturer_distribution: Dict[str, Dict[str, Any]] = {}
-        
-        for holding in holdings:
-            manufacturer = holding.get("manufacturer", "未知厂商")
-            if not manufacturer or manufacturer == "":
-                manufacturer = "未知厂商"
-            
-            market_value = holding.get("current_price", 0) * holding.get("stock", 1)
-            
-            if manufacturer not in manufacturer_distribution:
-                manufacturer_distribution[manufacturer] = {"count": 0, "value": 0}
-            
-            manufacturer_distribution[manufacturer]["count"] += 1
-            manufacturer_distribution[manufacturer]["value"] += market_value
-        
-        # 转换为饼图数据格式
-        manufacturer_pie_data = []
-        color_idx = 0
-        for manufacturer, data in manufacturer_distribution.items():
-            if data["count"] > 0:
-                manufacturer_pie_data.append({
-                    "name": manufacturer,
-                    "value": round(data["value"], 2),
-                    "count": data["count"],
-                    "itemStyle": {
-                        "color": cls.MANUFACTURER_COLORS[
-                            color_idx % len(cls.MANUFACTURER_COLORS)
-                        ]
-                    }
-                })
-                color_idx += 1
-        
-        # 按市值排序
-        manufacturer_pie_data.sort(key=lambda x: x["value"], reverse=True)
-        
-        return manufacturer_pie_data
+        return AssetDistributionService.calculate_manufacturer_distribution(holdings)
     
     @classmethod
     def calculate_holding_period_distribution(
@@ -204,43 +150,9 @@ class HoldingAnalysisService:
         """
         计算持仓周期分布
         
-        统计各持仓周期的手办数量和市值
+        委托给 AssetDistributionService 处理，保持向后兼容
         """
-        # 初始化分布数据
-        period_distribution = {
-            period: {"count": 0, "value": 0, "color": config["color"]}
-            for period, config in cls.HOLDING_PERIOD_CONFIG.items()
-        }
-        
-        for holding in holdings:
-            holding_days = holding.get("holding_days", 0)
-            market_value = holding.get("current_price", 0) * holding.get("stock", 1)
-            
-            # 根据持有天数判断持仓周期
-            if holding_days <= 30:
-                period = "🆕 本月新入"
-            elif holding_days <= 365:
-                period = "📅 1年内"
-            elif holding_days <= 730:
-                period = "🏛️ 1-2年"
-            else:
-                period = "🦕 2年以上"
-            
-            period_distribution[period]["count"] += 1
-            period_distribution[period]["value"] += market_value
-        
-        # 转换为饼图数据格式
-        period_pie_data = []
-        for period, data in period_distribution.items():
-            if data["count"] > 0:
-                period_pie_data.append({
-                    "name": period,
-                    "value": round(data["value"], 2),
-                    "count": data["count"],
-                    "itemStyle": {"color": data["color"]}
-                })
-        
-        return period_pie_data
+        return AssetDistributionService.calculate_holding_period_distribution(holdings)
     
     @classmethod
     def calculate_tier_distribution(
@@ -250,56 +162,30 @@ class HoldingAnalysisService:
         """
         计算仓位分层分布
         
-        按单只手办市场价分层统计
+        委托给 AssetDistributionService 处理，保持向后兼容
         """
-        # 初始化分布数据
-        tier_distribution = {
-            tier: {"count": 0, "value": 0, "color": config["color"]}
-            for tier, config in cls.TIER_CONFIG.items()
-        }
-        
-        for holding in holdings:
-            market_price = holding.get("current_price", 0)
-            market_value = market_price * holding.get("stock", 1)
-            
-            # 根据市场价判断分层
-            if market_price > 3000:
-                tier = "🏠 海景房"
-            elif market_price >= 1000:
-                tier = "💎 中端"
-            else:
-                tier = "🧩 入门"
-            
-            tier_distribution[tier]["count"] += 1
-            tier_distribution[tier]["value"] += market_value
-        
-        # 转换为饼图数据格式
-        tier_pie_data = []
-        for tier, data in tier_distribution.items():
-            if data["count"] > 0:
-                tier_pie_data.append({
-                    "name": tier,
-                    "value": round(data["value"], 2),
-                    "count": data["count"],
-                    "itemStyle": {"color": data["color"]}
-                })
-        
-        return tier_pie_data
+        return AssetDistributionService.calculate_tier_distribution(holdings)
     
     @classmethod
     def analyze_all_distributions(
         cls,
         figures: List[Figure],
-        total_assets: float
+        total_assets: float,
+        figure_order_counts: Dict[int, int] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         分析所有分布数据
         
+        Args:
+            figures: 手办列表
+            total_assets: 总资产
+            figure_order_counts: 手办ID到订单数量的映射（排除已取消），默认为None
+        
         Returns:
             Dict包含所有饼图分布数据
         """
-        # 构建持仓明细
-        holdings = cls.build_all_holdings(figures, total_assets)
+        # 构建持仓明细（传入订单数量）
+        holdings = cls.build_all_holdings(figures, total_assets, figure_order_counts)
         
         # 计算各种分布
         return {

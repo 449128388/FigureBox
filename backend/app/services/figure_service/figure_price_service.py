@@ -81,7 +81,11 @@ class FigurePriceService:
         """
         更新手办的平均入手价格
 
-        根据关联的未软删除订单计算平均入手价格，并保存到数据库
+        根据关联的未软删除订单计算平均入手价格，并保存到数据库。
+        规则：
+        - 已取消订单只统计定金（尾款未实际支付）
+        - 非取消订单统计定金+尾款
+        - 数量只统计非已取消订单
 
         Args:
             db: 数据库会话
@@ -105,14 +109,28 @@ class FigurePriceService:
         ).all()
 
         # 计算平均入手价格
-        if orders:
-            total_amount = 0
-            for order in orders:
+        # 规则：已取消订单只统计定金，数量只统计非已取消订单
+        total_amount = 0
+        valid_quantity = 0  # 只统计非已取消订单的数量
+
+        for order in orders:
+            if order.status == "已取消":
+                # 已取消订单只统计定金
+                total_amount += FigurePriceService.calculate_deposit_cny(
+                    order.deposit, order.deposit_currency
+                )
+            else:
+                # 非取消订单统计定金+尾款
                 total_amount += FigurePriceService.calculate_order_amount_cny(
                     order.deposit, order.deposit_currency,
                     order.balance, order.balance_currency
                 )
-            average_price = total_amount / len(orders)
+                # 数量只统计非已取消订单
+                valid_quantity += 1
+
+        # 计算平均价格（除以非已取消订单数量）
+        if valid_quantity > 0:
+            average_price = total_amount / valid_quantity
         else:
             average_price = 0
 
@@ -128,7 +146,11 @@ class FigurePriceService:
         """
         计算手办的平均入手价格（不保存到数据库）
 
-        根据关联的订单计算平均入手价格，仅返回计算结果而不修改数据库
+        根据关联的订单计算平均入手价格，仅返回计算结果而不修改数据库。
+        规则：
+        - 已取消订单只统计定金（尾款未实际支付）
+        - 非取消订单统计定金+尾款
+        - 数量只统计非已取消订单
 
         Args:
             figure: 手办对象
@@ -144,28 +166,37 @@ class FigurePriceService:
             return 0
 
         total_amount = 0
-        total_quantity = 0
+        valid_quantity = 0  # 只统计非已取消订单的数量
 
         for order in orders:
-            order_amount = FigurePriceService.calculate_order_amount_cny(
-                order.deposit, order.deposit_currency,
-                order.balance, order.balance_currency
-            )
-            # 使用订单数量，如果没有则默认为1
-            order_quantity = getattr(order, 'quantity', 1) or 1
+            if order.status == "已取消":
+                # 已取消订单只统计定金
+                total_amount += FigurePriceService.calculate_deposit_cny(
+                    order.deposit, order.deposit_currency
+                )
+            else:
+                # 非取消订单统计定金+尾款
+                total_amount += FigurePriceService.calculate_order_amount_cny(
+                    order.deposit, order.deposit_currency,
+                    order.balance, order.balance_currency
+                )
+                # 数量只统计非已取消订单
+                valid_quantity += 1
 
-            total_amount += order_amount
-            total_quantity += order_quantity
-
-        if total_quantity == 0:
+        if valid_quantity == 0:
             return 0
 
-        return total_amount / total_quantity
+        return total_amount / valid_quantity
 
     @staticmethod
     def calculate_orders_average_price(orders: List) -> float:
         """
         计算多个订单的平均价格
+
+        规则：
+        - 已取消订单只统计定金（尾款未实际支付）
+        - 非取消订单统计定金+尾款
+        - 数量只统计非已取消订单
 
         Args:
             orders: 订单列表
@@ -177,10 +208,24 @@ class FigurePriceService:
             return 0
 
         total_amount = 0
-        for order in orders:
-            total_amount += FigurePriceService.calculate_order_amount_cny(
-                order.deposit, order.deposit_currency,
-                order.balance, order.balance_currency
-            )
+        valid_quantity = 0  # 只统计非已取消订单的数量
 
-        return total_amount / len(orders)
+        for order in orders:
+            if order.status == "已取消":
+                # 已取消订单只统计定金
+                total_amount += FigurePriceService.calculate_deposit_cny(
+                    order.deposit, order.deposit_currency
+                )
+            else:
+                # 非取消订单统计定金+尾款
+                total_amount += FigurePriceService.calculate_order_amount_cny(
+                    order.deposit, order.deposit_currency,
+                    order.balance, order.balance_currency
+                )
+                # 数量只统计非已取消订单
+                valid_quantity += 1
+
+        if valid_quantity == 0:
+            return 0
+
+        return total_amount / valid_quantity

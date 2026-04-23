@@ -45,6 +45,7 @@ class Order(Base):
     shop_name = Column(String(100))  # 购买店铺名称（如：淘宝店铺、会员购等）
     shop_contact = Column(String(200))  # 店铺联系方式（客服、QQ群等）
     tracking_number = Column(String(100))  # 物流订单号/快递单号
+    order_number = Column(String(100))  # 订单编号（外部系统订单号，如淘宝订单号）
 
     # 软删除标记
     is_active = Column(Integer, default=1)  # 是否激活：1=正常，0=已删除

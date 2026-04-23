@@ -19,6 +19,7 @@ export function usePriceUpdate() {
     if (!priceInfo.value || !newPrice.value) return null
     
     const oldPrice = priceInfo.value.current_price
+    const costPrice = priceInfo.value.cost_price || 0
     const quantity = priceInfo.value.quantity
     const oldTotalAssets = priceInfo.value.total_assets
     
@@ -26,16 +27,30 @@ export function usePriceUpdate() {
     const priceDiff = (newPrice.value - oldPrice) * quantity
     const newTotalAssets = oldTotalAssets + priceDiff
     
-    // 计算盈亏比例变化
+    // 计算单个手办盈亏比例变化（基于成本价，与持仓列表一致）
     const oldProfitPercentage = priceInfo.value.profit_percentage
-    // 简化计算，实际应由后端返回
-    const newProfitPercentage = oldProfitPercentage + (priceDiff / oldTotalAssets * 100)
+    // 新的盈亏比例 = (新市场价 - 成本价) / 成本价 * 100%
+    let newProfitPercentage = 0
+    if (costPrice > 0) {
+      newProfitPercentage = ((newPrice.value - costPrice) / costPrice) * 100
+    }
+    
+    // 计算整体盈亏比例变化
+    const oldTotalProfitPercentage = priceInfo.value.total_profit_percentage || 0
+    // 整体盈亏比例 = (新总资产 - 总成本) / 总成本 * 100%
+    // 简化计算：新整体盈亏比例 = 旧整体盈亏比例 + (价格差异 / 旧总资产 * 100%)
+    let newTotalProfitPercentage = oldTotalProfitPercentage
+    if (oldTotalAssets > 0) {
+      newTotalProfitPercentage = oldTotalProfitPercentage + (priceDiff / oldTotalAssets * 100)
+    }
     
     return {
       oldTotalAssets,
       newTotalAssets,
       oldProfitPercentage,
       newProfitPercentage,
+      oldTotalProfitPercentage,
+      newTotalProfitPercentage,
       priceDiff
     }
   })

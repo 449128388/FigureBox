@@ -33,6 +33,7 @@
       >
     </div>
     <h3><router-link :to="`/figures/${order.figure_id}`" class="figure-name-link">{{ order.figure_name }}</router-link><span v-if="order.status !== '已完成' && order.status !== '已取消'" class="countdown-tag" :class="getCountdownClass(order.due_date)">{{ getCountdownText(order.due_date) }}</span></h3>
+    <p v-if="order.order_number">订单编号: {{ order.order_number }}</p>
     <p>定金: {{ order.deposit }} {{ getCurrencySymbol(order.deposit_currency) }}</p>
     <p>尾款: {{ order.balance }} {{ getCurrencySymbol(order.balance_currency) }}</p>
     <p>出荷日期: {{ order.due_date }}</p>

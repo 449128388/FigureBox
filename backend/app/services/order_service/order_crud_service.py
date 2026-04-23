@@ -250,6 +250,74 @@ class OrderCrudService:
         except Exception as e:
             print(f"记录资金变更失败: {e}")
 
+        # 创建库存账调整记录（quantity=0）用于补差额
+        try:
+            # 分别计算定金和尾款的人民币金额
+            old_deposit_cny = FigurePriceService.convert_to_cny(old_deposit or 0, old_deposit_currency or 'CNY')
+            new_deposit_cny = FigurePriceService.convert_to_cny(db_order.deposit or 0, db_order.deposit_currency or 'CNY')
+            old_balance_cny = FigurePriceService.convert_to_cny(old_balance or 0, old_balance_currency or 'CNY')
+            new_balance_cny = FigurePriceService.convert_to_cny(db_order.balance or 0, db_order.balance_currency or 'CNY')
+
+            has_adjustment = False
+
+            # 1. 处理定金变更
+            deposit_diff = new_deposit_cny - old_deposit_cny
+            if abs(deposit_diff) > 0.01:
+                # 判断变更类型
+                if deposit_diff > 0:
+                    change_type = "追加"
+                else:
+                    change_type = "减少"
+                
+                # price 为该笔调整后的订单总成本（定金+尾款的人民币金额）
+                total_cost_after_change = new_deposit_cny + new_balance_cny
+                
+                deposit_adjust = AssetTransaction(
+                    user_id=current_user.id,
+                    figure_id=db_order.figure_id,
+                    order_id=db_order.id,
+                    transaction_type="adjust",
+                    price=total_cost_after_change,
+                    quantity=0,
+                    total_amount=total_cost_after_change,
+                    remaining_quantity=0,
+                    notes=f"定金{change_type}导致的成本调整 ({old_deposit_cny:.2f} CNY → {new_deposit_cny:.2f} CNY)"
+                )
+                db.add(deposit_adjust)
+                has_adjustment = True
+
+            # 2. 处理尾款变更
+            balance_diff = new_balance_cny - old_balance_cny
+            if abs(balance_diff) > 0.01:
+                # 判断变更类型
+                if balance_diff > 0:
+                    change_type = "追加"
+                else:
+                    change_type = "减少"
+                
+                # price 为该笔调整后的订单总成本（定金+尾款的人民币金额）
+                total_cost_after_change = new_deposit_cny + new_balance_cny
+                
+                balance_adjust = AssetTransaction(
+                    user_id=current_user.id,
+                    figure_id=db_order.figure_id,
+                    order_id=db_order.id,
+                    transaction_type="adjust",
+                    price=total_cost_after_change,
+                    quantity=0,
+                    total_amount=total_cost_after_change,
+                    remaining_quantity=0,
+                    notes=f"尾款{change_type}导致的成本调整 ({old_balance_cny:.2f} CNY → {new_balance_cny:.2f} CNY)"
+                )
+                db.add(balance_adjust)
+                has_adjustment = True
+
+            # 如果有任何调整记录，提交事务
+            if has_adjustment:
+                db.commit()
+        except Exception as e:
+            print(f"创建库存账调整记录失败: {e}")
+
         # 更新手办的平均入手价格
         try:
             FigureService.update_figure_average_purchase_price(db, db_order.figure_id)

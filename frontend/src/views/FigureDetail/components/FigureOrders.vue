@@ -54,6 +54,10 @@
       </template>
     </div>
     
+    <div class="info-item" v-if="selectedOrder.order_number">
+      <span class="label">订单编号:</span>
+      <span class="value">{{ selectedOrder.order_number }}</span>
+    </div>
     <div class="info-item" v-if="selectedOrder.deposit !== null && selectedOrder.deposit !== undefined">
       <span class="label">定金:</span>
       <span class="value">¥{{ selectedOrder.deposit }}</span>

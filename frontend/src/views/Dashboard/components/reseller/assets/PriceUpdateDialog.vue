@@ -68,7 +68,10 @@
             总资产将从 {{ formatMoney(impactPreview.oldTotalAssets) }} → {{ formatMoney(impactPreview.newTotalAssets) }}
           </li>
           <li>
-            盈亏比例将变为 {{ formatPercentage(impactPreview.newProfitPercentage) }}
+            手办盈亏比例将变为 <span :class="{ 'profit-positive': impactPreview.newProfitPercentage >= 0, 'profit-negative': impactPreview.newProfitPercentage < 0 }">{{ formatPercentage(impactPreview.newProfitPercentage) }}</span>
+          </li>
+          <li>
+            总体盈亏比例将变为 <span :class="{ 'profit-positive': impactPreview.newTotalProfitPercentage >= 0, 'profit-negative': impactPreview.newTotalProfitPercentage < 0 }">{{ formatPercentage(impactPreview.newTotalProfitPercentage) }}</span>
           </li>
           <li>塑料指数将重新计算</li>
         </ul>
@@ -239,6 +242,17 @@ export default {
 
 .impact-list li {
   margin-bottom: 4px;
+}
+
+/* 盈亏比例颜色 - 中国股市规范（红涨绿跌） */
+.profit-positive {
+  color: #f5222d;  /* 红色 - 盈利 */
+  font-weight: 600;
+}
+
+.profit-negative {
+  color: #52c41a;  /* 绿色 - 亏损 */
+  font-weight: 600;
 }
 
 .dialog-footer {

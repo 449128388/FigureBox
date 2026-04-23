@@ -33,6 +33,22 @@ class OrderChangeField:
     BALANCE = "balance"      # 尾款
 
 
+# 字段名中英文映射
+FIELD_NAME_MAP = {
+    "deposit": "定金",
+    "balance": "尾款"
+}
+
+# 变更类型中英文映射
+CHANGE_TYPE_MAP = {
+    "initial": "初始",
+    "supplement": "追加",
+    "adjust": "调整",
+    "refund": "退款",
+    "currency_change": "币种变更"
+}
+
+
 class TransactionChangeService:
     """交易变更追踪服务类"""
 
@@ -141,7 +157,7 @@ class TransactionChangeService:
                     "previous_amount": old_amount,
                     "current_amount": new_amount,
                     "direction": "out",
-                    "description": f"{field_name}_追加"
+                    "description": f"{FIELD_NAME_MAP.get(field_name, field_name)}追加"
                 })
             elif diff < 0:
                 # 金额减少 - 退款
@@ -153,7 +169,7 @@ class TransactionChangeService:
                     "previous_amount": old_amount,
                     "current_amount": new_amount,
                     "direction": "in",
-                    "description": f"{field_name}_退款"
+                    "description": f"{FIELD_NAME_MAP.get(field_name, field_name)}退款"
                 })
         else:
             # 情况2：币种发生变化
@@ -167,7 +183,7 @@ class TransactionChangeService:
                     "previous_amount": old_amount,
                     "current_amount": 0,
                     "direction": "in",
-                    "description": f"{field_name}_币种变更_退款（{old_currency}）"
+                    "description": f"{FIELD_NAME_MAP.get(field_name, field_name)}币种变更退款（{old_currency}）"
                 })
 
             if new_amount > 0:
@@ -179,7 +195,7 @@ class TransactionChangeService:
                     "previous_amount": 0,
                     "current_amount": new_amount,
                     "direction": "out",
-                    "description": f"{field_name}_币种变更_支付（{new_currency}）"
+                    "description": f"{FIELD_NAME_MAP.get(field_name, field_name)}币种变更支付（{new_currency}）"
                 })
 
         return changes

@@ -462,11 +462,11 @@ export default {
 }
 
 .price-item .value.positive {
-  color: #52c41a;
+  color: #f5222d;  /* 红色 - 盈利（中国股市规范：红涨绿跌） */
 }
 
 .price-item .value.negative {
-  color: #f5222d;
+  color: #52c41a;  /* 绿色 - 亏损（中国股市规范：红涨绿跌） */
 }
 
 .card-footer {

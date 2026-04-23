@@ -97,6 +97,10 @@
             <label>物流订单</label>
             <el-input v-model="newOrder.tracking_number" placeholder="请输入物流订单号" style="width: 100%;"></el-input>
           </div>
+          <div class="form-group">
+            <label>订单编号</label>
+            <el-input v-model="newOrder.order_number" placeholder="请输入订单编号（非必填）" style="width: 100%;"></el-input>
+          </div>
         </div>
 
         <div class="form-actions">

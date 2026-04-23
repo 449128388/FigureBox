@@ -54,8 +54,18 @@ async def get_asset_dashboard(
     else:  # all
         start_date = datetime(2000, 1, 1)
     
-    # 获取所有手办
-    figures = db.query(Figure).all()
+    # 获取所有有效订单（排除已取消状态）
+    valid_orders = db.query(Order).filter(
+        Order.is_active == 1,
+        Order.status != "已取消"
+    ).all()
+    
+    # 获取有有效订单的手办ID集合
+    figure_ids_with_valid_orders = set(order.figure_id for order in valid_orders)
+    
+    # 获取所有手办，但只保留有有效订单的
+    all_figures = db.query(Figure).all()
+    figures = [fig for fig in all_figures if fig.id in figure_ids_with_valid_orders]
     
     # 使用服务层计算总资产和总成本
     total_assets = AssetCalculationService.calculate_total_assets(figures)
@@ -204,9 +214,17 @@ async def get_asset_dashboard(
         {"figure_name": "Saber", "advice": "Saber跌幅超10%,建议持有或止损"}
     ]
     
-    # 使用服务层分析所有分布数据
+    # 构建手办ID到订单数量的映射（使用前面已获取的有效订单）
+    figure_order_counts = {}
+    for order in valid_orders:
+        if order.figure_id in figure_order_counts:
+            figure_order_counts[order.figure_id] += 1
+        else:
+            figure_order_counts[order.figure_id] = 1
+    
+    # 使用服务层分析所有分布数据（传入订单数量）
     distribution_data = HoldingAnalysisService.analyze_all_distributions(
-        figures, total_assets
+        figures, total_assets, figure_order_counts
     )
     
     # 检查是否需要返回新的token（自动续期）
@@ -301,14 +319,25 @@ def get_figure_price_info(
     current_price = figure.market_price or figure.price or 0
     impact = PriceUpdateService.calculate_impact(db, current_user.id, figure, current_price)
     
+    # 计算单个手办的盈亏比例（与持仓列表一致）
+    cost_price = figure.average_purchase_price or 0
+    quantity = figure.quantity or 1
+    if cost_price > 0:
+        current_profit = current_price - cost_price
+        current_profit_percentage = (current_profit / cost_price) * 100
+    else:
+        current_profit_percentage = 0
+    
     return {
         "figure_id": figure.id,
         "figure_name": figure.name,
         "current_price": current_price,
+        "cost_price": cost_price,  # 成本价，用于前端计算盈亏比例
         "last_updated": latest_history.date if latest_history else figure.purchase_date,
-        "quantity": figure.quantity or 1,
+        "quantity": quantity,
         "total_assets": impact["old_total_assets"],
-        "profit_percentage": impact["old_profit_percentage"]
+        "profit_percentage": current_profit_percentage,  # 单个手办的盈亏比例
+        "total_profit_percentage": impact["old_profit_percentage"]  # 整体盈亏比例
     }
 
 

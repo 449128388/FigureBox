@@ -16,11 +16,17 @@
 - OrderQueryService: 订单查询服务（列表查询、统计）
 - OrderCrudService: 订单CRUD服务（增删改）
 
+指数服务架构说明：
+- IndexService: 指数服务（上证指数、沪深300等）
+
 所有手办相关服务已迁移到 figure_service 包中
 所有订单相关服务已迁移到 order_service 包中
+所有指数相关服务已迁移到 dashboard_service/assets_service 包中
 """
 
-from .index_service import IndexService
+# 从 dashboard_service 导入指数服务（企业级服务层架构）
+from .dashboard_service.assets_service.index_service import IndexService
+
 from .asset_calculation_service import AssetCalculationService
 from .holding_analysis_service import HoldingAnalysisService
 from .price_update_service import PriceUpdateService
