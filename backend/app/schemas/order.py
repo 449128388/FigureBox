@@ -16,6 +16,7 @@ class OrderCreate(OrderBase):
     status: str
     # 【修复】已取消状态的订单不需要出荷日期，设置为可选
     due_date: date | None = None
+    tracking_number: str | None = None
 
 class OrderUpdate(BaseModel):
     deposit: float | None = None
@@ -34,6 +35,7 @@ class Order(OrderBase):
     status: str
     tracking_number: str | None = None
     figure: Figure
+    due_date: date | None = None  # 允许为空
 
     class Config:
         from_attributes = True

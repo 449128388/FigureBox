@@ -43,7 +43,9 @@ class AssetTransactionService:
         Returns:
             创建的交易记录对象
         """
-        total_amount = price * quantity
+        # 对于已取消订单(quantity=0)，total_amount应该等于price（定金金额）
+        # 对于正常订单，total_amount = price * quantity
+        total_amount = price if quantity == 0 else price * quantity
 
         transaction = AssetTransaction(
             user_id=user_id,
@@ -54,7 +56,7 @@ class AssetTransactionService:
             quantity=quantity,
             total_amount=total_amount,
             remaining_quantity=quantity,  # 初始剩余数量等于购买数量
-            notes="自动创建：从手办管理数据中创建"
+            notes="自动创建：从订单管理数据中创建"
         )
 
         db.add(transaction)
@@ -93,12 +95,13 @@ class AssetTransactionService:
         Returns:
             更新的交易记录对象，如果没有可关联的记录则返回 None
         """
-        # 查找该手办下无订单关联的买入记录
+        # 查找该手办下无订单关联且有剩余库存的买入记录
         existing_transaction = db.query(AssetTransaction).filter(
             AssetTransaction.user_id == user_id,
             AssetTransaction.figure_id == figure_id,
             AssetTransaction.transaction_type == "buy",
-            AssetTransaction.order_id.is_(None)
+            AssetTransaction.order_id.is_(None),
+            AssetTransaction.remaining_quantity > 0
         ).first()
 
         if existing_transaction:

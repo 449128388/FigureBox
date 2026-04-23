@@ -59,30 +59,6 @@ class FigureCrudService:
             db.commit()
             db.refresh(db_figure)
 
-        # 【新增】同时创建资产交易记录（库存账）和资金流水记录（资金账）
-        # 【修复】无论入手价格是否为0，都创建交易记录，保证数据完整性
-        if user_id:
-            try:
-                # 1. 创建资产交易记录（库存账）- 记录数量变动
-                # 【修改】使用 average_purchase_price 替代 purchase_price
-                AssetTransactionService.create_transaction_from_figure(
-                    db=db,
-                    user_id=user_id,
-                    figure_id=db_figure.id,
-                    price=figure_data.get('average_purchase_price', 0),
-                    quantity=figure_data.get('quantity', 1)
-                )
-
-                # 【重构】自动创建手办（无订单）不记录到资金账
-                # 资金账只记录有真实资金流动的交易，等补录订单后再记录
-
-                db.commit()
-            except Exception as e:
-                # 如果创建交易记录失败，不影响手办创建
-                db.rollback()
-                # 可以在这里记录日志
-                print(f"创建交易记录失败: {e}")
-
         return db_figure
 
     @staticmethod

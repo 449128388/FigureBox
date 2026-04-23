@@ -10,6 +10,7 @@ from app.models.order import Order
 from app.models.figure import Figure
 from app.models.user import User
 from app.schemas.order import OrderListItem
+from app.services.figure_service.figure_price_service import FigurePriceService
 
 
 class OrderQueryService:
@@ -18,7 +19,7 @@ class OrderQueryService:
     @staticmethod
     def get_unpaid_balance(db: Session, current_user: User) -> dict:
         """
-        获取未支付状态的尾款总额
+        获取未支付状态的尾款总额（统一转换为人民币）
 
         Args:
             db: 数据库会话
@@ -27,22 +28,29 @@ class OrderQueryService:
         Returns:
             dict: {"total_unpaid_balance": float}
         """
+        # 获取所有未支付订单
         if current_user.is_admin:
-            # 管理员查看所有未支付订单的尾款总额
-            total_balance = db.query(func.sum(Order.balance)).filter(
+            unpaid_orders = db.query(Order).filter(
                 Order.status == "未支付",
                 Order.is_active == 1
-            ).scalar()
+            ).all()
         else:
-            # 普通用户只查看自己的未支付订单的尾款总额
-            total_balance = db.query(func.sum(Order.balance)).filter(
+            unpaid_orders = db.query(Order).filter(
                 Order.status == "未支付",
                 Order.user_id == current_user.id,
                 Order.is_active == 1
-            ).scalar()
+            ).all()
 
-        # 如果没有未支付订单，返回0
-        return {"total_unpaid_balance": float(total_balance) if total_balance else 0.0}
+        # 将所有尾款按币种转换为人民币后求和
+        total_balance_cny = 0.0
+        for order in unpaid_orders:
+            balance_cny = FigurePriceService.convert_to_cny(
+                order.balance or 0,
+                order.balance_currency or 'CNY'
+            )
+            total_balance_cny += balance_cny
+
+        return {"total_unpaid_balance": total_balance_cny}
 
     @staticmethod
     def get_orders(db: Session, current_user: User) -> List[OrderListItem]:

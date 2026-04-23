@@ -165,6 +165,13 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 15px;
   margin-bottom: 20px;
+  /* 确保所有卡片高度一致 */
+  align-items: stretch;
+}
+
+.orders-list > * {
+  /* 确保每个订单卡片占据完整的网格高度 */
+  height: 100%;
 }
 
 .empty-state {

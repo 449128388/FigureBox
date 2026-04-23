@@ -158,6 +158,10 @@ export default {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  /* 使用flex布局，使按钮固定在底部 */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .order-item .figure-image {
@@ -255,7 +259,7 @@ export default {
 .order-actions {
   display: flex;
   justify-content: center;
-  margin-top: 15px;
+  margin-top: auto; /* 将按钮推到容器底部 */
   padding-top: 15px;
   border-top: 1px solid #eee;
 }

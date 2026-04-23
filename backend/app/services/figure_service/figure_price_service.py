@@ -62,6 +62,20 @@ class FigurePriceService:
         balance_cny = cls.convert_to_cny(balance or 0, balance_currency or 'CNY')
         return deposit_cny + balance_cny
 
+    @classmethod
+    def calculate_deposit_cny(cls, deposit: float, deposit_currency: str) -> float:
+        """
+        计算定金金额（人民币）
+
+        Args:
+            deposit: 定金金额
+            deposit_currency: 定金币种
+
+        Returns:
+            float: 定金金额（人民币）
+        """
+        return cls.convert_to_cny(deposit or 0, deposit_currency or 'CNY')
+
     @staticmethod
     def update_figure_average_purchase_price(db: Session, figure_id: int) -> float:
         """

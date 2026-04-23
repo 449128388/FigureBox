@@ -204,23 +204,19 @@ def update_figure(
     """
     更新手办
 
-    支持冲正交易：
-    - 修改数量（增加）：创建补录买入交易
-    - 修改数量（减少）：创建冲正交易
-    - 修改入手价格：创建价格调整记录
+    注意：
+    - 手办数量由关联订单数量决定，直接编辑数量不再创建冲正交易
+    - 价格调整通过订单均价计算自动更新
     """
     figure_data = figure.model_dump(exclude_unset=True)
 
-    # 获取原始手办数据（用于冲正计算）
+    # 获取原始手办数据
     original_figure = FigureService.get_figure_by_id(db, figure_id)
     if not original_figure:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="未找到该手办"
         )
-
-    original_quantity = original_figure.quantity or 1
-    original_price = original_figure.average_purchase_price or 0
 
     # 更新手办
     db_figure = FigureService.update_figure(db, figure_id, figure_data)
@@ -230,35 +226,6 @@ def update_figure(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="未找到该手办"
         )
-
-    # 处理冲正交易
-    try:
-        # 检查数量变化
-        new_quantity = db_figure.quantity or 1
-        if 'quantity' in figure_data and new_quantity != original_quantity:
-            quantity_change = new_quantity - original_quantity
-            # 使用当前入手价格作为冲正价格
-            adjustment_price = db_figure.average_purchase_price or original_price or 0
-
-            # 【修复】无论价格是否为0，都创建资产交易记录（库存账）
-            # 数量调整属于库存变动，必须记录以保证库存数据完整性
-            AssetTransactionService.create_quantity_adjustment_transaction(
-                db=db,
-                user_id=current_user.id,
-                figure_id=figure_id,
-                quantity_change=quantity_change,
-                price=adjustment_price,
-                original_quantity=original_quantity,
-                new_quantity=new_quantity
-            )
-            db.commit()
-
-        # 检查价格变化（数量未变化时）
-
-    except Exception as e:
-        # 冲正交易失败不影响手办更新
-        db.rollback()
-        print(f"创建冲正交易记录失败: {e}")
 
     return db_figure
 

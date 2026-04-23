@@ -282,6 +282,14 @@ class OrderTransaction(Base):
     # 备注
     notes = Column(String(255))  # 交易备注/说明
 
+    # 变更追踪字段（用于记录订单资金变更历史）
+    transaction_subtype = Column(String(50), nullable=True)  # 交易子类型：initial(初始)/adjust(调整)/supplement(追加)/refund(退款)
+    parent_transaction_id = Column(Integer, ForeignKey("order_transactions.id"), nullable=True)  # 关联的原始交易ID
+    change_reason = Column(String(255), nullable=True)  # 变更原因/备注
+    previous_amount = Column(Float, nullable=True)  # 变更前金额（用于审计）
+    current_amount = Column(Float, nullable=True)  # 变更后金额
+    changed_field = Column(String(50), nullable=True)  # 变更的字段：deposit(定金)/balance(尾款)
+
     # 软删除字段
     is_active = Column(Boolean, default=True)  # 是否激活
     deleted_at = Column(DateTime(timezone=True), nullable=True)  # 删除时间
@@ -290,3 +298,4 @@ class OrderTransaction(Base):
     user = relationship("User")  # 关联用户对象
     figure = relationship("Figure")  # 关联手办对象
     order = relationship("Order")  # 关联订单对象
+    parent_transaction = relationship("OrderTransaction", remote_side=[id])  # 自关联：关联父交易

@@ -14,6 +14,7 @@ from app.schemas.order import OrderCreate, OrderUpdate
 from app.services.asset_transaction_service import AssetTransactionService
 from app.services.order_transaction_service import OrderTransactionService
 from app.services.figure_service import FigureService
+from app.services.figure_service.figure_price_service import FigurePriceService
 
 
 class OrderCrudService:
@@ -73,34 +74,108 @@ class OrderCrudService:
         db.commit()
         db.refresh(db_order)
 
-        # 创建资产交易记录（补录凭证模式）和资金流水记录
+        # 创建资产交易记录（库存账）和资金流水记录
         try:
-            # 1. 将订单关联到现有的库存记录（不新增记录）
-            AssetTransactionService.link_order_to_existing_transaction(
-                db=db,
-                user_id=current_user.id,
-                figure_id=order_data.figure_id,
-                order=db_order
-            )
+            # 根据订单状态决定如何创建交易记录
+            if db_order.status == "已取消":
+                # 已取消订单：只记录定金，数量为0
+                deposit_amount = FigurePriceService.calculate_deposit_cny(
+                    deposit=db_order.deposit,
+                    deposit_currency=db_order.deposit_currency
+                )
 
-            # 2. 创建资金流水记录（资金账）
-            total_price = db_order.deposit + db_order.balance
+                # 1. 创建资产交易记录（库存账）- 已取消订单数量为0
+                AssetTransactionService.create_transaction_from_figure(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=order_data.figure_id,
+                    price=deposit_amount,
+                    quantity=0,  # 已取消订单，数量为0
+                    order_id=db_order.id
+                )
 
-            OrderTransactionService.create_buy_transaction(
-                db=db,
-                user_id=current_user.id,
-                figure_id=order_data.figure_id,
-                order_id=db_order.id,
-                quantity=1,
-                unit_price=total_price,
-                total_amount=total_price,
-                payment_method=None,
-                platform=None,
-                notes=f"订单 #{db_order.id} 资金流水"
-            )
+                # 2. 创建定金资金流水记录（资金账）- 独立记录以便追踪变更
+                from app.models.asset import OrderTransaction
+                deposit_txn = OrderTransaction(
+                    user_id=current_user.id,
+                    figure_id=order_data.figure_id,
+                    order_id=db_order.id,
+                    transaction_type="deposit",
+                    direction="out",
+                    quantity=0,
+                    unit_price=db_order.deposit or 0,
+                    total_amount=db_order.deposit or 0,
+                    currency=db_order.deposit_currency or "CNY",
+                    platform=db_order.shop_name,
+                    transaction_date=datetime.now(),
+                    notes=f"订单 #{db_order.id} 定金（已取消）",
+                    transaction_subtype="initial",
+                    changed_field="deposit"
+                )
+                db.add(deposit_txn)
+            else:
+                # 正常订单：创建完整的交易记录
+                # 计算订单总金额（考虑币种转换）
+                total_price = FigurePriceService.calculate_order_amount_cny(
+                    deposit=db_order.deposit,
+                    deposit_currency=db_order.deposit_currency,
+                    balance=db_order.balance,
+                    balance_currency=db_order.balance_currency
+                )
 
-            # 更新手办的平均入手价格
-            FigureService.update_figure_average_purchase_price(db, order_data.figure_id)
+                # 1. 创建资产交易记录（库存账）- 每个订单创建一条独立的库存记录
+                AssetTransactionService.create_transaction_from_figure(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=order_data.figure_id,
+                    price=total_price,
+                    quantity=1,
+                    order_id=db_order.id
+                )
+
+                # 2. 创建定金资金流水记录（独立记录，便于追踪变更）
+                from app.models.asset import OrderTransaction
+                if db_order.deposit and db_order.deposit > 0:
+                    deposit_txn = OrderTransaction(
+                        user_id=current_user.id,
+                        figure_id=order_data.figure_id,
+                        order_id=db_order.id,
+                        transaction_type="deposit",
+                        direction="out",
+                        quantity=1,
+                        unit_price=db_order.deposit,
+                        total_amount=db_order.deposit,
+                        currency=db_order.deposit_currency or "CNY",
+                        platform=db_order.shop_name,
+                        transaction_date=datetime.now(),
+                        notes=f"订单 #{db_order.id} 定金",
+                        transaction_subtype="initial",
+                        changed_field="deposit"
+                    )
+                    db.add(deposit_txn)
+
+                # 3. 创建尾款资金流水记录（独立记录，便于追踪变更）
+                if db_order.balance and db_order.balance > 0:
+                    balance_txn = OrderTransaction(
+                        user_id=current_user.id,
+                        figure_id=order_data.figure_id,
+                        order_id=db_order.id,
+                        transaction_type="balance",
+                        direction="out",
+                        quantity=1,
+                        unit_price=db_order.balance,
+                        total_amount=db_order.balance,
+                        currency=db_order.balance_currency or "CNY",
+                        platform=db_order.shop_name,
+                        transaction_date=datetime.now(),
+                        notes=f"订单 #{db_order.id} 尾款",
+                        transaction_subtype="initial",
+                        changed_field="balance"
+                    )
+                    db.add(balance_txn)
+
+                # 更新手办的平均入手价格
+                FigureService.update_figure_average_purchase_price(db, order_data.figure_id)
 
             db.commit()
         except Exception as e:
@@ -149,10 +224,31 @@ class OrderCrudService:
         # 记录原始 figure_id 用于后续更新平均价格
         original_figure_id = db_order.figure_id
 
+        # 记录变更前的金额和币种（用于资金变更追踪）
+        old_deposit = db_order.deposit
+        old_deposit_currency = db_order.deposit_currency
+        old_balance = db_order.balance
+        old_balance_currency = db_order.balance_currency
+
         for key, value in order_data.dict(exclude_unset=True).items():
             setattr(db_order, key, value)
         db.commit()
         db.refresh(db_order)
+
+        # 检测并记录资金变更
+        try:
+            OrderTransactionService.detect_and_record_changes(
+                db=db,
+                order=db_order,
+                old_deposit=old_deposit,
+                old_deposit_currency=old_deposit_currency,
+                old_balance=old_balance,
+                old_balance_currency=old_balance_currency,
+                current_user=current_user,
+                change_reason="订单编辑"
+            )
+        except Exception as e:
+            print(f"记录资金变更失败: {e}")
 
         # 更新手办的平均入手价格
         try:
