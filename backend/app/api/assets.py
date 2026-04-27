@@ -29,7 +29,6 @@ from app.services import (
     IndexService,
     AssetCalculationService,
     HoldingAnalysisService,
-    PriceUpdateService
 )
 
 router = APIRouter()
@@ -308,16 +307,16 @@ def get_figure_price_info(
     current_user: User = Depends(get_current_user)
 ):
     """获取手办价格信息（用于修改现价弹窗）"""
-    figure = PriceUpdateService.get_figure_current_price(db, figure_id)
+    figure = AssetCalculationService.get_figure_current_price(db, figure_id)
     if not figure:
         raise HTTPException(status_code=404, detail="手办不存在")
-    
+
     # 获取最新价格历史
-    latest_history = PriceUpdateService.get_price_history(db, figure_id)
-    
+    latest_history = AssetCalculationService.get_price_history(db, figure_id)
+
     # 计算影响（使用当前价格，即无变化时的影响）
     current_price = figure.market_price or figure.price or 0
-    impact = PriceUpdateService.calculate_impact(db, current_user.id, figure, current_price)
+    impact = AssetCalculationService.calculate_price_update_impact(db, current_user.id, figure, current_price)
     
     # 计算单个手办的盈亏比例（与持仓列表一致）
     cost_price = figure.average_purchase_price or 0
@@ -343,6 +342,7 @@ def get_figure_price_info(
 
 class PriceUpdateRequest(BaseModel):
     new_price: float
+    currency: str = "CNY"  # 默认人民币，可选：CNY, JPY, USD, EUR
 
 
 @router.post("/figures/{figure_id}/update-price")
@@ -354,12 +354,12 @@ def update_figure_price(
 ):
     """更新手办现价"""
     try:
-        result = PriceUpdateService.update_figure_price(
+        result = AssetCalculationService.update_figure_price(
             db, figure_id, request.new_price, current_user.id
         )
-        
+
         # 确定新状态
-        new_status = PriceUpdateService.determine_status(
+        new_status = AssetCalculationService.determine_status(
             result["impact"]["new_profit_percentage"]
         )
         
@@ -381,3 +381,52 @@ def update_figure_price(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"价格更新失败: {str(e)}")
+
+
+class AddPositionRequest(BaseModel):
+    quantity: int
+    price: float
+
+
+@router.post("/figures/{figure_id}/add-position")
+def add_position(
+    figure_id: int,
+    request: AddPositionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    执行补仓操作
+
+    功能说明：
+    - 创建已完成的补仓订单
+    - 创建 order_transactions 和 asset_transactions 记录
+    - 更新手办数量和加权平均成本
+    - 新买入部分当日不计入涨跌
+
+    请求参数：
+    - quantity: 补仓数量
+    - price: 补仓单价
+    """
+    try:
+        result = AssetCalculationService.add_position(
+            db, figure_id, current_user.id, request.quantity, request.price
+        )
+
+        return {
+            "message": "补仓成功",
+            "figure_id": result["figure_id"],
+            "figure_name": result["figure_name"],
+            "old_quantity": result["old_quantity"],
+            "new_quantity": result["new_quantity"],
+            "old_avg_price": result["old_avg_price"],
+            "new_avg_price": result["new_avg_price"],
+            "add_quantity": result["add_quantity"],
+            "add_price": result["add_price"],
+            "order_id": result["order_id"],
+            "total_cost": result["total_cost"]
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"补仓失败: {str(e)}")

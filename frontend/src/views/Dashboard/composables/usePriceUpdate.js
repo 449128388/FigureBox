@@ -6,6 +6,22 @@ import { ref, computed } from 'vue'
 import axios from '../../../axios'
 import { ElMessage } from 'element-plus'
 
+// 汇率配置：相对人民币的汇率
+const EXCHANGE_RATES = {
+  'CNY': 1.0,    // 人民币
+  'JPY': 1/23,   // 日元：1人民币 = 23日元
+  'USD': 7.0,    // 美元：1美元 = 7人民币
+  'EUR': 8.0     // 欧元：1欧元 = 8人民币
+}
+
+// 币种选项
+const CURRENCY_OPTIONS = [
+  { value: 'CNY', label: '人民币' },
+  { value: 'JPY', label: '日元' },
+  { value: 'USD', label: '美元' },
+  { value: 'EUR', label: '欧元' }
+]
+
 export function usePriceUpdate() {
   // 状态
   const dialogVisible = ref(false)
@@ -13,37 +29,46 @@ export function usePriceUpdate() {
   const currentFigure = ref(null)
   const priceInfo = ref(null)
   const newPrice = ref(0)
+  const selectedCurrency = ref('CNY')  // 默认人民币
 
   // 计算属性 - 影响预览
   const impactPreview = computed(() => {
     if (!priceInfo.value || !newPrice.value) return null
-    
+
     const oldPrice = priceInfo.value.current_price
     const costPrice = priceInfo.value.cost_price || 0
     const quantity = priceInfo.value.quantity
     const oldTotalAssets = priceInfo.value.total_assets
-    
-    // 计算价格差异
-    const priceDiff = (newPrice.value - oldPrice) * quantity
+
+    // 汇率转换：将输入价格转换为人民币
+    const exchangeRate = EXCHANGE_RATES[selectedCurrency.value] || 1.0
+    const newPriceInCNY = newPrice.value * exchangeRate
+
+    // 计算价格差异（使用人民币计算）
+    const priceDiff = (newPriceInCNY - oldPrice) * quantity
     const newTotalAssets = oldTotalAssets + priceDiff
-    
+
     // 计算单个手办盈亏比例变化（基于成本价，与持仓列表一致）
     const oldProfitPercentage = priceInfo.value.profit_percentage
-    // 新的盈亏比例 = (新市场价 - 成本价) / 成本价 * 100%
+    // 新的盈亏比例 = (新市场价(CNY) - 成本价) / 成本价 * 100%
     let newProfitPercentage = 0
     if (costPrice > 0) {
-      newProfitPercentage = ((newPrice.value - costPrice) / costPrice) * 100
+      newProfitPercentage = ((newPriceInCNY - costPrice) / costPrice) * 100
     }
-    
+
     // 计算整体盈亏比例变化
     const oldTotalProfitPercentage = priceInfo.value.total_profit_percentage || 0
     // 整体盈亏比例 = (新总资产 - 总成本) / 总成本 * 100%
-    // 简化计算：新整体盈亏比例 = 旧整体盈亏比例 + (价格差异 / 旧总资产 * 100%)
     let newTotalProfitPercentage = oldTotalProfitPercentage
     if (oldTotalAssets > 0) {
       newTotalProfitPercentage = oldTotalProfitPercentage + (priceDiff / oldTotalAssets * 100)
     }
-    
+
+    // 格式化汇率显示：日元显示小数点后4位，其他显示原始值
+    const displayExchangeRate = selectedCurrency.value === 'JPY'
+      ? exchangeRate.toFixed(4)
+      : exchangeRate
+
     return {
       oldTotalAssets,
       newTotalAssets,
@@ -51,7 +76,9 @@ export function usePriceUpdate() {
       newProfitPercentage,
       oldTotalProfitPercentage,
       newTotalProfitPercentage,
-      priceDiff
+      priceDiff,
+      newPriceInCNY,  // 转换为人民币后的价格
+      exchangeRate: displayExchangeRate    // 当前汇率（格式化后）
     }
   })
 
@@ -99,6 +126,7 @@ export function usePriceUpdate() {
     currentFigure.value = null
     priceInfo.value = null
     newPrice.value = 0
+    selectedCurrency.value = 'CNY'  // 重置为默认人民币
   }
 
   /**
@@ -122,12 +150,17 @@ export function usePriceUpdate() {
    */
   const confirmUpdate = async () => {
     if (!currentFigure.value || !newPrice.value) return null
-    
+
     loading.value = true
-    
+
     try {
+      // 汇率转换：将输入价格转换为人民币
+      const exchangeRate = EXCHANGE_RATES[selectedCurrency.value] || 1.0
+      const newPriceInCNY = Number(newPrice.value) * exchangeRate
+
       const response = await axios.post(`/assets/figures/${currentFigure.value.figure_id}/update-price`, {
-        new_price: Number(newPrice.value)
+        new_price: newPriceInCNY,
+        currency: selectedCurrency.value
       })
       
       ElMessage.success('价格修改成功')
@@ -172,11 +205,15 @@ export function usePriceUpdate() {
     currentFigure,
     priceInfo,
     newPrice,
-    
+    selectedCurrency,
+
+    // 常量
+    CURRENCY_OPTIONS,
+
     // 计算属性
     impactPreview,
     lastUpdatedText,
-    
+
     // 方法
     openDialog,
     closeDialog,

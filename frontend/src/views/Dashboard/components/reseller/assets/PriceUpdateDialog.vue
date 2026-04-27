@@ -48,7 +48,17 @@
             controls-position="right"
             class="price-input"
           />
-          <span class="currency">¥</span>
+          <el-select v-model="selectedCurrency" class="currency-select" size="default">
+            <el-option
+              v-for="item in CURRENCY_OPTIONS"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </div>
+        <div v-if="impactPreview && selectedCurrency !== 'CNY'" class="exchange-hint">
+          约等于 {{ formatMoney(impactPreview.newPriceInCNY) }}（汇率 {{ impactPreview.exchangeRate }}）
         </div>
         <div class="quick-actions">
           <el-button type="info" size="small" @click="useXianyuPrice">
@@ -65,7 +75,11 @@
         <div class="impact-title">💡 修改后影响:</div>
         <ul class="impact-list">
           <li>
-            总资产将从 {{ formatMoney(impactPreview.oldTotalAssets) }} → {{ formatMoney(impactPreview.newTotalAssets) }}
+            总资产将从 {{ formatMoney(impactPreview.oldTotalAssets) }} →
+            <span :class="{
+              'asset-increase': impactPreview.newTotalAssets > impactPreview.oldTotalAssets,
+              'asset-decrease': impactPreview.newTotalAssets < impactPreview.oldTotalAssets
+            }">{{ formatMoney(impactPreview.newTotalAssets) }}</span>
           </li>
           <li>
             手办盈亏比例将变为 <span :class="{ 'profit-positive': impactPreview.newProfitPercentage >= 0, 'profit-negative': impactPreview.newProfitPercentage < 0 }">{{ formatPercentage(impactPreview.newProfitPercentage) }}</span>
@@ -102,6 +116,8 @@ export default {
       currentFigure,
       priceInfo,
       newPrice,
+      selectedCurrency,
+      CURRENCY_OPTIONS,
       impactPreview,
       lastUpdatedText,
       openDialog,
@@ -137,6 +153,8 @@ export default {
       currentFigure,
       priceInfo,
       newPrice,
+      selectedCurrency,
+      CURRENCY_OPTIONS,
       impactPreview,
       lastUpdatedText,
       openDialog: exposedOpenDialog,
@@ -205,12 +223,19 @@ export default {
 }
 
 .price-input {
-  width: 200px;
+  width: 150px;
 }
 
-.currency {
+.currency-select {
+  width: 110px;
+}
+
+.exchange-hint {
   font-size: 14px;
-  color: #606266;
+  color: #909399;
+  margin-left: 68px;
+  margin-top: 4px;
+  margin-bottom: 10px;
 }
 
 .quick-actions {
@@ -252,6 +277,17 @@ export default {
 
 .profit-negative {
   color: #52c41a;  /* 绿色 - 亏损 */
+  font-weight: 600;
+}
+
+/* 总资产变化颜色 - 中国股市规范（红涨绿跌） */
+.asset-increase {
+  color: #f5222d;  /* 红色 - 增加 */
+  font-weight: 600;
+}
+
+.asset-decrease {
+  color: #52c41a;  /* 绿色 - 减少 */
   font-weight: 600;
 }
 

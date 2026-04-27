@@ -24,12 +24,12 @@
 所有指数相关服务已迁移到 dashboard_service/assets_service 包中
 """
 
-# 从 dashboard_service 导入指数服务（企业级服务层架构）
-from .dashboard_service.assets_service.index_service import IndexService
-
-from .asset_calculation_service import AssetCalculationService
-from .holding_analysis_service import HoldingAnalysisService
-from .price_update_service import PriceUpdateService
+# 从 dashboard_service 导入资产相关服务（企业级服务层架构）
+from .dashboard_service.assets_service import (
+    AssetCalculationService,
+    HoldingAnalysisService,
+    IndexService,
+)
 
 # 从 figure_service 包导入手办相关服务（保持向后兼容）
 from .figure_service import (
@@ -53,7 +53,6 @@ __all__ = [
     "IndexService",
     "AssetCalculationService",
     "HoldingAnalysisService",
-    "PriceUpdateService",
     # 手办服务
     "FigureService",
     "FigurePriceService",

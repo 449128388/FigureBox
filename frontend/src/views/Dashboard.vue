@@ -206,6 +206,12 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 补仓对话框 -->
+    <AddPositionDialog
+      ref="addPositionDialogRef"
+      @add-success="fetchDashboardData"
+    />
   </div>
 </template>
 
@@ -228,6 +234,7 @@ import ActivityFeed from './Dashboard/components/collector/ActivityFeed.vue'
 import AssetView from './Dashboard/components/reseller/AssetView.vue'
 import MarketView from './Dashboard/components/reseller/MarketView.vue'
 import TradeView from './Dashboard/components/reseller/TradeView.vue'
+import AddPositionDialog from './Dashboard/components/reseller/assets/AddPositionDialog.vue'
 
 // 导入收藏家模式 composable
 import { useCollectorData } from './Dashboard/composables/useCollectorData'
@@ -250,7 +257,8 @@ export default {
     // 倒狗模式组件
     AssetView,
     MarketView,
-    TradeView
+    TradeView,
+    AddPositionDialog
   },
   setup() {
     const router = useRouter()
@@ -272,7 +280,10 @@ export default {
     const annualLimitDialogVisible = ref(false)
     const annualLimitForm = ref({ limit: 0 })
     const annualLimitLoading = ref(false)
-    
+
+    // 补仓对话框引用
+    const addPositionDialogRef = ref(null)
+
     const alertForm = ref({
       figure_id: '',
       alert_type: 'price_drop',
@@ -480,7 +491,10 @@ export default {
     }
     
     const addPosition = (item) => {
-      ElMessage.info(`补仓 ${item.figure_name} 功能开发中`)
+      // 打开补仓对话框
+      if (addPositionDialogRef.value) {
+        addPositionDialogRef.value.openDialog(item)
+      }
     }
     
     const cutLoss = (item) => {
@@ -564,6 +578,7 @@ export default {
       annualLimitDialogVisible,
       annualLimitForm,
       annualLimitLoading,
+      addPositionDialogRef,
       formatNumber,
       refreshData,
       refreshTradeData,
