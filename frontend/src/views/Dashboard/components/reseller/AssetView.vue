@@ -13,11 +13,13 @@
   - ProfitAnalysis.vue - 盈亏分析组件
   - HoldingsList.vue - 持仓列表组件
   - PriceUpdateDialog.vue - 修改市场价弹窗
+  - AddPositionDialog.vue - 补仓弹窗
 
   维护提示：
   - 接收 dashboardData 作为 props
   - 通过事件向父组件传递操作
   - 价格更新通过 PriceUpdateDialog 组件处理
+  - 补仓通过 AddPositionDialog 组件处理
 -->
 <template>
   <div class="asset-view">
@@ -34,10 +36,10 @@
     <ProfitAnalysis :dashboardData="dashboardData" />
 
     <!-- 持仓列表 -->
-    <HoldingsList 
+    <HoldingsList
       :dashboardData="dashboardData"
       @sell-asset="$emit('sell-asset', $event)"
-      @add-position="$emit('add-position', $event)"
+      @add-position="handleAddPosition"
       @cut-loss="$emit('cut-loss', $event)"
       @edit-price="handleEditPrice"
     />
@@ -46,6 +48,12 @@
     <PriceUpdateDialog
       ref="priceUpdateDialog"
       @update-success="handlePriceUpdateSuccess"
+    />
+
+    <!-- 补仓弹窗 -->
+    <AddPositionDialog
+      ref="addPositionDialog"
+      @add-success="handleAddPositionSuccess"
     />
   </div>
 </template>
@@ -58,6 +66,7 @@ import ChartSection from './assets/ChartSection.vue'
 import ProfitAnalysis from './assets/ProfitAnalysis.vue'
 import HoldingsList from './assets/HoldingsList.vue'
 import PriceUpdateDialog from './assets/PriceUpdateDialog.vue'
+import AddPositionDialog from './assets/AddPositionDialog.vue'
 
 export default {
   name: 'AssetView',
@@ -67,7 +76,8 @@ export default {
     ChartSection,
     ProfitAnalysis,
     HoldingsList,
-    PriceUpdateDialog
+    PriceUpdateDialog,
+    AddPositionDialog
   },
   props: {
     dashboardData: {
@@ -78,6 +88,7 @@ export default {
   emits: ['sell-asset', 'add-position', 'cut-loss', 'edit-price', 'refresh-data'],
   setup(props, { emit }) {
     const priceUpdateDialog = ref(null)
+    const addPositionDialog = ref(null)
 
     // 处理修改市场价事件
     const handleEditPrice = (item) => {
@@ -94,10 +105,28 @@ export default {
       emit('edit-price', result)
     }
 
+    // 处理补仓事件
+    const handleAddPosition = (item) => {
+      if (addPositionDialog.value) {
+        addPositionDialog.value.openDialog(item)
+      }
+    }
+
+    // 处理补仓成功
+    const handleAddPositionSuccess = (result) => {
+      // 触发刷新数据事件
+      emit('refresh-data')
+      // 同时触发原有的add-position事件以保持兼容性
+      emit('add-position', result)
+    }
+
     return {
       priceUpdateDialog,
+      addPositionDialog,
       handleEditPrice,
-      handlePriceUpdateSuccess
+      handlePriceUpdateSuccess,
+      handleAddPosition,
+      handleAddPositionSuccess
     }
   }
 }

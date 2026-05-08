@@ -30,6 +30,7 @@ from app.services import (
     AssetCalculationService,
     HoldingAnalysisService,
 )
+from app.services.dashboard_service.assets_service import AddPositionService
 
 router = APIRouter()
 
@@ -384,8 +385,9 @@ def update_figure_price(
 
 
 class AddPositionRequest(BaseModel):
-    quantity: int
-    price: float
+    """补仓请求模型"""
+    quantity: int  # 补仓数量
+    price: float   # 补仓单价
 
 
 @router.post("/figures/{figure_id}/add-position")
@@ -398,33 +400,41 @@ def add_position(
     """
     执行补仓操作
 
-    功能说明：
-    - 创建已完成的补仓订单
-    - 创建 order_transactions 和 asset_transactions 记录
-    - 更新手办数量和加权平均成本
-    - 新买入部分当日不计入涨跌
+    补仓流程:
+    1. 创建已完成状态的订单（补仓视同已完成购买）
+    2. 创建asset_transactions记录（买入）
+    3. 创建order_transactions记录（资金流出）
+    4. 更新手办数量和平均入手价格（加权平均）
+    5. 更新日涨跌缓存（新买入部分按买入价=市值处理，贡献0%波动）
 
-    请求参数：
-    - quantity: 补仓数量
-    - price: 补仓单价
+    参数:
+        figure_id: 手办ID
+        quantity: 补仓数量
+        price: 补仓单价
+
+    返回:
+        补仓操作结果
     """
     try:
-        result = AssetCalculationService.add_position(
-            db, figure_id, current_user.id, request.quantity, request.price
+        result = AddPositionService.add_position(
+            db=db,
+            user_id=current_user.id,
+            figure_id=figure_id,
+            quantity=request.quantity,
+            price=request.price
         )
 
         return {
             "message": "补仓成功",
             "figure_id": result["figure_id"],
             "figure_name": result["figure_name"],
-            "old_quantity": result["old_quantity"],
-            "new_quantity": result["new_quantity"],
-            "old_avg_price": result["old_avg_price"],
-            "new_avg_price": result["new_avg_price"],
-            "add_quantity": result["add_quantity"],
-            "add_price": result["add_price"],
             "order_id": result["order_id"],
-            "total_cost": result["total_cost"]
+            "added_quantity": result["added_quantity"],
+            "add_price": result["add_price"],
+            "previous_quantity": result["previous_quantity"],
+            "new_quantity": result["new_quantity"],
+            "previous_cost_price": result["previous_cost_price"],
+            "new_cost_price": result["new_cost_price"]
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

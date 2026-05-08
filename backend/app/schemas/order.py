@@ -11,6 +11,7 @@ class OrderBase(BaseModel):
     due_date: date
     shop_name: str | None = None
     shop_contact: str | None = None
+    remarks: str | None = None
 
 class OrderCreate(OrderBase):
     status: str
@@ -18,6 +19,7 @@ class OrderCreate(OrderBase):
     due_date: date | None = None
     tracking_number: str | None = None
     order_number: str | None = None
+    remarks: str | None = None
 
 class OrderUpdate(BaseModel):
     deposit: float | None = None
@@ -30,6 +32,7 @@ class OrderUpdate(BaseModel):
     shop_contact: str | None = None
     tracking_number: str | None = None
     order_number: str | None = None
+    remarks: str | None = None
 
 class Order(OrderBase):
     id: int
@@ -37,6 +40,7 @@ class Order(OrderBase):
     status: str
     tracking_number: str | None = None
     order_number: str | None = None
+    remarks: str | None = None
     figure: Figure
     due_date: date | None = None  # 允许为空
 
@@ -49,6 +53,7 @@ class OrderListItem(OrderBase):
     status: str
     tracking_number: str | None = None
     order_number: str | None = None
+    remarks: str | None = None
     figure_name: str
     figure_image: str | None = None
     due_date: date | None = None

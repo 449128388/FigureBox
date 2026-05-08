@@ -41,6 +41,7 @@
     <p v-if="order.shop_name">购买店铺: {{ order.shop_name }}</p>
     <p v-if="order.shop_contact">店铺联系方式: {{ order.shop_contact }}</p>
     <p v-if="order.tracking_number">物流订单: {{ order.tracking_number }}</p>
+    <p v-if="order.remarks" class="order-remarks">订单备注: {{ order.remarks }}</p>
     <div class="order-actions">
       <!-- 编辑/收货/删除按钮组 -->
       <el-button-group class="action-button-group">

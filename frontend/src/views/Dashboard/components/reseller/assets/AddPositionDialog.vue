@@ -2,37 +2,44 @@
   AddPositionDialog.vue - 补仓弹窗组件
 
   功能说明：
-  - 提供补仓操作的界面
-  - 显示当前持仓信息和市值
-  - 支持输入补仓数量和价格
-  - 预览补仓后的加权平均成本和库存
-  - 确认后创建已完成订单并更新资产数据
+  - 展示当前持仓信息
+  - 输入补仓数量和价格
+  - 预览补仓后的成本价和库存
+  - 确认后执行补仓操作
 
   组件依赖：
-  - 使用 Element Plus 的 el-dialog、el-input-number
   - 使用 useAddPosition composable 处理业务逻辑
+  - 触发 add-success 事件给父组件
 
   维护提示：
-  - 通过 openDialog 方法打开弹窗并传入手办信息
-  - 补仓成功后触发 add-success 事件
-  - 加权平均成本自动计算并预览
+  - 成本价计算采用加权平均法
+  - 补仓后库存数量相应增加
 -->
 <template>
   <el-dialog
     v-model="dialogVisible"
-    :title="`补仓${currentFigure?.figure_name || ''}`"
-    width="420px"
+    title="补仓"
+    width="550px"
+    class="add-position-dialog"
     :close-on-click-modal="false"
     @close="closeDialog"
   >
-    <div v-loading="loading" class="add-position-dialog">
+    <div v-if="currentFigure" class="dialog-content">
       <!-- 当前持仓信息 -->
-      <div class="current-info" v-if="currentFigure">
-        <div class="info-row">
-          <span class="info-label">当前持仓:</span>
-          <span class="info-value">{{ formatNumber(currentFigure.stock || 1) }}体 @ {{ formatMoney(currentFigure.cost_price || 0) }}</span>
+      <div class="current-info">
+        <div class="info-row figure-name-row">
+          <span class="info-label">手办名称:</span>
+          <span class="info-value figure-name-value">{{ currentFigure.figure_name }}</span>
         </div>
         <div class="info-row">
+          <span class="info-label">当前持仓:</span>
+          <span class="info-value">{{ formatNumber(currentFigure.stock || 1) }}体</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">成本价:</span>
+          <span class="info-value">{{ formatMoney(currentFigure.cost_price || 0) }}/体</span>
+        </div>
+        <div class="info-row market-value-row">
           <span class="info-label">当前市值:</span>
           <span class="info-value">{{ formatMoney((currentFigure.current_price || 0) * (currentFigure.stock || 1)) }}</span>
         </div>
@@ -40,12 +47,12 @@
 
       <el-divider />
 
-      <!-- 补仓表单 -->
+      <!-- 补仓输入 -->
       <div class="add-position-form">
-        <div class="form-row">
+        <div class="form-item">
           <span class="form-label">补仓数量:</span>
           <el-input-number
-            v-model="addPositionForm.quantity"
+            v-model="addQuantity"
             :min="1"
             :precision="0"
             :step="1"
@@ -55,31 +62,39 @@
           <span class="form-unit">体</span>
         </div>
 
-        <div class="form-row">
+        <div class="form-item">
           <span class="form-label">补仓价格:</span>
           <el-input-number
-            v-model="addPositionForm.price"
+            v-model="addPrice"
             :min="0"
             :precision="2"
             :step="100"
             controls-position="right"
             class="form-input"
           />
-          <span class="form-unit">¥/体</span>
+          <el-select v-model="addCurrency" class="currency-select" placeholder="币种">
+            <el-option label="人民币" value="CNY" />
+            <el-option label="日元" value="JPY" />
+            <el-option label="美元" value="USD" />
+            <el-option label="欧元" value="EUR" />
+          </el-select>
+          <span class="form-unit">/体</span>
         </div>
-        <div class="price-hint">(请输入实际入手价格)</div>
+
+        <div class="form-hint">
+          (请输入实际入手价格，将根据汇率转换为人民币计算)
+        </div>
       </div>
 
       <el-divider />
 
       <!-- 补仓后预览 -->
-      <div class="preview-section" v-if="positionPreview">
-        <div class="preview-row">
+      <div v-if="positionPreview" class="preview-section">
+        <div class="preview-item">
           <span class="preview-label">补仓后成本:</span>
-          <span class="preview-value">{{ formatMoney(positionPreview.newCostPrice) }}/体</span>
+          <span class="preview-value">{{ formatMoney(positionPreview.newCostPrice) }}/体<span class="weighted-avg-note">(加权平均)</span></span>
         </div>
-        <div class="preview-hint">(加权平均)</div>
-        <div class="preview-row">
+        <div class="preview-item">
           <span class="preview-label">补仓后库存:</span>
           <span class="preview-value">{{ formatNumber(positionPreview.newStock) }}体</span>
         </div>
@@ -108,7 +123,9 @@ export default {
       dialogVisible,
       loading,
       currentFigure,
-      addPositionForm,
+      addQuantity,
+      addPrice,
+      addCurrency,
       positionPreview,
       openDialog,
       closeDialog,
@@ -117,7 +134,7 @@ export default {
       formatNumber
     } = useAddPosition()
 
-    // 包装确认方法，添加成功回调
+    // 包装确认补仓方法，添加成功回调
     const handleConfirm = async () => {
       const result = await confirmAddPosition()
       if (result) {
@@ -139,7 +156,9 @@ export default {
       dialogVisible,
       loading,
       currentFigure,
-      addPositionForm,
+      addQuantity,
+      addPrice,
+      addCurrency,
       positionPreview,
       openDialog: exposedOpenDialog,
       closeDialog,
@@ -157,36 +176,56 @@ export default {
   padding: 10px 0;
 }
 
+.dialog-content {
+  padding: 10px 10px;
+  min-height: 350px;
+}
+
 .current-info {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .info-row {
   display: flex;
-  align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  gap: 12px;
 }
 
 .info-label {
-  font-size: 14px;
   color: #606266;
-  min-width: 80px;
 }
 
 .info-value {
-  font-size: 14px;
   color: #303133;
   font-weight: 500;
 }
 
-.add-position-form {
-  margin: 16px 0;
+/* 手办名称行样式 - 16px加粗 */
+.figure-name-row {
+  font-size: 16px;
+  font-weight: 600;
 }
 
-.form-row {
+.figure-name-row .info-label,
+.figure-name-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 当前市值行样式 - 数值上下居中 */
+.market-value-row {
+  align-items: center;
+}
+
+.add-position-form {
+  margin: 24px 0;
+}
+
+.form-item {
   display: flex;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .form-label {
@@ -196,16 +235,25 @@ export default {
 }
 
 .form-input {
-  width: 150px;
+  width: 180px;
+  margin: 0 8px;
+}
+
+.currency-select {
+  width: 120px;
+  margin-right: 8px;
+}
+
+.currency-select :deep(.el-input__inner) {
+  text-align: center;
 }
 
 .form-unit {
   font-size: 14px;
   color: #606266;
-  margin-left: 8px;
 }
 
-.price-hint {
+.form-hint {
   font-size: 12px;
   color: #909399;
   margin-left: 80px;
@@ -215,37 +263,30 @@ export default {
 .preview-section {
   background-color: #f5f7fa;
   border-radius: 8px;
-  padding: 16px;
+  padding: 20px;
+  margin-top: 24px;
 }
 
-.preview-row {
+.preview-item {
   display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.preview-row:last-child {
-  margin-bottom: 0;
+  margin-bottom: 12px;
+  font-size: 14px;
+  gap: 12px;
 }
 
 .preview-label {
-  font-size: 14px;
   color: #606266;
-  min-width: 80px;
 }
 
 .preview-value {
-  font-size: 14px;
-  color: #303133;
-  font-weight: 500;
+  color: #409eff;
+  font-weight: 600;
 }
 
-.preview-hint {
+.weighted-avg-note {
   font-size: 12px;
   color: #909399;
-  margin-left: 80px;
-  margin-top: -4px;
-  margin-bottom: 12px;
+  margin-left: 4px;
 }
 
 .dialog-footer {

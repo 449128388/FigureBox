@@ -59,7 +59,9 @@ class FigureExportService:
                 "status": order.status,
                 "shop_name": order.shop_name,
                 "shop_contact": order.shop_contact,
-                "tracking_number": order.tracking_number
+                "tracking_number": order.tracking_number,
+                "order_number": order.order_number,
+                "remarks": order.remarks
             }
             orders_data.append(order_dict)
         

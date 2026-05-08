@@ -182,22 +182,6 @@ class AssetCalculationService:
         """更新手办价格"""
         return HoldingPositionService.update_figure_price(db, figure_id, new_price, user_id)
 
-    # ==========================================================================
-    # 补仓服务（委托给 add_position_service）
-    # ==========================================================================
-    @classmethod
-    def add_position(
-        cls,
-        db: Session,
-        figure_id: int,
-        user_id: int,
-        quantity: int,
-        price: float
-    ) -> Dict[str, Any]:
-        """执行补仓操作"""
-        from .add_position_service import AddPositionService
-        return AddPositionService.add_position(db, figure_id, user_id, quantity, price)
-
 
 class HoldingAnalysisService:
     """

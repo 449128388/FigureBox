@@ -86,6 +86,10 @@
       <span class="label">物流订单:</span>
       <a class="value tracking-link" :href="`https://www.baidu.com/s?wd=${encodeURIComponent(selectedOrder.tracking_number)}`" target="_blank" rel="noopener noreferrer">{{ selectedOrder.tracking_number }}</a>
     </div>
+    <div class="info-item" v-if="selectedOrder.remarks">
+      <span class="label">订单备注:</span>
+      <span class="value">{{ selectedOrder.remarks }}</span>
+    </div>
   </div>
 </template>
 

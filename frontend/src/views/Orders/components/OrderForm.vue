@@ -101,6 +101,10 @@
             <label>订单编号</label>
             <el-input v-model="newOrder.order_number" placeholder="请输入订单编号（非必填）" style="width: 100%;"></el-input>
           </div>
+          <div class="form-group">
+            <label>订单备注</label>
+            <el-input v-model="newOrder.remarks" placeholder="请输入订单备注" style="width: 100%;"></el-input>
+          </div>
         </div>
 
         <div class="form-actions">

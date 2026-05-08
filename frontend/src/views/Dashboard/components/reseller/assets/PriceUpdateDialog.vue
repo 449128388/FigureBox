@@ -20,14 +20,14 @@
   <el-dialog
     v-model="dialogVisible"
     title="修改市场价"
-    width="500px"
+    width="600px"
     :close-on-click-modal="false"
     @close="closeDialog"
   >
     <div v-loading="loading" class="price-update-dialog">
       <!-- 手办信息 -->
       <div class="figure-info" v-if="priceInfo">
-        <h4 class="figure-name">{{ priceInfo.figure_name }} 当前系统估价</h4>
+        <h4 class="figure-name">手办名称: {{ priceInfo.figure_name }}</h4>
         <div class="last-updated">
           上次更新: {{ priceInfo.last_updated ? new Date(priceInfo.last_updated).toLocaleDateString('zh-CN') : '未知' }} ({{ lastUpdatedText }})
         </div>
@@ -73,22 +73,22 @@
       <!-- 影响预览 -->
       <div class="impact-preview" v-if="impactPreview">
         <div class="impact-title">💡 修改后影响:</div>
-        <ul class="impact-list">
-          <li>
-            总资产将从 {{ formatMoney(impactPreview.oldTotalAssets) }} →
+        <div class="impact-content">
+          <div class="impact-item">
+            📈 总资产将从 {{ formatMoney(impactPreview.oldTotalAssets) }} →
             <span :class="{
               'asset-increase': impactPreview.newTotalAssets > impactPreview.oldTotalAssets,
               'asset-decrease': impactPreview.newTotalAssets < impactPreview.oldTotalAssets
             }">{{ formatMoney(impactPreview.newTotalAssets) }}</span>
-          </li>
-          <li>
-            手办盈亏比例将变为 <span :class="{ 'profit-positive': impactPreview.newProfitPercentage >= 0, 'profit-negative': impactPreview.newProfitPercentage < 0 }">{{ formatPercentage(impactPreview.newProfitPercentage) }}</span>
-          </li>
-          <li>
-            总体盈亏比例将变为 <span :class="{ 'profit-positive': impactPreview.newTotalProfitPercentage >= 0, 'profit-negative': impactPreview.newTotalProfitPercentage < 0 }">{{ formatPercentage(impactPreview.newTotalProfitPercentage) }}</span>
-          </li>
-          <li>塑料指数将重新计算</li>
-        </ul>
+          </div>
+          <div class="impact-item">
+            💸 手办盈亏比例将变为 <span :class="{ 'profit-positive': impactPreview.newProfitPercentage >= 0, 'profit-negative': impactPreview.newProfitPercentage < 0 }">{{ formatPercentage(impactPreview.newProfitPercentage) }}</span>
+          </div>
+          <div class="impact-item">
+            💰 总体盈亏比例将变为 <span :class="{ 'profit-positive': impactPreview.newTotalProfitPercentage >= 0, 'profit-negative': impactPreview.newTotalProfitPercentage < 0 }">{{ formatPercentage(impactPreview.newTotalProfitPercentage) }}</span>
+          </div>
+          <div class="impact-item">ℹ️ 塑料指数将重新计算</div>
+        </div>
       </div>
     </div>
 
@@ -172,17 +172,18 @@ export default {
 
 <style scoped>
 .price-update-dialog {
-  padding: 10px 0;
+  padding: 20px 10px;
+  min-height: 300px;
 }
 
 .figure-info {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
   border-bottom: 1px solid #e4e7ed;
 }
 
 .figure-name {
-  margin: 0 0 12px 0;
+  margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 600;
   color: #303133;
@@ -191,7 +192,7 @@ export default {
 .last-updated {
   font-size: 13px;
   color: #909399;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .current-price {
@@ -206,14 +207,14 @@ export default {
 }
 
 .new-price-section {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .price-input-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .input-label {
@@ -257,16 +258,14 @@ export default {
   margin-bottom: 12px;
 }
 
-.impact-list {
-  margin: 0;
-  padding-left: 20px;
+.impact-content {
   color: #606266;
   font-size: 13px;
   line-height: 1.8;
 }
 
-.impact-list li {
-  margin-bottom: 4px;
+.impact-item {
+  margin-bottom: 8px;
 }
 
 /* 盈亏比例颜色 - 中国股市规范（红涨绿跌） */

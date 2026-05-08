@@ -87,7 +87,8 @@ class OrderQueryService:
             shop_name=order.shop_name,
             shop_contact=order.shop_contact,
             tracking_number=order.tracking_number,
-            order_number=order.order_number
+            order_number=order.order_number,
+            remarks=order.remarks
         ) for order in orders]
 
     @staticmethod
