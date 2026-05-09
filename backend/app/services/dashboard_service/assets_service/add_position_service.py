@@ -60,17 +60,18 @@ class AddPositionService:
         new_quantity = current_quantity + quantity
         new_cost_price = total_cost / new_quantity if new_quantity > 0 else 0
 
-        # 1. 创建已完成状态的订单
-        order = cls._create_order(db, user_id, figure_id, quantity, price)
+        # 1. 创建已完成状态的订单（根据数量创建多个订单，每体一个订单）
+        orders = cls._create_orders(db, user_id, figure_id, quantity, price)
+        order_ids = [order.id for order in orders]
 
         # 2. 创建asset_transactions记录
         asset_transaction = cls._create_asset_transaction(
-            db, user_id, figure_id, order.id, quantity, price
+            db, user_id, figure_id, order_ids[0] if order_ids else None, quantity, price
         )
 
         # 3. 创建order_transactions记录
         order_transaction = cls._create_order_transaction(
-            db, user_id, figure_id, order.id, quantity, price
+            db, user_id, figure_id, order_ids[0] if order_ids else None, quantity, price
         )
 
         # 4. 更新手办信息
@@ -89,7 +90,7 @@ class AddPositionService:
         return {
             "figure_id": figure_id,
             "figure_name": figure.name,
-            "order_id": order.id,
+            "order_ids": order_ids,
             "added_quantity": quantity,
             "add_price": price,
             "previous_quantity": current_quantity,
@@ -101,45 +102,49 @@ class AddPositionService:
         }
 
     @staticmethod
-    def _create_order(
+    def _create_orders(
         db: Session,
         user_id: int,
         figure_id: int,
         quantity: int,
         price: float
-    ) -> Order:
+    ) -> list[Order]:
         """
         创建已完成状态的订单（补仓视同已完成购买）
 
         补仓订单特点:
         - 状态为"已完成"
-        - 定金=总价，尾款=0（视为全款已付）
+        - 每体手办创建一个独立订单
+        - 定金=单价，尾款=0（视为全款已付）
         - 币种默认为CNY
         - 备注中记录补仓详情
         """
-        total_amount = price * quantity
         now = datetime.now()
+        orders = []
 
-        # 格式化备注信息: yyyy-mm-dd hh:mm 花费多少补仓价格 补仓购入
-        remarks = f"{now.strftime('%Y-%m-%d %H:%M')} 花费¥{total_amount} 补仓购入"
+        for i in range(quantity):
+            # 格式化备注信息: yyyy-mm-dd hh:mm 花费多少补仓价格 补仓购入
+            remarks = f"{now.strftime('%Y-%m-%d %H:%M')} 花费¥{price} 补仓购入"
 
-        order = Order(
-            user_id=user_id,
-            figure_id=figure_id,
-            deposit=total_amount,  # 定金=总价
-            deposit_currency="CNY",
-            balance=0,  # 尾款=0
-            balance_currency="CNY",
-            status="已完成",  # 补仓视同已完成购买
-            shop_name=None,  # 补仓订单不填充购买店铺
-            shop_contact="",
-            tracking_number="",
-            remarks=remarks  # 在备注中记录补仓详情
-        )
-        db.add(order)
-        db.flush()  # 获取order.id
+            order = Order(
+                user_id=user_id,
+                figure_id=figure_id,
+                deposit=price,  # 定金=单价（每体一个订单）
+                deposit_currency="CNY",
+                balance=0,  # 尾款=0
+                balance_currency="CNY",
+                status="已完成",  # 补仓视同已完成购买
+                shop_name=None,  # 补仓订单不填充购买店铺
+                shop_contact="",
+                tracking_number="",
+                remarks=remarks  # 在备注中记录补仓详情
+            )
+            db.add(order)
+            orders.append(order)
 
-        return order
+        db.flush()  # 获取所有order.id
+
+        return orders
 
     @staticmethod
     def _create_asset_transaction(

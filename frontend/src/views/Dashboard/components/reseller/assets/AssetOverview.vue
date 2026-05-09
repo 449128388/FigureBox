@@ -38,13 +38,13 @@
     </div>
     <div class="overview-item">
       <span class="label">仓位:</span>
-      <span 
+      <span
         class="value position-value"
         :class="'position-' + (dashboardData?.summary?.position_color || 'red')"
       >
         {{ dashboardData?.summary?.position || '满仓' }}
         <template v-if="dashboardData?.summary?.position_percentage !== undefined">
-          ({{ dashboardData?.summary?.position_percentage }}%)
+          ({{ formatNumber(dashboardData?.summary?.invested_cost || 0) }}/{{ dashboardData?.summary?.position_percentage }}%)
         </template>
       </span>
     </div>

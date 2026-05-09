@@ -82,3 +82,12 @@ class OrderService:
     ) -> dict:
         """删除订单（软删除）"""
         return OrderCrudService.delete_order(db, order_id, current_user)
+
+    @staticmethod
+    def batch_delete_orders(
+        db: Session,
+        order_ids: list[int],
+        current_user: User
+    ) -> dict:
+        """批量删除订单（软删除）"""
+        return OrderCrudService.batch_delete_orders(db, order_ids, current_user)

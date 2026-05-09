@@ -8,9 +8,12 @@
   - 支持点击手办名称跳转到详情页
   - 显示倒计时标签（对于未完成和未取消的订单）
   - 提供编辑、收货、删除按钮
+  - 【新增】批量选择模式下显示复选框
 
   组件依赖：
   - 接收 order 作为 props，包含订单的详细信息
+  - 【新增】接收 isBatchMode 作为 props，控制是否显示复选框
+  - 【新增】接收 isSelected 作为 props，控制复选框选中状态
 
   维护提示：
   - 使用 router-link 实现详情页跳转
@@ -21,10 +24,25 @@
   - 收货按钮仅在订单状态为 '已支付' 时显示
   - 按钮点击事件通过 editOrder、receiveOrder、deleteOrder 事件向父组件传递
   - 使用 Element Plus 的 ElButton 和 ElButtonGroup 实现编辑/收货/删除按钮
+  - 【新增】复选框点击事件通过 toggle-selection 事件向父组件传递
 -->
 <template>
   <div class="order-item">
     <div class="figure-image">
+      <!-- 【新增】批量选择复选框 -->
+      <div v-if="isBatchMode" class="batch-checkbox-wrapper">
+        <div
+          class="checkbox-container"
+          :class="{ 'checkbox--checked': isSelected }"
+          @click.stop
+        >
+          <el-checkbox
+            :model-value="isSelected"
+            size="large"
+            @change="handleToggleSelection"
+          />
+        </div>
+      </div>
       <img
         :src="order.figure_image || '/imgs/no_image.png'"
         :alt="order.figure_name"
@@ -81,14 +99,28 @@ export default {
     order: {
       type: Object,
       required: true
+    },
+    // 【新增】批量选择相关 props
+    isBatchMode: {
+      type: Boolean,
+      default: false
+    },
+    isSelected: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['editOrder', 'receiveOrder', 'deleteOrder'],
-  setup() {
+  emits: ['editOrder', 'receiveOrder', 'deleteOrder', 'toggle-selection'],
+  setup(props, { emit }) {
+    const handleToggleSelection = (selected) => {
+      emit('toggle-selection', props.order.id, selected)
+    }
+
     return {
       Edit,
       Delete,
-      Check
+      Check,
+      handleToggleSelection
     }
   },
   methods: {
@@ -173,6 +205,31 @@ export default {
   overflow: hidden;
   margin-bottom: 15px;
   background-color: #f5f5f5;
+  /* 【新增】相对定位，用于复选框绝对定位 */
+  position: relative;
+}
+
+/* 【新增】批量选择复选框样式 */
+.batch-checkbox-wrapper {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+}
+
+.checkbox-container {
+  background: transparent;
+  border-radius: 4px;
+  padding: 4px;
+  transition: all 0.3s ease;
+}
+
+.checkbox-container:hover {
+  background: transparent;
+}
+
+.checkbox--checked {
+  background: transparent;
 }
 
 .order-item .figure-image img {

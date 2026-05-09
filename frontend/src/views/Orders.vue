@@ -8,9 +8,10 @@
   - 智能排序：按出荷日期自动排序（即将出荷优先）
   - 快捷操作：确认收货、编辑订单信息
   - 分页展示：支持自定义每页显示数量
+  - 【新增】批量删除功能：支持多选订单进行批量删除
 
   组件依赖：
-  - OrderHeader.vue - 页面头部（添加订单按钮、用户信息）
+  - OrderHeader.vue - 页面头部（添加订单按钮、用户信息、批量删除按钮）
   - OrderStatusTabs.vue - 状态筛选标签页
   - OrderItem.vue - 单个订单卡片
   - OrderForm.vue - 订单表单（添加/编辑）
@@ -21,15 +22,50 @@
   - 订单状态变化时自动重新计算统计信息
   - 确认收货操作需要二次确认
   - 删除订单前需要勾选确认复选框才能启用删除按钮
+  - 【新增】批量选择模式下，订单卡片显示复选框
 -->
 <template>
   <div class="orders-container">
     <!-- 头部组件 -->
     <OrderHeader 
+      :is-batch-mode="isBatchMode"
+      :selected-count="selectedCount"
       @openAddForm="openAddForm"
       @navigateToProfile="navigateToProfile"
       @logout="handleLogout"
+      @toggle-batch-mode="toggleBatchMode"
     />
+    
+    <!-- 【新增】批量选择工具栏 -->
+    <div v-if="isBatchMode" class="batch-toolbar">
+      <div class="batch-info">
+        <span class="batch-count">已选择 {{ selectedCount }} 项</span>
+        <el-button
+          type="primary"
+          size="small"
+          :disabled="paginatedOrders.length === 0"
+          @click="handleSelectAll"
+        >
+          {{ isAllSelected ? '取消全选' : '全选本页' }}
+        </el-button>
+      </div>
+      <div class="batch-actions">
+        <el-button
+          type="danger"
+          size="small"
+          :disabled="!hasSelection"
+          @click="handleBatchDelete"
+        >
+          批量删除
+        </el-button>
+        <el-button
+          size="small"
+          @click="exitBatchMode"
+        >
+          退出选择
+        </el-button>
+      </div>
+    </div>
     
     <!-- 状态筛选 Tab -->
     <OrderStatusTabs 
@@ -49,9 +85,12 @@
         v-for="order in paginatedOrders" 
         :key="order.id"
         :order="order"
+        :is-batch-mode="isBatchMode"
+        :is-selected="isSelected(order.id)"
         @editOrder="handleEditOrder"
         @receiveOrder="handleReceiveOrder"
         @deleteOrder="openDeleteConfirmDialog"
+        @toggle-selection="handleToggleSelection"
       />
     </div>
     
@@ -119,6 +158,13 @@ const {
   statusCounts,
   availableFigures,
   totalUnpaidBalance,
+  
+  // 【新增】批量选择相关
+  isBatchMode,
+  selectedCount,
+  hasSelection,
+  isAllSelected,
+  
   openAddForm,
   handleSaveOrder,
   openDeleteConfirmDialog,
@@ -130,7 +176,15 @@ const {
   handleCurrentChange,
   handleStatusChange,
   handleLogout,
-  initializeData
+  initializeData,
+  
+  // 【新增】批量选择方法
+  toggleBatchMode,
+  handleToggleSelection,
+  handleSelectAll,
+  handleBatchDelete,
+  exitBatchMode,
+  isSelected
 } = useOrderManagement()
 
 // 路由
@@ -191,6 +245,41 @@ onMounted(() => {
   margin-top: 30px;
   padding-top: 20px;
   border-top: 2px solid #e0e0e0;
+}
+
+/* 【新增】批量选择工具栏样式 */
+.batch-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 12px 20px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #3B82F6;
+}
+
+.batch-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.batch-count {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.batch-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* 【新增】批量工具栏按钮样式 - 字体大小14px */
+.batch-toolbar .el-button {
+  font-size: 14px !important;
 }
 
 @media (max-width: 768px) {

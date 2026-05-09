@@ -67,8 +67,16 @@ async def get_asset_dashboard(
     all_figures = db.query(Figure).all()
     figures = [fig for fig in all_figures if fig.id in figure_ids_with_valid_orders]
     
-    # 使用服务层计算总资产和总成本
-    total_assets = AssetCalculationService.calculate_total_assets(figures)
+    # 【修改】使用新的基于订单的计算方法计算总资产（仅统计已完成订单）
+    from app.services.dashboard_service.assets_service.asset_core_calculations import (
+        TotalAssetsCalculator, PositionCalculator
+    )
+    total_assets = TotalAssetsCalculator.calculate_by_orders(valid_orders)
+    
+    # 【修改】使用新的基于订单的计算方法计算仓位（基于所有订单的定金+尾款）
+    position_info = PositionCalculator.calculate_by_orders(db, current_user.id, valid_orders)
+    
+    # 向后兼容：保留原有的总成本计算（基于手办列表）
     total_cost = AssetCalculationService.calculate_total_cost(figures)
     
     # 使用服务层计算日涨跌
@@ -139,10 +147,7 @@ async def get_asset_dashboard(
         plastic_index, sh_index
     )
     
-    # 使用服务层计算仓位信息
-    position_info = AssetCalculationService.calculate_position(
-        db, current_user.id, figures
-    )
+    # 【已修改】仓位信息已在前面使用基于订单的新方法计算
     
     # 本月入手数量（模拟数据，后续可改为实际统计）
     monthly_purchases = 3
@@ -428,7 +433,7 @@ def add_position(
             "message": "补仓成功",
             "figure_id": result["figure_id"],
             "figure_name": result["figure_name"],
-            "order_id": result["order_id"],
+            "order_ids": result["order_ids"],
             "added_quantity": result["added_quantity"],
             "add_price": result["add_price"],
             "previous_quantity": result["previous_quantity"],

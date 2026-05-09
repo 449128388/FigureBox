@@ -397,3 +397,104 @@ class OrderCrudService:
             print(f"更新平均入手价格失败: {e}")
 
         return {"message": "订单删除成功"}
+
+    @staticmethod
+    def batch_delete_orders(
+        db: Session,
+        order_ids: list[int],
+        current_user: User
+    ) -> dict:
+        """
+        批量软删除订单
+
+        不物理删除订单记录，仅标记 is_active=False 和 deleted_at
+        同时软删除关联的资产交易记录和资金流水记录
+
+        Args:
+            db: 数据库会话
+            order_ids: 要删除的订单ID列表
+            current_user: 当前用户
+
+        Returns:
+            dict: 删除结果统计
+            {
+                'success_count': 成功删除数量,
+                'failed_count': 失败数量,
+                'failed_ids': 失败的ID列表,
+                'errors': 错误信息列表
+            }
+        """
+        from fastapi import HTTPException, status
+
+        success_count = 0
+        failed_count = 0
+        failed_ids = []
+        errors = []
+
+        for order_id in order_ids:
+            try:
+                # 检查订单是否存在
+                db_order = db.query(Order).filter(
+                    Order.id == order_id,
+                    Order.is_active == 1
+                ).first()
+
+                if not db_order:
+                    failed_count += 1
+                    failed_ids.append(order_id)
+                    errors.append(f"订单ID {order_id} 不存在或已被删除")
+                    continue
+
+                # 检查权限
+                if not current_user.is_admin and db_order.user_id != current_user.id:
+                    failed_count += 1
+                    failed_ids.append(order_id)
+                    errors.append(f"订单ID {order_id} 权限不足")
+                    continue
+
+                # 记录 figure_id 用于后续更新平均价格
+                figure_id = db_order.figure_id
+
+                # 软删除关联的资产交易记录（库存账）
+                db.query(AssetTransaction).filter(
+                    AssetTransaction.order_id == order_id
+                ).update({
+                    'is_active': False,
+                    'deleted_at': datetime.now(),
+                    'order_id': None
+                }, synchronize_session=False)
+
+                # 软删除关联的资金流水记录（资金账）
+                db.query(OrderTransaction).filter(
+                    OrderTransaction.order_id == order_id
+                ).update({
+                    'is_active': False,
+                    'deleted_at': datetime.now(),
+                    'order_id': None
+                }, synchronize_session=False)
+
+                # 软删除订单本身
+                db_order.is_active = 0
+                db_order.deleted_at = datetime.now()
+
+                db.commit()
+                success_count += 1
+
+                # 更新手办的平均入手价格
+                try:
+                    FigureService.update_figure_average_purchase_price(db, figure_id)
+                except Exception as e:
+                    print(f"更新平均入手价格失败: {e}")
+
+            except Exception as e:
+                db.rollback()
+                failed_count += 1
+                failed_ids.append(order_id)
+                errors.append(f"订单ID {order_id} 删除失败: {str(e)}")
+
+        return {
+            'success_count': success_count,
+            'failed_count': failed_count,
+            'failed_ids': failed_ids,
+            'errors': errors
+        }

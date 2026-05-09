@@ -173,6 +173,16 @@ export const useOrderStore = defineStore('order', {
       // 重新获取未支付尾款总额
       await this.fetchUnpaidBalance()
     },
+    async batchDeleteOrders(orderIds) {
+      const response = await axios.post('/orders/batch-delete/', {
+        order_ids: orderIds
+      })
+      // 从前端列表中移除已删除的订单
+      this.orders = this.orders.filter(o => !orderIds.includes(o.id))
+      // 重新获取未支付尾款总额
+      await this.fetchUnpaidBalance()
+      return response
+    },
     async fetchUnpaidBalance() {
       try {
         const response = await axios.get('/orders/unpaid-balance/')

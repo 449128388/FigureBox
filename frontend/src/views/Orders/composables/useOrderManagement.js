@@ -1,12 +1,29 @@
 import { ref, computed, watch } from 'vue'
 import { useOrderStore, useUserStore, useFigureStore } from '../../../store'
 import { ElMessage } from 'element-plus'
+import { useBatchSelection } from './useBatchSelection'
 
 export function useOrderManagement() {
   // 状态管理
   const orderStore = useOrderStore()
   const userStore = useUserStore()
   const figureStore = useFigureStore()
+
+  // 【新增】批量选择功能
+  const {
+    selectedIds,
+    isBatchMode,
+    selectedCount,
+    hasSelection,
+    selectedIdsArray,
+    setSelection,
+    isSelected,
+    selectAll,
+    deselectAll,
+    enterBatchMode,
+    exitBatchMode,
+    clearAll
+  } = useBatchSelection()
 
   // 响应式数据
   const showAddForm = ref(false)
@@ -33,6 +50,69 @@ export function useOrderManagement() {
   // 删除确认对话框状态
   const showDeleteConfirmDialog = ref(false)
   const orderToDelete = ref(null)
+
+  // 【新增】检查是否全选本页
+  const isAllSelected = computed(() => {
+    if (paginatedOrders.value.length === 0) return false
+    return paginatedOrders.value.every(order => selectedIds.value.has(order.id))
+  })
+
+  // 【新增】切换批量选择模式
+  const toggleBatchMode = () => {
+    if (isBatchMode.value) {
+      exitBatchMode()
+    } else {
+      enterBatchMode()
+    }
+  }
+
+  // 【新增】处理切换选择
+  const handleToggleSelection = (orderId, selected) => {
+    setSelection(orderId, selected)
+  }
+
+  // 【新增】处理全选/取消全选
+  const handleSelectAll = () => {
+    if (isAllSelected.value) {
+      // 取消全选本页
+      paginatedOrders.value.forEach(order => {
+        if (selectedIds.value.has(order.id)) {
+          setSelection(order.id, false)
+        }
+      })
+    } else {
+      // 全选本页
+      paginatedOrders.value.forEach(order => {
+        setSelection(order.id, true)
+      })
+    }
+  }
+
+  // 【新增】处理批量删除
+  const handleBatchDelete = async () => {
+    if (!hasSelection.value) return
+
+    try {
+      const response = await orderStore.batchDeleteOrders(selectedIdsArray.value)
+
+      // 显示删除结果
+      if (response.failed_count === 0) {
+        ElMessage.success(`成功删除 ${response.success_count} 个订单`)
+      } else if (response.success_count === 0) {
+        ElMessage.warning(`删除失败：${response.errors.join('；')}`)
+      } else {
+        ElMessage.info(`删除完成：成功 ${response.success_count} 个，失败 ${response.failed_count} 个`)
+      }
+
+      // 退出批量选择模式
+      exitBatchMode()
+      // 刷新订单列表
+      await orderStore.fetchOrders()
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败，请稍后重试')
+    }
+  }
   
   // 计算属性
   const filteredOrders = computed(() => {
@@ -320,6 +400,13 @@ export function useOrderManagement() {
     showDeleteConfirmDialog,
     orderToDelete,
 
+    // 【新增】批量选择状态
+    isBatchMode,
+    selectedIds,
+    selectedCount,
+    hasSelection,
+    isAllSelected,
+
     // 计算属性
     filteredOrders,
     paginatedOrders,
@@ -342,6 +429,14 @@ export function useOrderManagement() {
     handleCurrentChange,
     handleStatusChange,
     handleLogout,
-    initializeData
+    initializeData,
+
+    // 【新增】批量选择方法
+    toggleBatchMode,
+    handleToggleSelection,
+    handleSelectAll,
+    handleBatchDelete,
+    exitBatchMode,
+    isSelected
   }
 }

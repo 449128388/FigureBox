@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from app.models.database import get_db
 from app.models.order import Order
 from app.models.figure import Figure
@@ -9,6 +10,11 @@ from app.models.user import User
 from app.services.order_service import OrderService
 
 router = APIRouter()
+
+
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求模型"""
+    order_ids: list[int]
 
 
 @router.get("/unpaid-balance/")
@@ -70,3 +76,26 @@ def delete_order(order_id: int, current_user: User = Depends(get_current_user), 
     同时软删除关联的资产交易记录和资金流水记录
     """
     return OrderService.delete_order(db, order_id, current_user)
+
+
+@router.post("/batch-delete/")
+def batch_delete_orders(request: BatchDeleteRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    批量软删除订单
+    
+    不物理删除订单记录，仅标记 is_active=False 和 deleted_at
+    同时软删除关联的资产交易记录和资金流水记录
+    
+    Args:
+        order_ids: 要删除的订单ID列表
+        
+    Returns:
+        删除结果统计
+    """
+    if not request.order_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="订单ID列表不能为空"
+        )
+    
+    return OrderService.batch_delete_orders(db, request.order_ids, current_user)
