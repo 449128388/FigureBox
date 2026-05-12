@@ -194,3 +194,48 @@ export const useOrderStore = defineStore('order', {
     }
   }
 })
+
+export const useSoldOrderStore = defineStore('soldOrder', {
+  state: () => ({
+    soldOrders: [],
+    totalNetProfit: 0
+  }),
+  actions: {
+    async fetchSoldOrders() {
+      const response = await axios.get('/sold-orders/')
+      this.soldOrders = response
+      await this.fetchSoldOrderStatistics()
+      return response
+    },
+    async createSoldOrder(order) {
+      await axios.post('/sold-orders/', order)
+      await this.fetchSoldOrders()
+    },
+    async updateSoldOrder(id, order) {
+      await axios.put(`/sold-orders/${id}/`, order)
+      await this.fetchSoldOrders()
+    },
+    async deleteSoldOrder(id) {
+      await axios.delete(`/sold-orders/${id}/`)
+      this.soldOrders = this.soldOrders.filter(o => o.id !== id)
+      await this.fetchSoldOrderStatistics()
+    },
+    async batchDeleteSoldOrders(orderIds) {
+      const response = await axios.post('/sold-orders/batch-delete/', {
+        order_ids: orderIds
+      })
+      this.soldOrders = this.soldOrders.filter(o => !orderIds.includes(o.id))
+      await this.fetchSoldOrderStatistics()
+      return response
+    },
+    async fetchSoldOrderStatistics() {
+      try {
+        const response = await axios.get('/sold-orders/statistics/')
+        this.totalNetProfit = response.total_net_profit
+      } catch (error) {
+        this.totalNetProfit = 0
+        return 0
+      }
+    }
+  }
+})

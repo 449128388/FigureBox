@@ -5,6 +5,7 @@ import Home from '../views/Home.vue'
 import Figures from '../views/Figures.vue'
 import FigureDetail from '../views/FigureDetail.vue'
 import Orders from '../views/Orders.vue'
+import SoldOrders from '../views/SoldOrders.vue'
 import Profile from '../views/Profile.vue'
 import Dashboard from '../views/Dashboard.vue'
 
@@ -44,6 +45,12 @@ const routes = [
     path: '/orders',
     name: 'Orders',
     component: Orders,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/sell',
+    name: 'SoldOrders',
+    component: SoldOrders,
     meta: { requiresAuth: true }
   },
   {

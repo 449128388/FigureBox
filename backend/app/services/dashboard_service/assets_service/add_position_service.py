@@ -64,14 +64,14 @@ class AddPositionService:
         orders = cls._create_orders(db, user_id, figure_id, quantity, price)
         order_ids = [order.id for order in orders]
 
-        # 2. 创建asset_transactions记录
-        asset_transaction = cls._create_asset_transaction(
-            db, user_id, figure_id, order_ids[0] if order_ids else None, quantity, price
+        # 2. 创建asset_transactions记录（每条订单对应一条记录）
+        asset_transactions = cls._create_asset_transactions(
+            db, user_id, figure_id, orders, price
         )
 
-        # 3. 创建order_transactions记录
-        order_transaction = cls._create_order_transaction(
-            db, user_id, figure_id, order_ids[0] if order_ids else None, quantity, price
+        # 3. 创建order_transactions记录（每条订单对应一条记录）
+        order_transactions = cls._create_order_transactions(
+            db, user_id, figure_id, orders, price
         )
 
         # 4. 更新手办信息
@@ -97,8 +97,8 @@ class AddPositionService:
             "new_quantity": new_quantity,
             "previous_cost_price": current_cost_price,
             "new_cost_price": new_cost_price,
-            "asset_transaction_id": asset_transaction.id,
-            "order_transaction_id": order_transaction.id
+            "asset_transaction_ids": [t.id for t in asset_transactions],
+            "order_transaction_ids": [t.id for t in order_transactions]
         }
 
     @staticmethod
@@ -147,67 +147,71 @@ class AddPositionService:
         return orders
 
     @staticmethod
-    def _create_asset_transaction(
+    def _create_asset_transactions(
         db: Session,
         user_id: int,
         figure_id: int,
-        order_id: int,
-        quantity: int,
+        orders: list[Order],
         price: float
-    ) -> AssetTransaction:
+    ) -> list[AssetTransaction]:
         """
         创建asset_transactions记录（买入）
+        每条订单对应一条asset_transaction记录
         """
-        total_amount = price * quantity
+        transactions = []
 
-        transaction = AssetTransaction(
-            user_id=user_id,
-            figure_id=figure_id,
-            order_id=order_id,
-            transaction_type="buy",
-            price=price,
-            quantity=quantity,
-            total_amount=total_amount,
-            remaining_quantity=quantity,
-            notes=f"补仓买入: {quantity}体，补仓价格: ¥{price}/体"
-        )
-        db.add(transaction)
+        for order in orders:
+            transaction = AssetTransaction(
+                user_id=user_id,
+                figure_id=figure_id,
+                order_id=order.id,
+                transaction_type="buy",
+                price=price,
+                quantity=1,
+                total_amount=price,
+                remaining_quantity=1,
+                notes=f"补仓买入: 1体，补仓价格: ¥{price}/体"
+            )
+            db.add(transaction)
+            transactions.append(transaction)
+
         db.flush()
-
-        return transaction
+        return transactions
 
     @staticmethod
-    def _create_order_transaction(
+    def _create_order_transactions(
         db: Session,
         user_id: int,
         figure_id: int,
-        order_id: int,
-        quantity: int,
+        orders: list[Order],
         price: float
-    ) -> OrderTransaction:
+    ) -> list[OrderTransaction]:
         """
         创建order_transactions记录（资金流出）
+        每条订单对应一条order_transaction记录
         """
-        total_amount = price * quantity
+        transactions = []
 
-        transaction = OrderTransaction(
-            user_id=user_id,
-            figure_id=figure_id,
-            order_id=order_id,
-            transaction_type="buy",
-            direction="out",
-            quantity=quantity,
-            unit_price=price,
-            total_amount=total_amount,
-            currency="CNY",
-            platform="补仓",
-            transaction_date=datetime.now(),
-            notes=f"补仓买入: {quantity}体 @ ¥{price}/体，总价¥{total_amount}"
-        )
-        db.add(transaction)
+        for order in orders:
+            transaction = OrderTransaction(
+                user_id=user_id,
+                figure_id=figure_id,
+                order_id=order.id,
+                transaction_type="buy",
+                direction="out",
+                quantity=1,
+                unit_price=price,
+                total_amount=price,
+                currency="CNY",
+                platform="补仓",
+                transaction_date=datetime.now(),
+                notes=f"补仓买入: 1体 @ ¥{price}/体"
+            )
+            db.add(transaction)
+            transactions.append(transaction)
+
         db.flush()
-
-        return transaction
+        return transactions
 
     @staticmethod
     def _update_daily_cache_for_add_position(

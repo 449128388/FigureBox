@@ -17,7 +17,11 @@
             </router-link>
             <router-link to="/orders" class="menu-item" active-class="active">
               <span class="menu-icon">📋</span>
-              <span v-if="!isCollapsed" class="menu-text">订单管理</span>
+              <span v-if="!isCollapsed" class="menu-text">尾款管理</span>
+            </router-link>
+            <router-link to="/sell" class="menu-item" active-class="active">
+              <span class="menu-icon">💰</span>
+              <span v-if="!isCollapsed" class="menu-text">卖出管理</span>
             </router-link>
             <router-link to="/dashboard" class="menu-item" active-class="active">
               <span class="menu-icon">📊</span>
