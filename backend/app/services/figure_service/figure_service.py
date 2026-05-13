@@ -109,6 +109,15 @@ class FigureService:
         """根据ID获取手办详情"""
         return FigureQueryService.get_figure_by_id(db, figure_id)
 
+    @staticmethod
+    def get_figures_with_stock(
+        db: Session,
+        user_id: int,
+        name: Optional[str] = None
+    ) -> List[FigureListItem]:
+        """获取有库存的手办列表（用于出售订单选择）"""
+        return FigureQueryService.get_figures_with_stock(db, user_id, name)
+
     # ==========================================================================
     # CRUD 操作（委托给 FigureCrudService）
     # ==========================================================================

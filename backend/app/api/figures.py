@@ -49,6 +49,23 @@ def get_figures(
     )
 
 
+@router.get("/with-stock", response_model=list[FigureListItem])
+def get_figures_with_stock(
+    name: str = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取有库存的手办列表（用于出售订单选择）
+    只返回 asset_transactions 中 remaining_quantity > 0 的手办
+    """
+    return FigureService.get_figures_with_stock(
+        db=db,
+        user_id=current_user.id,
+        name=name
+    )
+
+
 @router.get("/download")
 def download_figures(db: Session = Depends(get_db)):
     """

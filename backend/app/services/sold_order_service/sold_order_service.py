@@ -48,6 +48,11 @@ class SoldOrderService:
         """获取已出售订单统计信息"""
         return SoldOrderQueryService.get_sold_order_statistics(db, current_user)
 
+    @staticmethod
+    def get_xianyu_monthly_statistics(db: Session, current_user: User, exclude_order_id: int = None) -> Dict:
+        """获取用户当月闲鱼订单统计信息（用于计算平台手续费）"""
+        return SoldOrderQueryService.get_xianyu_monthly_statistics(db, current_user, exclude_order_id)
+
     # ==========================================================================
     # CRUD 操作（委托给 SoldOrderCrudService）
     # ==========================================================================

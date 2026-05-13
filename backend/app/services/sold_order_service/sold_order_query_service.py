@@ -5,7 +5,7 @@
 """
 from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 
 from app.models.sold_order import SoldOrder
 from app.models.figure import Figure
@@ -87,10 +87,10 @@ class SoldOrderQueryService:
         """
         stats = db.query(
             func.count(SoldOrder.id).label('total_count'),
-            func.sum(func.case((SoldOrder.status == '待发货', 1), else_=0)).label('pending_count'),
-            func.sum(func.case((SoldOrder.status == '已发货', 1), else_=0)).label('shipped_count'),
-            func.sum(func.case((SoldOrder.status == '已完成', 1), else_=0)).label('completed_count'),
-            func.sum(func.case((SoldOrder.status == '退款/纠纷', 1), else_=0)).label('dispute_count'),
+            func.sum(case((SoldOrder.status == '待发货', 1), else_=0)).label('pending_count'),
+            func.sum(case((SoldOrder.status == '已发货', 1), else_=0)).label('shipped_count'),
+            func.sum(case((SoldOrder.status == '已完成', 1), else_=0)).label('completed_count'),
+            func.sum(case((SoldOrder.status == '退款/纠纷', 1), else_=0)).label('dispute_count'),
             func.coalesce(func.sum(SoldOrder.net_profit), 0).label('total_net_profit')
         ).filter(
             SoldOrder.user_id == current_user.id,
@@ -105,3 +105,48 @@ class SoldOrderQueryService:
             dispute_count=stats.dispute_count or 0,
             total_net_profit=stats.total_net_profit or 0.0
         )
+
+    @staticmethod
+    def get_xianyu_monthly_statistics(db: Session, current_user: User, exclude_order_id: int = None) -> Dict:
+        """
+        获取用户当月闲鱼订单统计信息（用于计算平台手续费）
+
+        统计当月（自然月）的闲鱼订单数量和成交额
+
+        Args:
+            db: 数据库会话
+            current_user: 当前用户
+            exclude_order_id: 需要排除的订单ID（编辑时使用）
+
+        Returns:
+            Dict: 包含订单数量和成交额的字典
+        """
+        from datetime import datetime
+        from sqlalchemy import extract
+
+        now = datetime.now()
+        current_year = now.year
+        current_month = now.month
+
+        # 查询当月闲鱼（个人卖家和鱼小铺）订单
+        query = db.query(
+            func.count(SoldOrder.id).label('order_count'),
+            func.coalesce(func.sum(SoldOrder.sell_price), 0).label('total_amount')
+        ).filter(
+            SoldOrder.user_id == current_user.id,
+            SoldOrder.is_active == 1,
+            SoldOrder.sell_platform.in_(['闲鱼（个人卖家）', '闲鱼（鱼小铺）']),
+            extract('year', SoldOrder.created_at) == current_year,
+            extract('month', SoldOrder.created_at) == current_month
+        )
+
+        # 编辑时排除当前订单
+        if exclude_order_id:
+            query = query.filter(SoldOrder.id != exclude_order_id)
+
+        result = query.first()
+
+        return {
+            'order_count': result.order_count or 0,
+            'total_amount': float(result.total_amount or 0)
+        }

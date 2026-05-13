@@ -139,11 +139,11 @@ export default {
 }
 
 .profit-positive {
-  color: #4CAF50;
+  color: #f44336;
 }
 
 .profit-negative {
-  color: #f44336;
+  color: #4CAF50;
 }
 
 @media (max-width: 768px) {

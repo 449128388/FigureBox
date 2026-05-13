@@ -246,7 +246,7 @@ class TransactionCreateService:
             balance=order.balance,
             balance_currency=order.balance_currency
         )
-        quantity = order.quantity or 1
+        quantity = 1  # 订单默认对应1体手办
         unit_price = total_amount / quantity if quantity > 0 and total_amount > 0 else 0
 
         if total_amount <= 0:
@@ -263,7 +263,7 @@ class TransactionCreateService:
             total_amount=total_amount,
             currency="CNY",
             platform=order.shop_name,
-            transaction_date=transaction_date or order.purchase_date or datetime.now(),
+            transaction_date=transaction_date or datetime.now(),
             notes=notes or f"订单支付 - {order.shop_name or '未知店铺'}",
             transaction_subtype="initial",  # 标记为初始交易
             changed_field="total"  # 表示整单金额

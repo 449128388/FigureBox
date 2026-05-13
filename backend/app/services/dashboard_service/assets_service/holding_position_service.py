@@ -7,9 +7,10 @@ from datetime import date, datetime
 from typing import Dict, Any, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.models.figure import Figure
-from app.models.asset import AssetPriceHistory
+from app.models.asset import AssetPriceHistory, AssetTransaction
 
 
 class HoldingPositionService:
@@ -79,20 +80,53 @@ class HoldingPositionService:
             return figure.images[0]
         return "/imgs/no_image.png"
 
+    @staticmethod
+    def get_figure_inventory_from_asset_transactions(
+        db: Session,
+        figure_id: int,
+        user_id: int
+    ) -> int:
+        """
+        从库存账（AssetTransaction）获取手办当前库存数量
+
+        统计逻辑：
+        - 查询该手办的所有买入记录（transaction_type='buy'）
+        - 累加 remaining_quantity 字段
+        - 已出售订单会创建 sell 记录并扣减买入记录的 remaining_quantity
+
+        Args:
+            db: 数据库会话
+            figure_id: 手办ID
+            user_id: 用户ID
+
+        Returns:
+            当前库存数量
+        """
+        total_remaining = db.query(func.sum(AssetTransaction.remaining_quantity)).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id == figure_id,
+            AssetTransaction.transaction_type == "buy",
+            AssetTransaction.is_active == True
+        ).scalar() or 0
+
+        return int(total_remaining)
+
     @classmethod
     def build_holding_detail(
         cls,
+        db: Session,
         figure: Figure,
         total_assets: float,
-        order_count: int = 0
+        user_id: int
     ) -> Dict[str, Any]:
         """
         构建单个持仓明细
 
         Args:
+            db: 数据库会话
             figure: 手办对象
             total_assets: 总资产
-            order_count: 该手办的订单数量（排除已取消），默认为0
+            user_id: 当前用户ID
 
         Returns:
             Dict包含持仓的详细信息
@@ -115,8 +149,12 @@ class HoldingPositionService:
             purchase_date_str = figure.purchase_date.strftime("%Y-%m")
             holding_days = cls.calculate_holding_days(figure.purchase_date)
 
-        # 库存数量：以订单数量为准（排除已取消），如果没有订单则默认为1
-        stock = order_count if order_count > 0 else 1
+        # 【修改】库存数量：从库存账（AssetTransaction）获取真实库存
+        # 基于 remaining_quantity 统计，已出售订单会扣减该值
+        stock = cls.get_figure_inventory_from_asset_transactions(db, figure.id, user_id)
+        # 如果库存为0，默认显示1（保持向后兼容）
+        if stock <= 0:
+            stock = 1
 
         # 计算市值占比
         market_value = current_price * stock
@@ -143,29 +181,29 @@ class HoldingPositionService:
     @classmethod
     def build_all_holdings(
         cls,
+        db: Session,
         figures: List[Figure],
         total_assets: float,
-        figure_order_counts: Dict[int, int] = None
+        user_id: int
     ) -> List[Dict[str, Any]]:
         """
         构建所有持仓明细
 
         Args:
+            db: 数据库会话
             figures: 手办列表
             total_assets: 总资产
-            figure_order_counts: 手办ID到订单数量的映射（排除已取消），默认为None
+            user_id: 当前用户ID
 
         Returns:
             List[Dict[str, Any]]: 持仓明细列表
         """
-        if figure_order_counts is None:
-            figure_order_counts = {}
-
         holdings = [
             cls.build_holding_detail(
+                db,
                 fig,
                 total_assets,
-                figure_order_counts.get(fig.id, 0)
+                user_id
             )
             for fig in figures
         ]

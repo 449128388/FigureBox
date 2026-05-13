@@ -194,6 +194,27 @@ export function useSoldOrderManagement() {
       ElMessage.error('保存失败，请稍后重试')
     }
   }
+
+  // 处理平台手续费计算
+  const handleCalculatePlatformFee = async (params) => {
+    const { platform, sellPrice, orderId, callback } = params
+    
+    try {
+      // 获取当月闲鱼订单统计
+      const monthlyStats = await soldOrderStore.fetchXianyuMonthlyStats(orderId)
+      
+      // 调用回调函数返回计算结果
+      if (callback && typeof callback === 'function') {
+        callback(monthlyStats)
+      }
+    } catch (error) {
+      console.error('获取闲鱼月度统计失败:', error)
+      // 如果获取失败，返回空统计让前端按默认费率计算
+      if (callback && typeof callback === 'function') {
+        callback({ order_count: 0, total_amount: 0 })
+      }
+    }
+  }
   
   const openDeleteConfirmDialog = (order) => {
     orderToDelete.value = order
@@ -249,7 +270,7 @@ export function useSoldOrderManagement() {
   
   const initializeData = () => {
     soldOrderStore.fetchSoldOrders()
-    figureStore.fetchFigures()
+    figureStore.fetchFiguresWithStock()
     if (localStorage.getItem('token') && !userStore.currentUser) {
       userStore.fetchUser()
     }
@@ -283,6 +304,7 @@ export function useSoldOrderManagement() {
     resetForm,
     openAddForm,
     handleSaveOrder,
+    handleCalculatePlatformFee,
     openDeleteConfirmDialog,
     cancelDelete,
     confirmDelete,

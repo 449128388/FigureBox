@@ -1,8 +1,8 @@
 <template>
   <div class="form-overlay" v-if="visible" @click.self="$emit('cancel')">
     <div class="form-container">
-      <h3>{{ isEditing ? '编辑已出售订单' : '添加卖出' }}</h3>
-      <form @submit.prevent="handleSubmit">
+      <h3>{{ isEditing ? '编辑已出售订单' : '添加已出售订单' }}</h3>
+      <form @submit.prevent="handleSubmit" novalidate>
         <div class="form-layout">
           <el-tabs type="border-card" :tab-position="'left'" lazy v-model="localActiveTab">
             <!-- 基础信息 -->
@@ -13,73 +13,11 @@
                   <span>基础信息</span>
                 </div>
               </template>
-              <div class="tab-content">
-                <el-form :model="localOrder" label-width="100px">
-                  <div class="form-row">
-                    <el-form-item label="选择手办 *" :error="figureError">
-                      <el-select
-                        v-model="localOrder.figure_id"
-                        placeholder="🔍 搜索手办..."
-                        filterable
-                        class="form-select"
-                        @change="handleFigureChange"
-                      >
-                        <el-option
-                          v-for="figure in availableFigures"
-                          :key="figure.id"
-                          :label="figure.name"
-                          :value="figure.id"
-                        />
-                      </el-select>
-                    </el-form-item>
-                    <el-form-item label="卖出平台 *">
-                      <el-select v-model="localOrder.sell_platform" placeholder="请选择平台" class="form-select">
-                        <el-option label="闲鱼" value="闲鱼" />
-                        <el-option label="淘宝" value="淘宝" />
-                        <el-option label="转转" value="转转" />
-                        <el-option label="其他" value="其他" />
-                      </el-select>
-                    </el-form-item>
-                  </div>
-                  <div class="form-row">
-                    <el-form-item label="订单编号">
-                      <el-input v-model="localOrder.order_number" placeholder="请输入订单号" class="form-input" />
-                    </el-form-item>
-                    <el-form-item label="卖出状态">
-                      <el-select v-model="localOrder.status" class="form-select">
-                        <el-option label="待发货" value="待发货" />
-                        <el-option label="已发货" value="已发货" />
-                        <el-option label="已完成" value="已完成" />
-                        <el-option label="退款/纠纷" value="退款/纠纷" />
-                      </el-select>
-                    </el-form-item>
-                  </div>
-                </el-form>
-              </div>
-            </el-tab-pane>
-            
-            <!-- 买家信息 -->
-            <el-tab-pane label="买家信息" name="buyer">
-              <template #label>
-                <div class="tab-label">
-                  <i class="fa-solid fa-user"></i>
-                  <span>买家信息</span>
-                </div>
-              </template>
-              <div class="tab-content">
-                <el-form :model="localOrder" label-width="100px">
-                  <div class="form-row">
-                    <el-form-item label="买家手机号 *">
-                      <el-input v-model="localOrder.buyer_phone" placeholder="请输入买家手机号" class="form-input" />
-                    </el-form-item>
-                  </div>
-                  <div class="form-row">
-                    <el-form-item label="买家地址">
-                      <el-input v-model="localOrder.buyer_address" placeholder="请输入买家地址" class="form-input long-input" />
-                    </el-form-item>
-                  </div>
-                </el-form>
-              </div>
+              <BasicInfoTab 
+                :order="localOrder" 
+                :available-figures="availableFigures"
+                @figure-change="handleFigureChange"
+              />
             </el-tab-pane>
             
             <!-- 价格与成本 -->
@@ -90,68 +28,10 @@
                   <span>价格成本</span>
                 </div>
               </template>
-              <div class="tab-content">
-                <el-form :model="localOrder" label-width="80px">
-                  <div class="form-row">
-                    <el-form-item label="卖出价格 *">
-                      <div class="price-input-group">
-                        <span class="price-label">¥</span>
-                        <el-input
-                          v-model.number="localOrder.sell_price"
-                          type="number"
-                          placeholder="请输入卖出价格"
-                          class="price-input"
-                          @input="calculateProfit"
-                        />
-                        <span class="price-hint">(自动计算盈亏)</span>
-                      </div>
-                    </el-form-item>
-                    <el-form-item label="成本价">
-                      <div class="price-input-group">
-                        <span class="price-label">¥</span>
-                        <el-input
-                          v-model.number="localOrder.cost_price"
-                          type="number"
-                          placeholder="请输入成本价格"
-                          class="price-input"
-                          @input="calculateProfit"
-                        />
-                        <span class="price-hint">(从库存自动带出)</span>
-                      </div>
-                    </el-form-item>
-                    <el-form-item label="运费">
-                      <div class="price-input-group">
-                        <span class="price-label">¥</span>
-                        <el-input
-                          v-model.number="localOrder.shipping_fee"
-                          type="number"
-                          placeholder="请输入运费"
-                          class="price-input"
-                          @input="calculateProfit"
-                        />
-                        <span class="price-hint">(支出)</span>
-                      </div>
-                    </el-form-item>
-                  </div>
-                  <div class="form-row">
-                    <el-form-item label="平台手续费">
-                      <div class="price-input-group platform-fee">
-                        <span class="price-label">¥</span>
-                        <el-input
-                          v-model.number="localOrder.platform_fee"
-                          type="number"
-                          placeholder="请输入手续费"
-                          class="price-input"
-                          @input="calculateProfit"
-                        />
-                        <span v-if="localOrder.sell_platform === '闲鱼'" class="fee-tip">
-                          💡 闲鱼按 1% 自动计算
-                        </span>
-                      </div>
-                    </el-form-item>
-                  </div>
-                </el-form>
-              </div>
+              <PriceCostTab 
+                :order="localOrder"
+                @profit-change="calculateProfit"
+              />
             </el-tab-pane>
             
             <!-- 物流信息 -->
@@ -162,23 +42,7 @@
                   <span>物流信息</span>
                 </div>
               </template>
-              <div class="tab-content">
-                <el-form :model="localOrder" label-width="100px">
-                  <div class="form-row">
-                    <el-form-item label="快递单号">
-                      <el-input v-model="localOrder.tracking_number" placeholder="请输入快递单号" class="form-input" />
-                    </el-form-item>
-                    <el-form-item label="发货日期">
-                      <el-date-picker
-                        v-model="localOrder.shipping_date"
-                        type="date"
-                        placeholder="选择发货日期"
-                        class="form-input"
-                      />
-                    </el-form-item>
-                  </div>
-                </el-form>
-              </div>
+              <ShippingInfoTab :order="localOrder" />
             </el-tab-pane>
             
             <!-- 盈亏预览 -->
@@ -189,29 +53,7 @@
                   <span>盈亏预览</span>
                 </div>
               </template>
-              <div class="tab-content profit-preview">
-                <div class="profit-calculation">
-                  <span class="calc-item">卖出价: ¥{{ formatNumber(localOrder.sell_price) }}</span>
-                  <span class="calc-operator">-</span>
-                  <span class="calc-item">成本: ¥{{ formatNumber(localOrder.cost_price) }}</span>
-                  <span class="calc-operator">-</span>
-                  <span class="calc-item">运费: ¥{{ formatNumber(Math.abs(localOrder.shipping_fee)) }}</span>
-                </div>
-                <div class="profit-calculation">
-                  <span class="calc-operator">-</span>
-                  <span class="calc-item">手续费: ¥{{ formatNumber(Math.abs(localOrder.platform_fee)) }}</span>
-                  <span class="calc-operator">=</span>
-                  <span class="profit-result" :class="profitClass">
-                    💰 净利润: {{ currentProfit >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(currentProfit)) }}
-                    ({{ profitIcon }}{{ formatNumber(Math.abs(currentProfitRate)) }}%)
-                  </span>
-                </div>
-                <div class="profit-indicator">
-                  <span :class="['indicator', { active: currentProfit > 0 }]">🟢 盈利</span>
-                  <span :class="['indicator', { active: currentProfit < 0 }]">🔴 亏损</span>
-                  <span :class="['indicator', { active: currentProfit === 0 }]">⚪ 持平</span>
-                </div>
-              </div>
+              <ProfitTab :order="localOrder" />
             </el-tab-pane>
             
             <!-- 订单备注 -->
@@ -222,19 +64,7 @@
                   <span>订单备注</span>
                 </div>
               </template>
-              <div class="tab-content">
-                <el-form :model="localOrder" label-width="100px">
-                  <el-form-item label="备注">
-                    <el-input
-                      v-model="localOrder.remark"
-                      type="textarea"
-                      :rows="6"
-                      placeholder="请输入订单备注..."
-                      class="remark-input"
-                    />
-                  </el-form-item>
-                </el-form>
-              </div>
+              <RemarkTab :order="localOrder" />
             </el-tab-pane>
           </el-tabs>
         </div>
@@ -249,17 +79,30 @@
 </template>
 
 <script>
-import { ref, watch, computed } from 'vue'
+import { ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import BasicInfoTab from './form/BasicInfoTab.vue'
+import PriceCostTab from './form/PriceCostTab.vue'
+import ShippingInfoTab from './form/ShippingInfoTab.vue'
+import ProfitTab from './form/ProfitTab.vue'
+import RemarkTab from './form/RemarkTab.vue'
 
 export default {
   name: 'SoldOrderForm',
+  components: {
+    BasicInfoTab,
+    PriceCostTab,
+    ShippingInfoTab,
+    ProfitTab,
+    RemarkTab
+  },
   props: {
     visible: Boolean,
     isEditing: Boolean,
     newOrder: Object,
     availableFigures: Array
   },
-  emits: ['saveOrder', 'cancel'],
+  emits: ['saveOrder', 'cancel', 'calculatePlatformFee'],
   setup(props, context) {
     const localOrder = ref({
       figure_id: '',
@@ -269,6 +112,10 @@ export default {
       cost_price: 0,
       shipping_fee: 0,
       platform_fee: 0,
+      sell_price_currency: 'CNY',
+      cost_price_currency: 'CNY',
+      shipping_fee_currency: 'CNY',
+      platform_fee_currency: 'CNY',
       buyer_phone: '',
       buyer_address: '',
       tracking_number: '',
@@ -278,45 +125,74 @@ export default {
     })
 
     const localActiveTab = ref('basic')
-    const figureError = ref('')
 
-    const currentProfit = computed(() => {
-      return localOrder.value.sell_price - localOrder.value.cost_price - 
-             Math.abs(localOrder.value.shipping_fee) - Math.abs(localOrder.value.platform_fee)
+    // 计算闲鱼平台手续费
+    const calculateXianyuFee = async () => {
+      const platform = localOrder.value.sell_platform
+      const sellPrice = localOrder.value.sell_price || 0
+
+      if (!platform || sellPrice <= 0) {
+        localOrder.value.platform_fee = 0
+        return
+      }
+
+      if (platform !== '闲鱼（个人卖家）' && platform !== '闲鱼（鱼小铺）') {
+        localOrder.value.platform_fee = 0
+        return
+      }
+
+      if (platform === '闲鱼（鱼小铺）') {
+        localOrder.value.platform_fee = sellPrice * 0.016
+        return
+      }
+
+      if (platform === '闲鱼（个人卖家）') {
+        const currentOrderId = props.isEditing ? localOrder.value.id : null
+
+        try {
+          context.emit('calculatePlatformFee', {
+            platform: platform,
+            sellPrice: sellPrice,
+            orderId: currentOrderId,
+            callback: (monthlyStats) => {
+              const baseRate = 0.006
+              const baseFee = sellPrice * baseRate
+              let totalFee = Math.min(baseFee, 60)
+
+              const monthlyOrderCount = (monthlyStats?.order_count || 0)
+              const monthlyAmount = (monthlyStats?.total_amount || 0)
+
+              const exceedsThreshold = monthlyOrderCount > 10 && monthlyAmount > 10000
+
+              if (exceedsThreshold) {
+                const extraRate = 0.01
+                totalFee = sellPrice * (baseRate + extraRate)
+              }
+
+              localOrder.value.platform_fee = Math.round(totalFee * 100) / 100
+            }
+          })
+        } catch (error) {
+          const baseFee = sellPrice * 0.006
+          localOrder.value.platform_fee = Math.min(baseFee, 60)
+        }
+      }
+    }
+
+    watch(() => localOrder.value.sell_platform, () => {
+      calculateXianyuFee()
     })
 
-    const currentProfitRate = computed(() => {
-      if (localOrder.value.cost_price === 0) return 0
-      return (currentProfit.value / localOrder.value.cost_price) * 100
-    })
-
-    const profitClass = computed(() => {
-      if (currentProfit.value > 0) return 'profit-positive'
-      if (currentProfit.value < 0) return 'profit-negative'
-      return 'profit-neutral'
-    })
-
-    const profitIcon = computed(() => {
-      if (currentProfit.value > 0) return '📈'
-      if (currentProfit.value < 0) return '📉'
-      return ''
+    watch(() => localOrder.value.sell_price, () => {
+      calculateXianyuFee()
     })
 
     const calculateProfit = () => {
-      if (localOrder.value.sell_platform === '闲鱼' && localOrder.value.sell_price > 0) {
-        localOrder.value.platform_fee = -localOrder.value.sell_price * 0.01
-      }
+      // 利润计算由ProfitTab组件自动处理
     }
 
     const handleFigureChange = (figureId) => {
-      const figure = props.availableFigures.find(f => f.id === figureId)
-      if (figure) {
-        localOrder.value.cost_price = figure.average_purchase_price || 0
-      }
-    }
-
-    const formatNumber = (num) => {
-      return Math.abs(num).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      // 已在BasicInfoTab中处理，这里可以添加额外逻辑
     }
 
     watch(() => props.newOrder, (newVal) => {
@@ -325,39 +201,55 @@ export default {
       }
     }, { deep: true, immediate: true })
 
+    // 表单校验
+    const validateForm = () => {
+      const order = localOrder.value
+      const errors = []
+
+      if (!order.figure_id || order.figure_id === '') {
+        errors.push('请选择手办')
+      }
+
+      if (!order.sell_platform || order.sell_platform === '') {
+        errors.push('请选择卖出平台')
+      }
+
+      if (order.sell_price === null || order.sell_price === undefined || order.sell_price === '') {
+        errors.push('请输入卖出价格')
+      } else if (order.sell_price <= 0) {
+        errors.push('卖出价格必须大于0')
+      }
+
+      if (!order.status || order.status === '') {
+        errors.push('请选择卖出状态')
+      }
+
+      if (!order.buyer_phone || order.buyer_phone === '') {
+        errors.push('请输入买家手机号')
+      } else {
+        const phonePattern = /^1[3-9]\d{9}$/
+        if (!phonePattern.test(order.buyer_phone)) {
+          errors.push('手机号格式不正确，请输入11位有效手机号')
+        }
+      }
+
+      return errors
+    }
+
     const handleSubmit = () => {
-      if (!localOrder.value.figure_id) {
-        figureError.value = '请选择手办'
-        localActiveTab.value = 'basic'
+      const errors = validateForm()
+      if (errors.length > 0) {
+        ElMessage.error(errors[0])
         return
       }
-      if (!localOrder.value.sell_platform) {
-        figureError.value = ''
-        localActiveTab.value = 'basic'
-        context.emit('saveOrder', { ...localOrder.value })
-        return
-      }
-      if (!localOrder.value.buyer_phone) {
-        figureError.value = ''
-        localActiveTab.value = 'buyer'
-        context.emit('saveOrder', { ...localOrder.value })
-        return
-      }
-      figureError.value = ''
       context.emit('saveOrder', { ...localOrder.value })
     }
 
     return {
       localOrder,
       localActiveTab,
-      figureError,
-      currentProfit,
-      currentProfitRate,
-      profitClass,
-      profitIcon,
       calculateProfit,
       handleFigureChange,
-      formatNumber,
       handleSubmit
     }
   }
@@ -447,7 +339,7 @@ export default {
   color: white;
 }
 
-/* 标签页样式 - Komga风格 */
+/* 标签页样式 */
 .tab-label {
   display: flex;
   align-items: center;
@@ -464,144 +356,7 @@ export default {
   text-align: center;
 }
 
-/* 标签内容区域 */
-.tab-content {
-  padding: 10px 0;
-}
-
-/* 表单行 */
-.form-row {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 16px;
-}
-
-.form-row:last-child {
-  margin-bottom: 0;
-}
-
-.form-select {
-  width: 100%;
-}
-
-.form-input {
-  width: 100%;
-}
-
-.form-input.long-input {
-  flex: 2;
-}
-
-/* 价格输入 */
-.price-input-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.price-label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
-
-.price-input {
-  width: 120px;
-}
-
-.price-hint {
-  font-size: 12px;
-  color: #999;
-}
-
-.platform-fee {
-  flex: 1;
-}
-
-.fee-tip {
-  font-size: 12px;
-  color: #FF9800;
-  background: #fff3e0;
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin-left: auto;
-}
-
-/* 盈亏预览 */
-.profit-preview {
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
-  padding: 20px;
-  border-radius: 8px;
-}
-
-.profit-calculation {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.calc-item {
-  font-size: 14px;
-  color: #666;
-}
-
-.calc-operator {
-  font-size: 14px;
-  color: #999;
-}
-
-.profit-result {
-  font-size: 16px;
-  font-weight: 600;
-  padding: 8px 12px;
-  border-radius: 6px;
-}
-
-.profit-positive {
-  color: #4CAF50;
-  background: #e8f5e9;
-}
-
-.profit-negative {
-  color: #f44336;
-  background: #ffebee;
-}
-
-.profit-neutral {
-  color: #666;
-  background: #f5f5f5;
-}
-
-.profit-indicator {
-  display: flex;
-  gap: 15px;
-  margin-top: 10px;
-}
-
-.indicator {
-  font-size: 14px;
-  color: #999;
-  padding: 4px 12px;
-  border-radius: 4px;
-  background: #fff;
-  transition: all 0.3s ease;
-}
-
-.indicator.active {
-  color: #333;
-  background: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* 备注输入 */
-.remark-input {
-  width: 100%;
-  resize: none;
-}
-
-/* Komga风格的侧边栏标签页 */
+/* Komga风格的侧边栏 - 使用:deep()深度选择器覆盖Element Plus默认样式 */
 :deep(.form-container .el-tabs__header) {
   background-color: #f5f5f5;
   border-right: 1px solid #e0e0e0;
@@ -631,6 +386,7 @@ export default {
   position: relative;
 }
 
+/* 添加左侧滑动指示器 */
 :deep(.form-container .el-tabs__item.is-active)::after {
   content: '';
   position: absolute;
@@ -642,22 +398,26 @@ export default {
   border-radius: 0 2px 2px 0;
 }
 
+/* 标签内容区域样式 */
 :deep(.form-container .el-tabs__content) {
   padding: 24px;
   background-color: white;
 }
 
+/* 移除默认边框 */
 :deep(.form-container .el-tabs--border-card) {
   border: none !important;
   box-shadow: none !important;
 }
 
+/* 移除标签页容器的上下边框 */
 :deep(.form-container .el-tabs--border-card > .el-tabs__header) {
   border-top: none !important;
   border-bottom: none !important;
   background-color: #f5f5f5;
 }
 
+/* 移除导航包裹的边框 */
 :deep(.form-container .el-tabs__nav-wrap) {
   margin-bottom: 0;
   border-top: none !important;
@@ -670,25 +430,9 @@ export default {
   border-bottom: none !important;
 }
 
+/* 确保标签项没有额外的边框 */
 :deep(.form-container .el-tabs--border-card > .el-tabs__header .el-tabs__item) {
   border-top: none !important;
   border-bottom: none !important;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .form-container {
-    max-height: 90vh;
-    margin: 10px;
-  }
-  
-  .form-row {
-    flex-direction: column;
-  }
-  
-  .profit-calculation {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 </style>

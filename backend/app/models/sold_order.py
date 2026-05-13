@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
 from app.models.database import Base
 
@@ -37,6 +37,12 @@ class SoldOrder(Base):
     shipping_fee = Column(Float, default=0)  # 运费（负数表示支出）
     platform_fee = Column(Float, default=0)  # 平台手续费（负数表示支出）
     
+    # 币种信息
+    sell_price_currency = Column(String(10), default="CNY")  # 卖出价格币种：CNY/USD/JPY/EUR
+    cost_price_currency = Column(String(10), default="CNY")  # 成本价币种：CNY/USD/JPY/EUR
+    shipping_fee_currency = Column(String(10), default="CNY")  # 运费币种：CNY/USD/JPY/EUR
+    platform_fee_currency = Column(String(10), default="CNY")  # 平台手续费币种：CNY/USD/JPY/EUR
+    
     # 净利润计算（可由后端计算或存储）
     net_profit = Column(Float)  # 净利润 = 卖出价 - 成本价 + 运费 + 手续费
     profit_rate = Column(Float)  # 利润率 = 净利润 / 成本价 * 100
@@ -58,6 +64,7 @@ class SoldOrder(Base):
     # 软删除标记
     is_active = Column(Integer, default=1)  # 是否激活：1=正常，0=已删除
     deleted_at = Column(DateTime, nullable=True)  # 删除时间（软删除标记）
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 创建时间
 
     # 关系
     user = relationship("User")  # 关联用户对象

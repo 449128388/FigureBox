@@ -256,11 +256,11 @@ export default {
 }
 
 .profit-positive .profit-text {
-  color: #4CAF50;
+  color: #f44336;
 }
 
 .profit-negative .profit-text {
-  color: #f44336;
+  color: #4CAF50;
 }
 
 .profit-rate {
@@ -279,11 +279,11 @@ export default {
 }
 
 .rate-positive .rate-text {
-  color: #4CAF50;
+  color: #f44336;
 }
 
 .rate-negative .rate-text {
-  color: #f44336;
+  color: #4CAF50;
 }
 
 .buyer-info {

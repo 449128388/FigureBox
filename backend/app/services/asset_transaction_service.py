@@ -479,3 +479,48 @@ class AssetTransactionService:
         db.add(transaction)
         db.flush()
         return transaction
+
+    @staticmethod
+    def create_buy_transaction_from_order(
+        db: Session,
+        user_id: int,
+        figure_id: int,
+        order,
+        quantity: int = 1
+    ) -> AssetTransaction:
+        """
+        从订单创建买入交易记录（库存账）
+
+        使用场景：
+        - 手办导入时，从订单数据创建库存交易记录
+        - 记录库存数量变动
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            figure_id: 手办ID
+            order: 订单对象
+            quantity: 购买数量，默认为1
+
+        Returns:
+            创建的交易记录对象
+        """
+        # 计算订单总金额（定金+尾款）
+        total_amount = (order.deposit or 0) + (order.balance or 0)
+        unit_price = total_amount / quantity if quantity > 0 and total_amount > 0 else 0
+
+        transaction = AssetTransaction(
+            user_id=user_id,
+            figure_id=figure_id,
+            order_id=order.id,
+            transaction_type="buy",
+            price=unit_price,
+            quantity=quantity,
+            total_amount=total_amount,
+            remaining_quantity=quantity,
+            notes=f"订单导入 - {order.shop_name or '未知店铺'}"
+        )
+
+        db.add(transaction)
+        db.flush()
+        return transaction

@@ -218,18 +218,11 @@ async def get_asset_dashboard(
     advice = [
         {"figure_name": "Saber", "advice": "Saber跌幅超10%,建议持有或止损"}
     ]
-    
-    # 构建手办ID到订单数量的映射（使用前面已获取的有效订单）
-    figure_order_counts = {}
-    for order in valid_orders:
-        if order.figure_id in figure_order_counts:
-            figure_order_counts[order.figure_id] += 1
-        else:
-            figure_order_counts[order.figure_id] = 1
-    
-    # 使用服务层分析所有分布数据（传入订单数量）
+
+    # 【修改】使用服务层分析所有分布数据（从库存账 AssetTransaction 获取真实库存）
+    # 已出售订单会创建 sell 记录并扣减买入记录的 remaining_quantity
     distribution_data = HoldingAnalysisService.analyze_all_distributions(
-        figures, total_assets, figure_order_counts
+        db, figures, total_assets, current_user.id
     )
     
     # 检查是否需要返回新的token（自动续期）

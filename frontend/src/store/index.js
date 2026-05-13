@@ -110,6 +110,20 @@ export const useFigureStore = defineStore('figure', {
       // 从前端列表中移除已删除的手办
       this.figures = this.figures.filter(f => !figureIds.includes(f.id))
       return response
+    },
+    async fetchFiguresWithStock(name = null) {
+      // 获取有库存的手办列表（用于出售订单选择）
+      const queryParams = new URLSearchParams()
+      if (name) {
+        queryParams.append('name', name)
+      }
+      const queryString = queryParams.toString()
+      const url = queryString ? `/figures/with-stock?${queryString}` : '/figures/with-stock'
+      
+      const response = await axios.get(url)
+      this.figures = response
+      this.totalCount = response.length
+      return response
     }
   }
 })
@@ -236,6 +250,15 @@ export const useSoldOrderStore = defineStore('soldOrder', {
         this.totalNetProfit = 0
         return 0
       }
+    },
+    async fetchXianyuMonthlyStats(excludeOrderId = null) {
+      // 获取当月闲鱼订单统计（用于计算平台手续费）
+      let url = '/sold-orders/xianyu-monthly-stats/'
+      if (excludeOrderId) {
+        url += `?exclude_order_id=${excludeOrderId}`
+      }
+      const response = await axios.get(url)
+      return response
     }
   }
 })

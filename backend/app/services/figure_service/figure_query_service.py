@@ -267,3 +267,131 @@ class FigureQueryService:
         ).options(
             selectinload(Figure.orders)
         ).all()
+
+    @staticmethod
+    def get_figures_with_stock(
+        db: Session,
+        user_id: int,
+        name: Optional[str] = None
+    ) -> List[FigureListItem]:
+        """
+        获取有库存的手办列表（用于出售订单选择）
+        只返回 asset_transactions 中 remaining_quantity > 0 的手办
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            name: 名称模糊搜索
+
+        Returns:
+            List[FigureListItem]: 有库存的手办列表
+        """
+        from app.models.asset import AssetTransaction
+
+        # 第一步：获取有库存的手办ID列表
+        figure_ids_result = db.query(AssetTransaction.figure_id).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.transaction_type == 'buy',
+            AssetTransaction.remaining_quantity > 0,
+            AssetTransaction.is_active == True
+        ).distinct().all()
+
+        figure_ids = [r[0] for r in figure_ids_result]
+
+        if not figure_ids:
+            return []
+
+        # 第二步：查询这些手办的基本信息（简化查询，避免复杂预加载）
+        query = db.query(Figure).filter(
+            Figure.id.in_(figure_ids),
+            Figure.is_active == True
+        )
+
+        # 按名称搜索
+        if name:
+            query = query.filter(Figure.name.ilike(f"%{name}%"))
+
+        # 简化为普通查询，不使用selectinload避免内存溢出
+        figures = query.all()
+
+        # 第三步：单独查询标签和订单信息
+        figure_id_list = [f.id for f in figures]
+
+        # 查询标签关联
+        from app.models.tag import figure_tag, Tag
+        tag_links = db.query(figure_tag).filter(
+            figure_tag.c.figure_id.in_(figure_id_list)
+        ).all()
+
+        # 构建手办ID到标签ID列表的映射
+        figure_tags_map = {}
+        tag_ids = set()
+        for link in tag_links:
+            if link.figure_id not in figure_tags_map:
+                figure_tags_map[link.figure_id] = []
+            figure_tags_map[link.figure_id].append(link.tag_id)
+            tag_ids.add(link.tag_id)
+
+        # 查询标签详情
+        tags_map = {}
+        if tag_ids:
+            tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+            tags_map = {t.id: t for t in tags}
+
+        # 查询订单信息用于计算平均价格
+        from app.models.order import Order
+        orders = db.query(Order).filter(
+            Order.figure_id.in_(figure_id_list),
+            Order.is_active == 1
+        ).all()
+
+        # 构建手办ID到订单列表的映射
+        figure_orders_map = {}
+        for order in orders:
+            if order.figure_id not in figure_orders_map:
+                figure_orders_map[order.figure_id] = []
+            figure_orders_map[order.figure_id].append(order)
+
+        # 转换为精简响应模型
+        result = []
+        for figure in figures:
+            # 获取该手办的订单列表
+            figure_orders = figure_orders_map.get(figure.id, [])
+            order_count = len(figure_orders)
+
+            # 计算平均入手价格（加权平均）
+            average_purchase_price = FigurePriceService.calculate_orders_average_price(figure_orders)
+
+            # 获取该手办的标签
+            figure_tag_ids = figure_tags_map.get(figure.id, [])
+            figure_tags = [tags_map[tid] for tid in figure_tag_ids if tid in tags_map]
+
+            item = FigureListItem(
+                id=figure.id,
+                name=figure.name,
+                japanese_name=figure.japanese_name,
+                price=figure.price,
+                currency=figure.currency,
+                market_price=figure.market_price,
+                market_currency=figure.market_currency,
+                manufacturer=figure.manufacturer,
+                release_date=figure.release_date,
+                purchase_currency=figure.purchase_currency,
+                purchase_date=figure.purchase_date,
+                purchase_method=figure.purchase_method,
+                purchase_type=figure.purchase_type,
+                quantity=figure.quantity,
+                scale=figure.scale,
+                painting=figure.painting,
+                original_art=figure.original_art,
+                work=figure.work,
+                material=figure.material,
+                size=figure.size,
+                image=figure.images[0] if figure.images and len(figure.images) > 0 else None,
+                tags=figure_tags,
+                order_count=order_count,
+                average_purchase_price=average_purchase_price
+            )
+            result.append(item)
+
+        return result

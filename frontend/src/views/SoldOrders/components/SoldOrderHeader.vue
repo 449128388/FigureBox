@@ -3,7 +3,7 @@
     <h2>已出售订单</h2>
     <div class="header-actions">
       <div class="action-buttons">
-        <button class="btn btn-add" @click="$emit('openAddForm')">添加卖出</button>
+        <button class="btn btn-add" @click="$emit('openAddForm')">添加订单</button>
         <button
           class="btn"
           :class="isBatchMode ? 'btn-batch-active' : 'btn-batch'"

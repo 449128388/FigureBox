@@ -27,6 +27,29 @@ def get_sold_order_statistics(current_user: User = Depends(get_current_user), db
     return SoldOrderService.get_sold_order_statistics(db, current_user)
 
 
+@router.get("/xianyu-monthly-stats/")
+def get_xianyu_monthly_statistics(
+    exclude_order_id: int = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取用户当月闲鱼订单统计信息（用于计算平台手续费）
+    
+    统计当月（自然月）的闲鱼订单数量和成交额
+    用于根据用户选择的平台类型自动套用对应费率
+    
+    Args:
+        exclude_order_id: 需要排除的订单ID（编辑时使用）
+    
+    Returns:
+        Dict: 包含订单数量和成交额的字典
+        - order_count: 当月订单数量
+        - total_amount: 当月成交总额
+    """
+    return SoldOrderService.get_xianyu_monthly_statistics(db, current_user, exclude_order_id)
+
+
 @router.get("/", response_model=list[SoldOrderListItem])
 def get_sold_orders(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """

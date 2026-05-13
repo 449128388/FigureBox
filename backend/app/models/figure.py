@@ -1,68 +1,162 @@
-from sqlalchemy import Column, Integer, String, Float, Text, Date, JSON, Boolean, DateTime
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.models.database import Base
+<!--
+  FigureDetail.vue - 手办详情页面
+  
+  功能说明：
+  - 展示单个手办的完整详细信息
+  - 包含基本信息、图片展示、标签、关联订单、作者信息、规格参数等模块
+  - 支持从手办列表点击跳转进入
+  
+  组件依赖：
+  - FigureHeader.vue - 手办标题和返回按钮
+  - FigureImages.vue - 图片轮播展示
+  - FigureBasicInfo.vue - 基础信息（价格、发售日期等）
+  - FigureTags.vue - 标签展示
+  - FigureOrders.vue - 关联订单列表
+  - FigureAuthorInfo.vue - 作者/涂装/原画信息
+  - FigureSpecInfo.vue - 规格参数（比例、材质、尺寸等）
+  
+  维护提示：
+  - 通过路由参数 figureId 获取手办ID
+  - 使用 useFigureDetail composable 管理数据获取逻辑
+  - 加载状态单独处理，避免空白页面
+-->
+<template>
+  <div class="figure-detail-container">
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>加载中...</p>
+    </div>
+    
+    <!-- 内容区域 -->
+    <template v-else>
+      <FigureHeader :figure="figure" />
+    
+      <div class="figure-content">
+        <FigureImages :figure="figure" />
+        
+        <div class="figure-info">
+          <FigureBasicInfo :figure="figure" />
+          <FigureTags :figure="figure" />
+          <FigureOrders :relatedOrders="relatedOrders" />
+          <FigureAuthorInfo :figure="figure" />
+          <FigureSpecInfo :figure="figure" />
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
 
-class Figure(Base):
-    """
-    手办模型 - 存储手办的基本信息、价格、购买记录等数据
-    
-    功能说明：
-    - 记录手办的基础信息（名称、制造商、定价等）
-    - 跟踪购买信息（入手价格、时间、方式等）
-    - 支持多标签关联
-    - 支持价格历史记录
-    
-    关联关系：
-    - tags: 多对多关联 Tag 表
-    - price_histories: 一对多关联 AssetPriceHistory 表
-    """
-    __tablename__ = "figures"
+<script>
+import FigureHeader from './FigureDetail/components/FigureHeader.vue'
+import FigureImages from './FigureDetail/components/FigureImages.vue'
+import FigureBasicInfo from './FigureDetail/components/FigureBasicInfo.vue'
+import FigureTags from './FigureDetail/components/FigureTags.vue'
+import FigureOrders from './FigureDetail/components/FigureOrders.vue'
+import FigureAuthorInfo from './FigureDetail/components/FigureAuthorInfo.vue'
+import FigureSpecInfo from './FigureDetail/components/FigureSpecInfo.vue'
+import { useFigureDetail } from './FigureDetail/composables/useFigureDetail'
 
-    # 主键
-    id = Column(Integer, primary_key=True, index=True)  # 手办唯一标识ID
-    
-    # 基础信息
-    name = Column(String(100), nullable=False)  # 手办名称（中文/显示名）
-    japanese_name = Column(String(100))  # 日文名称（原始名称）
-    manufacturer = Column(String(100))  # 制造商/厂商名称
-    
-    # 官方定价信息
-    price = Column(Float)  # 官方定价（日元或人民币）
-    currency = Column(String(10), default="CNY")  # 定价货币类型（CNY/JPY等）
-    release_date = Column(Date)  # 官方发售日期/出货日期
-    
-    # 购买信息
-    purchase_currency = Column(String(10), default="CNY")  # 入手价格货币类型（默认人民币）
-    average_purchase_price = Column(Float, default=0)  # 平均入手价格（基于订单自动计算）
-    purchase_date = Column(Date)  # 实际入手日期
-    purchase_method = Column(String(100))  # 购买渠道/方式（如：淘宝、闲鱼、会员购等）
-    purchase_type = Column(String(50))  # 购买类型（预定、现货、转单等）
-    quantity = Column(Integer, default=1)  # 购买数量，默认值为1
-    
-    # 手办规格
-    scale = Column(String(50))  # 比例（如：1/7、1/8等）
-    painting = Column(String(100))  # 涂装信息
-    original_art = Column(String(100))  # 原画/原型师
-    work = Column(String(100))  # 作品来源（动漫/游戏名称）
-    material = Column(String(100))  # 材质
-    size = Column(String(100))  # 尺寸规格
-    
-    # 媒体
-    images = Column(JSON, default=list)  # 图片URL列表（JSON数组格式）
-    
-    # 估值和市场价格
-    current_value = Column(Float)  # 当前估值（用户自定义估值）
-    market_price = Column(Float)  # 市场价格/市场价
-    market_currency = Column(String(10), default="CNY")  # 市场价货币类型
-    
-    # 关联的标签（多对多关系）
-    tags = relationship("Tag", secondary="figure_tag", back_populates="figures")
-    # 关联的价格历史
-    price_histories = relationship("AssetPriceHistory", back_populates="figure")
-    # 关联的订单（一对多关系）
-    orders = relationship("Order", back_populates="figure")
+export default {
+  name: 'FigureDetail',
+  components: {
+    FigureHeader,
+    FigureImages,
+    FigureBasicInfo,
+    FigureTags,
+    FigureOrders,
+    FigureAuthorInfo,
+    FigureSpecInfo
+  },
+  data() {
+    return {
+      loading: true,
+      figure: {},
+      relatedOrders: []
+    }
+  },
+  async mounted() {
+    await this.fetchFigureDetail()
+  },
+  methods: {
+    async fetchFigureDetail() {
+      try {
+        this.loading = true
+        const { fetchFigureDetail, fetchOrders, getRelatedOrders } = useFigureDetail()
+        
+        // 并行获取手办详情和订单数据
+        const [figureData, orders] = await Promise.all([
+          fetchFigureDetail(this.$route.params.id),
+          fetchOrders()
+        ])
+        
+        this.figure = figureData
+        this.relatedOrders = getRelatedOrders(this.$route.params.id, orders)
+      } catch (error) {
+      } finally {
+        this.loading = false
+      }
+    }
+  }
+}
+</script>
 
-    # 软删除字段
-    is_active = Column(Boolean, default=True)  # 是否激活
-    deleted_at = Column(DateTime(timezone=True), nullable=True)  # 删除时间
+<style scoped>
+.figure-detail-container {
+  margin: 20px auto 0;
+  width: 100%;
+  max-width: 1200px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 0;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.figure-content {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.figure-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .figure-content {
+    flex-direction: column;
+  }
+  
+  .figure-detail-container {
+    margin-left: 10px;
+    margin-right: 10px;
+    padding: 15px;
+  }
+}
+</style>

@@ -2,6 +2,7 @@
 已出售订单CRUD服务
 
 提供已出售订单的创建、更新、删除功能
+集成多模块联动：库存账、资金账、资产看板、手办状态
 """
 from typing import Dict, Any
 from sqlalchemy.orm import Session
@@ -10,38 +11,97 @@ from datetime import datetime
 from app.models.sold_order import SoldOrder
 from app.models.user import User
 from app.schemas.sold_order import SoldOrderCreate, SoldOrderUpdate
+from app.services.currency_service import CurrencyService
+from app.services.sold_order_service.sold_order_transaction_service import SoldOrderTransactionService
+from app.services.sold_order_service.sold_order_inventory_service import SoldOrderInventoryService
+from app.services.sold_order_service.sold_order_figure_service import SoldOrderFigureService
 
 
 class SoldOrderCrudService:
     """
     已出售订单CRUD服务类
-    
+
     提供订单的创建、更新、删除（软删除）功能
+    支持多币种自动转换为人民币计算盈亏
+    集成多模块联动：
+    - 尾款管理（OrderTransaction）：创建卖出订单主记录和资金流水
+    - 库存账（AssetTransaction）：扣减库存数量
+    - 资产看板：盈亏分析数据
+    - 手办聚合状态：更新库存数量和售罄状态
     """
 
     @staticmethod
-    def _calculate_profit(sell_price: float, cost_price: float, shipping_fee: float, platform_fee: float) -> Dict[str, float]:
+    def _calculate_profit(
+        sell_price: float,
+        cost_price: float,
+        shipping_fee: float,
+        platform_fee: float
+    ) -> Dict[str, float]:
         """
-        计算净利润和利润率
-        
-        净利润 = 卖出价 - 成本价 + 运费 + 手续费
+        计算净利润和利润率（所有金额应为人民币）
+
+        净利润 = 卖出价 - 成本价 - 运费 - 手续费
         利润率 = 净利润 / 成本价 * 100
-        
+
         Args:
-            sell_price: 卖出价格
-            cost_price: 成本价格
-            shipping_fee: 运费（负数表示支出）
-            platform_fee: 平台手续费（负数表示支出）
-        
+            sell_price: 卖出价格（人民币）
+            cost_price: 成本价格（人民币）
+            shipping_fee: 运费（人民币，支出）
+            platform_fee: 平台手续费（人民币，支出）
+
         Returns:
             包含净利润和利润率的字典
         """
-        net_profit = sell_price - cost_price + shipping_fee + platform_fee
+        net_profit = sell_price - cost_price - shipping_fee - platform_fee
         profit_rate = (net_profit / cost_price) * 100 if cost_price != 0 else 0
-        
+
         return {
             'net_profit': round(net_profit, 2),
             'profit_rate': round(profit_rate, 2)
+        }
+
+    @staticmethod
+    def _calculate_profit_with_currency(
+        sell_price: float,
+        sell_price_currency: str,
+        cost_price: float,
+        cost_price_currency: str,
+        shipping_fee: float,
+        shipping_fee_currency: str,
+        platform_fee: float,
+        platform_fee_currency: str
+    ) -> Dict[str, float]:
+        """
+        计算净利润和利润率（支持多币种自动转换为人民币）
+
+        Args:
+            sell_price: 卖出价格
+            sell_price_currency: 卖出价格币种
+            cost_price: 成本价格
+            cost_price_currency: 成本价格币种
+            shipping_fee: 运费
+            shipping_fee_currency: 运费币种
+            platform_fee: 平台手续费
+            platform_fee_currency: 平台手续费币种
+
+        Returns:
+            包含净利润和利润率的字典（金额统一为人民币）
+        """
+        # 使用币种服务将所有金额转换为人民币
+        profit_data = CurrencyService.calculate_profit_in_cny(
+            sell_price=sell_price,
+            sell_price_currency=sell_price_currency or 'CNY',
+            cost_price=cost_price,
+            cost_price_currency=cost_price_currency or 'CNY',
+            shipping_fee=shipping_fee or 0,
+            shipping_fee_currency=shipping_fee_currency or 'CNY',
+            platform_fee=platform_fee or 0,
+            platform_fee_currency=platform_fee_currency or 'CNY'
+        )
+
+        return {
+            'net_profit': profit_data['net_profit'],
+            'profit_rate': profit_data['profit_rate']
         }
 
     @staticmethod
@@ -52,41 +112,81 @@ class SoldOrderCrudService:
     ) -> SoldOrder:
         """
         创建已出售订单
-        
-        创建时自动计算净利润和利润率
+
+        创建时自动完成以下联动操作：
+        1. 创建已出售订单记录
+        2. 尾款管理：创建卖出订单主记录（类型标记为 sell）
+        3. 资金账：创建3笔资金流水（收入-卖出价、支出-运费、支出-手续费）
+        4. 库存账：扣减库存数量（trans_type='sell'）
+        5. 资产看板：盈亏分析数据（通过净利润字段）
+        6. 手办聚合状态：更新当前库存数量、售罄状态
+
+        所有操作在事务中执行，确保数据一致性
         """
-        # 计算净利润和利润率
-        profit_data = SoldOrderCrudService._calculate_profit(
-            order_data.sell_price,
-            order_data.cost_price,
-            order_data.shipping_fee or 0,
-            order_data.platform_fee or 0
-        )
+        try:
+            # 计算净利润和利润率（自动转换多币种为人民币）
+            profit_data = SoldOrderCrudService._calculate_profit_with_currency(
+                sell_price=order_data.sell_price,
+                sell_price_currency=order_data.sell_price_currency,
+                cost_price=order_data.cost_price,
+                cost_price_currency=order_data.cost_price_currency,
+                shipping_fee=order_data.shipping_fee or 0,
+                shipping_fee_currency=order_data.shipping_fee_currency,
+                platform_fee=order_data.platform_fee or 0,
+                platform_fee_currency=order_data.platform_fee_currency
+            )
 
-        new_order = SoldOrder(
-            user_id=current_user.id,
-            figure_id=order_data.figure_id,
-            sell_price=order_data.sell_price,
-            cost_price=order_data.cost_price,
-            shipping_fee=order_data.shipping_fee or 0,
-            platform_fee=order_data.platform_fee or 0,
-            net_profit=profit_data['net_profit'],
-            profit_rate=profit_data['profit_rate'],
-            sell_platform=order_data.sell_platform,
-            order_number=order_data.order_number,
-            buyer_phone=order_data.buyer_phone,
-            buyer_address=order_data.buyer_address,
-            tracking_number=order_data.tracking_number,
-            shipping_date=order_data.shipping_date,
-            status=order_data.status or "待发货",
-            remark=order_data.remark
-        )
+            # 1. 创建已出售订单记录
+            new_order = SoldOrder(
+                user_id=current_user.id,
+                figure_id=order_data.figure_id,
+                sell_price=order_data.sell_price,
+                cost_price=order_data.cost_price,
+                shipping_fee=order_data.shipping_fee or 0,
+                platform_fee=order_data.platform_fee or 0,
+                sell_price_currency=order_data.sell_price_currency or 'CNY',
+                cost_price_currency=order_data.cost_price_currency or 'CNY',
+                shipping_fee_currency=order_data.shipping_fee_currency or 'CNY',
+                platform_fee_currency=order_data.platform_fee_currency or 'CNY',
+                net_profit=profit_data['net_profit'],
+                profit_rate=profit_data['profit_rate'],
+                sell_platform=order_data.sell_platform,
+                order_number=order_data.order_number,
+                buyer_phone=order_data.buyer_phone,
+                buyer_address=order_data.buyer_address,
+                tracking_number=order_data.tracking_number,
+                shipping_date=order_data.shipping_date,
+                status=order_data.status or "待发货",
+                remark=order_data.remark
+            )
 
-        db.add(new_order)
-        db.commit()
-        db.refresh(new_order)
+            db.add(new_order)
+            db.flush()  # 获取订单ID，但不提交
 
-        return new_order
+            # 2. 尾款管理：创建卖出订单主记录和资金流水（3笔）
+            SoldOrderTransactionService.create_all_sold_order_transactions(
+                db, new_order, current_user.id
+            )
+
+            # 3. 库存账：扣减库存数量
+            SoldOrderInventoryService.deduct_inventory(
+                db, new_order, current_user.id
+            )
+
+            # 4. 手办聚合状态：更新库存数量和售罄状态
+            SoldOrderFigureService.update_figure_status(
+                db, new_order, current_user.id
+            )
+
+            # 提交所有变更
+            db.commit()
+            db.refresh(new_order)
+
+            return new_order
+
+        except Exception as e:
+            db.rollback()
+            raise e
 
     @staticmethod
     def update_sold_order(
@@ -120,6 +220,14 @@ class SoldOrderCrudService:
             order.shipping_fee = order_data.shipping_fee
         if order_data.platform_fee is not None:
             order.platform_fee = order_data.platform_fee
+        if order_data.sell_price_currency is not None:
+            order.sell_price_currency = order_data.sell_price_currency
+        if order_data.cost_price_currency is not None:
+            order.cost_price_currency = order_data.cost_price_currency
+        if order_data.shipping_fee_currency is not None:
+            order.shipping_fee_currency = order_data.shipping_fee_currency
+        if order_data.platform_fee_currency is not None:
+            order.platform_fee_currency = order_data.platform_fee_currency
         if order_data.sell_platform is not None:
             order.sell_platform = order_data.sell_platform
         if order_data.order_number is not None:
@@ -137,17 +245,25 @@ class SoldOrderCrudService:
         if order_data.remark is not None:
             order.remark = order_data.remark
 
-        # 如果涉及金额的字段有变化，重新计算净利润和利润率
-        if (order_data.sell_price is not None or 
-            order_data.cost_price is not None or 
-            order_data.shipping_fee is not None or 
-            order_data.platform_fee is not None):
-            
-            profit_data = SoldOrderCrudService._calculate_profit(
-                order.sell_price,
-                order.cost_price,
-                order.shipping_fee,
-                order.platform_fee
+        # 如果涉及金额的字段有变化，重新计算净利润和利润率（支持多币种）
+        if (order_data.sell_price is not None or
+            order_data.cost_price is not None or
+            order_data.shipping_fee is not None or
+            order_data.platform_fee is not None or
+            order_data.sell_price_currency is not None or
+            order_data.cost_price_currency is not None or
+            order_data.shipping_fee_currency is not None or
+            order_data.platform_fee_currency is not None):
+
+            profit_data = SoldOrderCrudService._calculate_profit_with_currency(
+                sell_price=order.sell_price,
+                sell_price_currency=order.sell_price_currency,
+                cost_price=order.cost_price,
+                cost_price_currency=order.cost_price_currency,
+                shipping_fee=order.shipping_fee,
+                shipping_fee_currency=order.shipping_fee_currency,
+                platform_fee=order.platform_fee,
+                platform_fee_currency=order.platform_fee_currency
             )
             order.net_profit = profit_data['net_profit']
             order.profit_rate = profit_data['profit_rate']
@@ -165,24 +281,44 @@ class SoldOrderCrudService:
     ) -> Dict[str, Any]:
         """
         软删除已出售订单
-        
-        不物理删除订单记录，仅标记 is_active=False 和 deleted_at
+
+        删除时联动处理：
+        1. 软删除已出售订单记录
+        2. 恢复库存数量
+        3. 恢复手办聚合状态
+        4. 相关资金流水记录保持，但标记为无效（通过订单ID关联）
         """
-        order = db.query(SoldOrder).filter(
-            SoldOrder.id == order_id,
-            SoldOrder.user_id == current_user.id,
-            SoldOrder.is_active == 1
-        ).first()
+        try:
+            order = db.query(SoldOrder).filter(
+                SoldOrder.id == order_id,
+                SoldOrder.user_id == current_user.id,
+                SoldOrder.is_active == 1
+            ).first()
 
-        if not order:
-            raise ValueError("订单不存在或已被删除")
+            if not order:
+                raise ValueError("订单不存在或已被删除")
 
-        order.is_active = 0
-        order.deleted_at = datetime.now()
+            # 1. 软删除已出售订单记录
+            order.is_active = 0
+            order.deleted_at = datetime.now()
 
-        db.commit()
+            # 2. 恢复库存数量
+            SoldOrderInventoryService.restore_inventory(
+                db, order, current_user.id
+            )
 
-        return {"message": "订单删除成功", "order_id": order_id}
+            # 3. 恢复手办聚合状态
+            SoldOrderFigureService.restore_figure_status(
+                db, order, current_user.id
+            )
+
+            db.commit()
+
+            return {"message": "订单删除成功", "order_id": order_id}
+
+        except Exception as e:
+            db.rollback()
+            raise e
 
     @staticmethod
     def batch_delete_sold_orders(

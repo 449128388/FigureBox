@@ -135,13 +135,14 @@ class FigureImportService:
         imported_count = 0
         
         for order_data in orders_data:
-            # 【修复】创建订单并自动创建 asset_transactions 记录
             # 创建新订单
             order = Order()
             order.figure_id = figure.id
             order.user_id = user_id
             order.deposit = order_data.get('deposit', 0)
+            order.deposit_currency = order_data.get('deposit_currency', 'CNY')
             order.balance = order_data.get('balance', 0)
+            order.balance_currency = order_data.get('balance_currency', 'CNY')
             order.due_date = FigureImportService.parse_date(order_data.get('due_date'))
             order.status = order_data.get('status', '未支付')
             order.shop_name = order_data.get('shop_name', '')
@@ -151,31 +152,39 @@ class FigureImportService:
             db.add(order)
             db.flush()  # 获取订单ID
             
-            # 【修复】创建资产交易记录（库存账）和资金流水记录（资金账）
+            # 创建资产交易记录（库存账）和资金流水记录（资金账）
             try:
-                # 1. 创建资产交易记录（库存账）- 记录数量变动
+                # 1. 创建资产交易记录（库存账）- 每个订单对应1体手办
+                order_quantity = order_data.get('quantity', 1)
                 AssetTransactionService.create_buy_transaction_from_order(
                     db=db,
                     user_id=user_id,
                     figure_id=figure.id,
                     order=order,
-                    quantity=figure.quantity or 1
+                    quantity=order_quantity
                 )
 
-                # 2. 创建资金流水记录（资金账）- 记录资金变动
+                # 2. 创建资金流水记录（资金账）
+                purchase_date = FigureImportService.parse_date(order_data.get('purchase_date'))
                 OrderTransactionService.create_transaction_from_order(
                     db=db,
                     user_id=user_id,
                     figure_id=figure.id,
                     order=order,
-                    transaction_date=order.purchase_date,
+                    transaction_date=purchase_date,
                     notes=f"订单导入 - {figure.name}"
                 )
             except Exception as e:
-                # 如果创建交易记录失败，不影响订单导入
                 print(f"导入订单时创建交易记录失败: {e}")
+                import traceback
+                traceback.print_exc()
             
             imported_count += 1
+        
+        # 更新手办数量为实际导入的订单数，与asset_transactions保持一致
+        if imported_count > 0:
+            figure.quantity = imported_count
+            db.flush()
         
         return imported_count
     

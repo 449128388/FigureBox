@@ -203,22 +203,24 @@ class HoldingAnalysisService:
     @classmethod
     def build_holding_detail(
         cls,
+        db: Session,
         figure: Figure,
         total_assets: float,
-        order_count: int = 0
+        user_id: int
     ) -> Dict[str, Any]:
         """构建单个持仓明细"""
-        return HoldingPositionService.build_holding_detail(figure, total_assets, order_count)
+        return HoldingPositionService.build_holding_detail(db, figure, total_assets, user_id)
 
     @classmethod
     def build_all_holdings(
         cls,
+        db: Session,
         figures: List[Figure],
         total_assets: float,
-        figure_order_counts: Dict[int, int] = None
+        user_id: int
     ) -> List[Dict[str, Any]]:
         """构建所有持仓明细"""
-        return HoldingPositionService.build_all_holdings(figures, total_assets, figure_order_counts)
+        return HoldingPositionService.build_all_holdings(db, figures, total_assets, user_id)
 
     # ==========================================================================
     # 分布统计服务（委托给 asset_distribution_service）
@@ -258,13 +260,14 @@ class HoldingAnalysisService:
     @classmethod
     def analyze_all_distributions(
         cls,
+        db: Session,
         figures: List[Figure],
         total_assets: float,
-        figure_order_counts: Dict[int, int] = None
+        user_id: int
     ) -> Dict[str, List[Dict[str, Any]]]:
         """分析所有分布数据"""
-        # 构建持仓明细
-        holdings = cls.build_all_holdings(figures, total_assets, figure_order_counts)
+        # 构建持仓明细（从库存账获取真实库存）
+        holdings = cls.build_all_holdings(db, figures, total_assets, user_id)
 
         # 计算各种分布
         return {

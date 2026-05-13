@@ -88,6 +88,7 @@
       :availableFigures="availableFigures"
       @saveOrder="handleSaveOrder"
       @cancel="showAddForm = false"
+      @calculatePlatformFee="handleCalculatePlatformFee"
     />
 
     <!-- 删除确认对话框 -->
@@ -136,6 +137,7 @@ const {
   
   openAddForm,
   handleSaveOrder,
+  handleCalculatePlatformFee,
   openDeleteConfirmDialog,
   cancelDelete,
   confirmDelete,
