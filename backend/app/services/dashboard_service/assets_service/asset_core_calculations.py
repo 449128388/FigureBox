@@ -6,8 +6,9 @@
 from datetime import date, timedelta
 from typing import Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
-from app.models.asset import AssetValueCache, UserSettings
+from app.models.asset import AssetValueCache, UserSettings, AssetTransaction
 from app.models.figure import Figure
 from app.models.order import Order
 
@@ -66,6 +67,46 @@ class TotalAssetsCalculator:
             (fig.market_price or fig.price or 0) * (fig.quantity or 1)
             for fig in figures
         )
+    
+    @staticmethod
+    def calculate_from_transactions(db: Session, user_id: int) -> float:
+        """
+        计算总资产（基于库存账，支持卖出后正确统计）
+        
+        统计规则：
+        1. 从库存账（AssetTransaction）获取每个手办的实际剩余库存
+        2. 乘以对应手办的当前市场价
+        3. 卖出后库存会减少，总资产也相应减少
+        
+        计算公式：
+        总资产 = Σ(手办市场价 × 剩余库存数量)
+        
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            
+        Returns:
+            float: 总资产金额
+        """
+        # 查询所有买入记录的剩余数量，并关联手办信息计算市值
+        subquery = db.query(
+            AssetTransaction.figure_id,
+            func.sum(AssetTransaction.remaining_quantity).label('total_remaining')
+        ).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.transaction_type == "buy",
+            AssetTransaction.is_active == True
+        ).group_by(AssetTransaction.figure_id).subquery()
+        
+        # 关联手办表计算总市值
+        total_assets = db.query(
+            func.sum(
+                (func.coalesce(Figure.market_price, Figure.price, 0) * 
+                 func.coalesce(subquery.c.total_remaining, 0))
+            )
+        ).outerjoin(Figure, Figure.id == subquery.c.figure_id).scalar()
+        
+        return total_assets or 0
 
 
 class DailyChangeCalculator:
@@ -202,6 +243,41 @@ class PositionCalculator:
             (fig.average_purchase_price or 0) * (fig.quantity or 1)
             for fig in figures
         )
+
+    @staticmethod
+    def _calculate_invested_cost_from_transactions(db: Session, user_id: int) -> float:
+        """
+        计算已投入成本（基于库存账，支持卖出后正确统计）
+
+        统计规则：
+        1. 从库存账（AssetTransaction）获取每个手办的实际剩余库存和对应成本
+        2. 卖出后，已投入成本应减少（只统计剩余库存的成本）
+        3. 基于 FIFO 原则，卖出会先扣减最早买入的库存
+
+        计算公式：
+        已投入成本 = Σ(剩余数量 × 成本价)
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+
+        Returns:
+            float: 已投入成本
+        """
+        # 查询所有买入记录的剩余数量和成本
+        buy_transactions = db.query(AssetTransaction).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.transaction_type == "buy",
+            AssetTransaction.is_active == True
+        ).all()
+
+        total_cost = 0.0
+        for tx in buy_transactions:
+            remaining = tx.remaining_quantity or 0
+            cost = tx.price or 0
+            total_cost += remaining * cost
+
+        return total_cost
 
     @classmethod
     def calculate_by_orders(

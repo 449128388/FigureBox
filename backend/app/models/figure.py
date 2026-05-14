@@ -1,162 +1,92 @@
-<!--
-  FigureDetail.vue - 手办详情页面
-  
-  功能说明：
-  - 展示单个手办的完整详细信息
-  - 包含基本信息、图片展示、标签、关联订单、作者信息、规格参数等模块
-  - 支持从手办列表点击跳转进入
-  
-  组件依赖：
-  - FigureHeader.vue - 手办标题和返回按钮
-  - FigureImages.vue - 图片轮播展示
-  - FigureBasicInfo.vue - 基础信息（价格、发售日期等）
-  - FigureTags.vue - 标签展示
-  - FigureOrders.vue - 关联订单列表
-  - FigureAuthorInfo.vue - 作者/涂装/原画信息
-  - FigureSpecInfo.vue - 规格参数（比例、材质、尺寸等）
-  
-  维护提示：
-  - 通过路由参数 figureId 获取手办ID
-  - 使用 useFigureDetail composable 管理数据获取逻辑
-  - 加载状态单独处理，避免空白页面
--->
-<template>
-  <div class="figure-detail-container">
-    <!-- 加载状态 -->
-    <div v-if="loading" class="loading-container">
-      <div class="loading-spinner"></div>
-      <p>加载中...</p>
-    </div>
-    
-    <!-- 内容区域 -->
-    <template v-else>
-      <FigureHeader :figure="figure" />
-    
-      <div class="figure-content">
-        <FigureImages :figure="figure" />
-        
-        <div class="figure-info">
-          <FigureBasicInfo :figure="figure" />
-          <FigureTags :figure="figure" />
-          <FigureOrders :relatedOrders="relatedOrders" />
-          <FigureAuthorInfo :figure="figure" />
-          <FigureSpecInfo :figure="figure" />
-        </div>
-      </div>
-    </template>
-  </div>
-</template>
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Text
+from sqlalchemy.dialects.mysql import JSON
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from app.models.database import Base
 
-<script>
-import FigureHeader from './FigureDetail/components/FigureHeader.vue'
-import FigureImages from './FigureDetail/components/FigureImages.vue'
-import FigureBasicInfo from './FigureDetail/components/FigureBasicInfo.vue'
-import FigureTags from './FigureDetail/components/FigureTags.vue'
-import FigureOrders from './FigureDetail/components/FigureOrders.vue'
-import FigureAuthorInfo from './FigureDetail/components/FigureAuthorInfo.vue'
-import FigureSpecInfo from './FigureDetail/components/FigureSpecInfo.vue'
-import { useFigureDetail } from './FigureDetail/composables/useFigureDetail'
 
-export default {
-  name: 'FigureDetail',
-  components: {
-    FigureHeader,
-    FigureImages,
-    FigureBasicInfo,
-    FigureTags,
-    FigureOrders,
-    FigureAuthorInfo,
-    FigureSpecInfo
-  },
-  data() {
-    return {
-      loading: true,
-      figure: {},
-      relatedOrders: []
-    }
-  },
-  async mounted() {
-    await this.fetchFigureDetail()
-  },
-  methods: {
-    async fetchFigureDetail() {
-      try {
-        this.loading = true
-        const { fetchFigureDetail, fetchOrders, getRelatedOrders } = useFigureDetail()
-        
-        // 并行获取手办详情和订单数据
-        const [figureData, orders] = await Promise.all([
-          fetchFigureDetail(this.$route.params.id),
-          fetchOrders()
-        ])
-        
-        this.figure = figureData
-        this.relatedOrders = getRelatedOrders(this.$route.params.id, orders)
-      } catch (error) {
-      } finally {
-        this.loading = false
-      }
-    }
-  }
-}
-</script>
+class Figure(Base):
+    """
+    手办模型 - 存储手办的基本信息
 
-<style scoped>
-.figure-detail-container {
-  margin: 20px auto 0;
-  width: 100%;
-  max-width: 1200px;
-  padding: 20px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
+    功能说明：
+    - 存储手办的基本信息
+    - 包含价格、币种、市场价、入手价等财务信息
+    - 关联标签、订单等其他模型
 
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 100px 0;
-}
+    字段说明：
+    - name: 手办名称
+    - japanese_name: 日文名称
+    - manufacturer: 制造商
+    - price: 定价
+    - currency: 定价币种
+    - market_price: 市场价
+    - market_currency: 市场价币种
+    - release_date: 发售日期
+    - average_purchase_price: 平均入手价
+    - purchase_currency: 入手价币种
+    - purchase_date: 入手日期
+    - purchase_method: 入手方式
+    - purchase_type: 入手类型
+    - scale: 比例
+    - painting: 涂装师
+    - original_art: 原画作者
+    - work: 作品出处
+    - material: 材质
+    - size: 尺寸
+    - images: 图片列表
+    - quantity: 持有数量
+    - is_active: 是否激活（软删除标记）
+    - deleted_at: 删除时间
+    - created_at: 创建时间
+    - updated_at: 更新时间
+    """
+    __tablename__ = "figures"
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 10px;
-}
+    # 主键
+    id = Column(Integer, primary_key=True, index=True)  # 手办唯一标识ID
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+    # 基本信息
+    name = Column(String(200), nullable=False)  # 手办名称（中文/英文）
+    japanese_name = Column(String(200))  # 日文名称
+    manufacturer = Column(String(100))  # 制造商（如：Good Smile Company）
+    scale = Column(String(50))  # 比例（如：1/8、1/7、1/6等）
+    painting = Column(String(100))  # 涂装师
+    original_art = Column(String(100))  # 原画作者
+    work = Column(String(200))  # 作品出处（如：VOCALOID、Fate系列等）
+    material = Column(String(100))  # 材质（PVC、ABS、树脂等）
+    size = Column(String(100))  # 尺寸（如：H=200mm）
 
-.figure-content {
-  display: flex;
-  gap: 20px;
-  margin-top: 20px;
-}
+    # 价格信息
+    price = Column(Float, default=0)  # 定价（官方定价）
+    currency = Column(String(10), default="CNY")  # 定价币种：CNY/JPY/USD/EUR
+    market_price = Column(Float, default=0)  # 当前市场价/估值
+    market_currency = Column(String(10), default="CNY")  # 市场价币种
+    average_purchase_price = Column(Float, default=0)  # 平均入手价（自动计算）
+    purchase_currency = Column(String(10), default="CNY")  # 入手价币种
 
-.figure-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+    # 购买信息
+    purchase_date = Column(Date)  # 入手日期
+    purchase_method = Column(String(50))  # 入手方式（淘宝、会员购、日拍等）
+    purchase_type = Column(String(20), default="OTHER")  # 入手类型：PREORDER(预定)/INSTOCK(现货)/SECONDHAND(二手)/LOOSE(散货)/DOMESTIC(国产)/OTHER(其他)
 
-@media (max-width: 768px) {
-  .figure-content {
-    flex-direction: column;
-  }
-  
-  .figure-detail-container {
-    margin-left: 10px;
-    margin-right: 10px;
-    padding: 15px;
-  }
-}
-</style>
+    # 发售信息
+    release_date = Column(Date)  # 发售日期
+
+    # 媒体信息
+    images = Column(JSON, default=[])  # 图片URL列表
+
+    # 库存信息
+    quantity = Column(Integer, default=1)  # 持有数量
+
+    # 软删除标记
+    is_active = Column(Integer, default=1)  # 是否激活：1=正常，0=已删除
+    deleted_at = Column(DateTime, nullable=True)  # 删除时间（软删除标记）
+
+    # 时间戳
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 创建时间
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # 更新时间
+
+    # 关系
+    orders = relationship("Order", back_populates="figure")  # 关联订单列表
+    tags = relationship("Tag", secondary="figure_tag", back_populates="figures")  # 多对多关联标签

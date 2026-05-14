@@ -5,12 +5,39 @@
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from app.models.figure import Figure
 from app.models.tag import figure_tag
+from app.models.asset import AssetTransaction
 from app.schemas.figure import FigureListItem
 from .figure_price_service import FigurePriceService
+
+
+class FigureStockService:
+    """手办库存查询服务"""
+    
+    @staticmethod
+    def get_figure_stock(db: Session, figure_id: int, user_id: int) -> int:
+        """
+        获取手办当前库存数量（从库存账获取）
+        
+        Args:
+            db: 数据库会话
+            figure_id: 手办ID
+            user_id: 用户ID
+            
+        Returns:
+            int: 当前库存数量
+        """
+        total_remaining = db.query(func.sum(AssetTransaction.remaining_quantity)).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id == figure_id,
+            AssetTransaction.transaction_type == "buy",
+            AssetTransaction.is_active == True
+        ).scalar() or 0
+        
+        return int(total_remaining)
 
 
 class FigureQueryService:
@@ -134,10 +161,14 @@ class FigureQueryService:
         purchase_date_start: Optional[str] = None,
         purchase_date_end: Optional[str] = None,
         tag_id: Optional[int] = None,
-        tag_ids: Optional[List[int]] = None
+        tag_ids: Optional[List[int]] = None,
+        user_id: Optional[int] = None
     ) -> List[FigureListItem]:
         """
         获取手办列表（使用精简响应模型）
+
+        Args:
+            user_id: 用户ID（可选，用于获取真实库存数量）
 
         Returns:
             List[FigureListItem]: 手办列表项
@@ -167,6 +198,12 @@ class FigureQueryService:
             # 计算平均入手价格
             average_purchase_price = FigurePriceService.calculate_orders_average_price(orders)
 
+            # 获取真实库存数量（从库存账获取）
+            quantity = figure.quantity  # 默认使用模型字段
+            if user_id:
+                stock = FigureStockService.get_figure_stock(db, figure.id, user_id)
+                quantity = stock if stock > 0 else figure.quantity
+
             item = FigureListItem(
                 id=figure.id,
                 name=figure.name,
@@ -181,7 +218,7 @@ class FigureQueryService:
                 purchase_date=figure.purchase_date,
                 purchase_method=figure.purchase_method,
                 purchase_type=figure.purchase_type,
-                quantity=figure.quantity,
+                quantity=quantity,
                 scale=figure.scale,
                 painting=figure.painting,
                 original_art=figure.original_art,
@@ -352,6 +389,19 @@ class FigureQueryService:
                 figure_orders_map[order.figure_id] = []
             figure_orders_map[order.figure_id].append(order)
 
+        # 查询库存信息
+        stock_result = db.query(
+            AssetTransaction.figure_id,
+            func.sum(AssetTransaction.remaining_quantity).label('stock')
+        ).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id.in_(figure_id_list),
+            AssetTransaction.transaction_type == 'buy',
+            AssetTransaction.is_active == True
+        ).group_by(AssetTransaction.figure_id).all()
+
+        figure_stock_map = {r.figure_id: r.stock for r in stock_result}
+
         # 转换为精简响应模型
         result = []
         for figure in figures:
@@ -365,6 +415,9 @@ class FigureQueryService:
             # 获取该手办的标签
             figure_tag_ids = figure_tags_map.get(figure.id, [])
             figure_tags = [tags_map[tid] for tid in figure_tag_ids if tid in tags_map]
+
+            # 获取真实库存数量（从库存账获取）
+            quantity = figure_stock_map.get(figure.id, figure.quantity)
 
             item = FigureListItem(
                 id=figure.id,
@@ -380,7 +433,7 @@ class FigureQueryService:
                 purchase_date=figure.purchase_date,
                 purchase_method=figure.purchase_method,
                 purchase_type=figure.purchase_type,
-                quantity=figure.quantity,
+                quantity=quantity,
                 scale=figure.scale,
                 painting=figure.painting,
                 original_art=figure.original_art,

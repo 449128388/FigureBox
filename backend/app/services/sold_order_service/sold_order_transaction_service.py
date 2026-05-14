@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.asset import OrderTransaction
 from app.models.sold_order import SoldOrder
-from app.services.currency_service import CurrencyService
+from .currency_service import CurrencyService
 
 
 class SoldOrderTransactionService:

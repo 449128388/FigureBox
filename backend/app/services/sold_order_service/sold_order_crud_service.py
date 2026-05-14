@@ -11,7 +11,7 @@ from datetime import datetime
 from app.models.sold_order import SoldOrder
 from app.models.user import User
 from app.schemas.sold_order import SoldOrderCreate, SoldOrderUpdate
-from app.services.currency_service import CurrencyService
+from .currency_service import CurrencyService
 from app.services.sold_order_service.sold_order_transaction_service import SoldOrderTransactionService
 from app.services.sold_order_service.sold_order_inventory_service import SoldOrderInventoryService
 from app.services.sold_order_service.sold_order_figure_service import SoldOrderFigureService

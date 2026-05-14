@@ -54,8 +54,13 @@ class AssetCalculationService:
     # ==========================================================================
     @staticmethod
     def calculate_total_assets(figures: List[Figure]) -> float:
-        """计算总资产"""
+        """计算总资产（向后兼容）"""
         return TotalAssetsCalculator.calculate(figures)
+    
+    @staticmethod
+    def calculate_total_assets_from_transactions(db: Session, user_id: int) -> float:
+        """计算总资产（基于库存账，支持卖出后正确统计）"""
+        return TotalAssetsCalculator.calculate_from_transactions(db, user_id)
 
     @staticmethod
     def calculate_total_cost(figures: List[Figure]) -> float:

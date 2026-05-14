@@ -111,6 +111,50 @@ class HoldingPositionService:
 
         return int(total_remaining)
 
+    @staticmethod
+    def calculate_remaining_cost_price(
+        db: Session,
+        figure_id: int,
+        user_id: int
+    ) -> float:
+        """
+        计算当前剩余持仓的实际平均成本
+
+        统计逻辑：
+        - 查询该手办的所有买入记录（transaction_type='buy'）
+        - 基于 remaining_quantity 和 price 计算剩余持仓的总成本
+        - 平均成本 = 剩余总成本 / 剩余总数量
+
+        Args:
+            db: 数据库会话
+            figure_id: 手办ID
+            user_id: 用户ID
+
+        Returns:
+            当前剩余持仓的平均成本
+        """
+        buy_transactions = db.query(AssetTransaction).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id == figure_id,
+            AssetTransaction.transaction_type == "buy",
+            AssetTransaction.is_active == True
+        ).all()
+
+        total_remaining = 0
+        total_remaining_cost = 0.0
+
+        for tx in buy_transactions:
+            remaining = tx.remaining_quantity or 0
+            total_remaining += remaining
+            total_remaining_cost += (tx.price or 0) * remaining
+
+        if total_remaining > 0:
+            return round(total_remaining_cost / total_remaining, 2)
+        
+        # 如果没有库存，返回手办的平均入手价作为备选
+        figure = db.query(Figure).filter(Figure.id == figure_id).first()
+        return figure.average_purchase_price or 0
+
     @classmethod
     def build_holding_detail(
         cls,
@@ -131,10 +175,24 @@ class HoldingPositionService:
         Returns:
             Dict包含持仓的详细信息
         """
-        cost_price = figure.average_purchase_price or 0
+        # 【修复】从库存账计算当前剩余持仓的实际平均成本
+        # 卖出后，剩余持仓的成本应该基于未卖出部分重新计算
+        cost_price = cls.calculate_remaining_cost_price(db, figure.id, user_id)
         current_price = figure.market_price or figure.price or 0
-        profit = current_price - cost_price
-        profit_percentage = (profit / cost_price * 100) if cost_price > 0 else 0
+
+        # 【修改】库存数量：从库存账（AssetTransaction）获取真实库存
+        # 基于 remaining_quantity 统计，已出售订单会扣减该值
+        stock = cls.get_figure_inventory_from_asset_transactions(db, figure.id, user_id)
+        # 如果库存为0，默认显示1（保持向后兼容）
+        if stock <= 0:
+            stock = 1
+
+        # 【修复】盈亏计算：应该计算总盈亏（单价盈亏 × 库存数量）
+        # 单价盈亏 = 当前价 - 成本价
+        # 总盈亏 = 单价盈亏 × 库存数量
+        unit_profit = current_price - cost_price
+        profit = unit_profit * stock
+        profit_percentage = (unit_profit / cost_price * 100) if cost_price > 0 else 0
 
         # 确定状态标签
         status = cls.determine_status(profit_percentage)
@@ -148,13 +206,6 @@ class HoldingPositionService:
         if figure.purchase_date:
             purchase_date_str = figure.purchase_date.strftime("%Y-%m")
             holding_days = cls.calculate_holding_days(figure.purchase_date)
-
-        # 【修改】库存数量：从库存账（AssetTransaction）获取真实库存
-        # 基于 remaining_quantity 统计，已出售订单会扣减该值
-        stock = cls.get_figure_inventory_from_asset_transactions(db, figure.id, user_id)
-        # 如果库存为0，默认显示1（保持向后兼容）
-        if stock <= 0:
-            stock = 1
 
         # 计算市值占比
         market_value = current_price * stock
