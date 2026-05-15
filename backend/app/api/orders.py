@@ -28,13 +28,40 @@ def get_unpaid_balance(current_user: User = Depends(get_current_user), db: Sessi
 
 
 @router.get("/", response_model=list[OrderListItem])
-def get_orders(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_orders(
+    figure_name: str = None,
+    due_date_start: str = None,
+    due_date_end: str = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     获取订单列表
     
     只返回未软删除的订单（is_active=1）
+    
+    查询参数：
+    - figure_name: 手办名称模糊搜索
+    - due_date_start: 出荷日期开始（格式：YYYY-MM-DD）
+    - due_date_end: 出荷日期结束（格式：YYYY-MM-DD）
     """
-    return OrderService.get_orders(db, current_user)
+    from datetime import datetime
+    
+    # 解析日期参数
+    start_date = None
+    end_date = None
+    if due_date_start:
+        try:
+            start_date = datetime.strptime(due_date_start, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    if due_date_end:
+        try:
+            end_date = datetime.strptime(due_date_end, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    
+    return OrderService.get_orders(db, current_user, figure_name, start_date, end_date)
 
 
 @router.get("/{order_id}/", response_model=OrderSchema)

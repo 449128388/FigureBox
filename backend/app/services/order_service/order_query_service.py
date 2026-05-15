@@ -2,6 +2,7 @@
 订单查询服务
 提供订单查询相关的业务逻辑，包括列表查询、统计等
 """
+from datetime import date
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -53,24 +54,44 @@ class OrderQueryService:
         return {"total_unpaid_balance": total_balance_cny}
 
     @staticmethod
-    def get_orders(db: Session, current_user: User) -> List[OrderListItem]:
+    def get_orders(
+        db: Session,
+        current_user: User,
+        figure_name: Optional[str] = None,
+        due_date_start: Optional[date] = None,
+        due_date_end: Optional[date] = None
+    ) -> List[OrderListItem]:
         """
         获取订单列表
 
         Args:
             db: 数据库会话
             current_user: 当前用户
+            figure_name: 手办名称模糊搜索
+            due_date_start: 出荷日期开始
+            due_date_end: 出荷日期结束
 
         Returns:
             List[OrderListItem]: 订单列表
         """
-        if current_user.is_admin:
-            orders = db.query(Order).join(Figure).filter(Order.is_active == 1).all()
-        else:
-            orders = db.query(Order).join(Figure).filter(
-                Order.user_id == current_user.id,
-                Order.is_active == 1
-            ).all()
+        # 构建基础查询
+        query = db.query(Order).join(Figure).filter(Order.is_active == 1)
+        
+        # 非管理员只能查看自己的订单
+        if not current_user.is_admin:
+            query = query.filter(Order.user_id == current_user.id)
+        
+        # 按手办名称模糊搜索
+        if figure_name:
+            query = query.filter(Figure.name.ilike(f"%{figure_name}%"))
+        
+        # 按出荷日期范围筛选
+        if due_date_start:
+            query = query.filter(Order.due_date >= due_date_start)
+        if due_date_end:
+            query = query.filter(Order.due_date <= due_date_end)
+        
+        orders = query.all()
 
         return [OrderListItem(
             id=order.id,

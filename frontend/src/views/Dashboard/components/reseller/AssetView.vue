@@ -14,12 +14,14 @@
   - HoldingsList.vue - 持仓列表组件
   - PriceUpdateDialog.vue - 修改市场价弹窗
   - AddPositionDialog.vue - 补仓弹窗
+  - QuickSellDialog.vue - 快速卖出弹窗
 
   维护提示：
   - 接收 dashboardData 作为 props
   - 通过事件向父组件传递操作
   - 价格更新通过 PriceUpdateDialog 组件处理
   - 补仓通过 AddPositionDialog 组件处理
+  - 快速卖出通过 QuickSellDialog 组件处理
 -->
 <template>
   <div class="asset-view">
@@ -38,7 +40,7 @@
     <!-- 持仓列表 -->
     <HoldingsList
       :dashboardData="dashboardData"
-      @sell-asset="$emit('sell-asset', $event)"
+      @sell-asset="handleQuickSell"
       @add-position="handleAddPosition"
       @cut-loss="$emit('cut-loss', $event)"
       @edit-price="handleEditPrice"
@@ -55,6 +57,12 @@
       ref="addPositionDialog"
       @add-success="handleAddPositionSuccess"
     />
+
+    <!-- 快速卖出弹窗 -->
+    <QuickSellDialog
+      ref="quickSellDialog"
+      @sell-success="handleQuickSellSuccess"
+    />
   </div>
 </template>
 
@@ -67,6 +75,7 @@ import ProfitAnalysis from './assets/ProfitAnalysis.vue'
 import HoldingsList from './assets/HoldingsList.vue'
 import PriceUpdateDialog from './assets/PriceUpdateDialog.vue'
 import AddPositionDialog from './assets/AddPositionDialog.vue'
+import QuickSellDialog from './assets/QuickSellDialog.vue'
 
 export default {
   name: 'AssetView',
@@ -77,7 +86,8 @@ export default {
     ProfitAnalysis,
     HoldingsList,
     PriceUpdateDialog,
-    AddPositionDialog
+    AddPositionDialog,
+    QuickSellDialog
   },
   props: {
     dashboardData: {
@@ -89,6 +99,7 @@ export default {
   setup(props, { emit }) {
     const priceUpdateDialog = ref(null)
     const addPositionDialog = ref(null)
+    const quickSellDialog = ref(null)
 
     // 处理修改市场价事件
     const handleEditPrice = (item) => {
@@ -120,13 +131,31 @@ export default {
       emit('add-position', result)
     }
 
+    // 处理快速卖出事件
+    const handleQuickSell = (item) => {
+      if (quickSellDialog.value) {
+        quickSellDialog.value.openDialog(item)
+      }
+    }
+
+    // 处理快速卖出成功
+    const handleQuickSellSuccess = (result) => {
+      // 触发刷新数据事件
+      emit('refresh-data')
+      // 同时触发原有的sell-asset事件以保持兼容性
+      emit('sell-asset', result)
+    }
+
     return {
       priceUpdateDialog,
       addPositionDialog,
+      quickSellDialog,
       handleEditPrice,
       handlePriceUpdateSuccess,
       handleAddPosition,
-      handleAddPositionSuccess
+      handleAddPositionSuccess,
+      handleQuickSell,
+      handleQuickSellSuccess
     }
   }
 }

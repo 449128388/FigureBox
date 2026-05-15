@@ -33,6 +33,12 @@ export function useSoldOrderManagement() {
   const pageSize = ref(15)
   const pageSizes = ref([15, 30, 45, 60])
   const currentStatus = ref('all')
+
+  // 【新增】搜索相关状态
+  const searchFigureName = ref('')
+  const searchOrderNumber = ref('')
+  const searchSellPlatform = ref('')
+
   const newOrder = ref({
     figure_id: '',
     sell_price: 0,
@@ -108,9 +114,37 @@ export function useSoldOrderManagement() {
     }
   }
   
+  // 【新增】搜索过滤后的订单（不包含状态筛选，用于状态栏计数）
+  const searchFilteredOrders = computed(() => {
+    let orders = soldOrderStore.soldOrders
+
+    // 按手办名称模糊搜索
+    if (searchFigureName.value) {
+      const keyword = searchFigureName.value.toLowerCase()
+      orders = orders.filter(order =>
+        order.figure_name && order.figure_name.toLowerCase().includes(keyword)
+      )
+    }
+
+    // 按订单编号模糊搜索
+    if (searchOrderNumber.value) {
+      const keyword = searchOrderNumber.value.toLowerCase()
+      orders = orders.filter(order =>
+        order.order_number && order.order_number.toLowerCase().includes(keyword)
+      )
+    }
+
+    // 按卖出平台筛选
+    if (searchSellPlatform.value) {
+      orders = orders.filter(order => order.sell_platform === searchSellPlatform.value)
+    }
+
+    return orders
+  })
+
   // 计算属性
   const filteredOrders = computed(() => {
-    let orders = soldOrderStore.soldOrders
+    let orders = searchFilteredOrders.value
 
     if (currentStatus.value !== 'all') {
       orders = orders.filter(order => order.status === currentStatus.value)
@@ -133,15 +167,17 @@ export function useSoldOrderManagement() {
   })
   
   const statusCounts = computed(() => {
+    // 【修复】使用搜索过滤后的订单计算状态数量
+    const orders = searchFilteredOrders.value
     const counts = {
-      all: soldOrderStore.soldOrders.length,
+      all: orders.length,
       '待发货': 0,
       '已发货': 0,
       '已完成': 0,
       '退款/纠纷': 0
     }
 
-    soldOrderStore.soldOrders.forEach(order => {
+    orders.forEach(order => {
       if (counts[order.status] !== undefined) {
         counts[order.status]++
       }
@@ -275,7 +311,20 @@ export function useSoldOrderManagement() {
       userStore.fetchUser()
     }
   }
-  
+
+  // 【新增】处理搜索
+  const handleSearch = () => {
+    currentPage.value = 1 // 搜索时重置到第一页
+  }
+
+  // 【新增】处理重置
+  const handleReset = () => {
+    searchFigureName.value = ''
+    searchOrderNumber.value = ''
+    searchSellPlatform.value = ''
+    currentPage.value = 1 // 重置时回到第一页
+  }
+
   return {
     showAddForm,
     isEditing,
@@ -293,6 +342,11 @@ export function useSoldOrderManagement() {
     selectedCount,
     hasSelection,
     isAllSelected,
+
+    // 【新增】搜索相关状态
+    searchFigureName,
+    searchOrderNumber,
+    searchSellPlatform,
 
     filteredOrders,
     paginatedOrders,
@@ -320,6 +374,10 @@ export function useSoldOrderManagement() {
     handleSelectAll,
     handleBatchDelete,
     exitBatchMode,
-    isSelected
+    isSelected,
+
+    // 【新增】搜索方法
+    handleSearch,
+    handleReset
   }
 }

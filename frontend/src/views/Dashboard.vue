@@ -476,7 +476,8 @@ export default {
     
     // 资产操作
     const sellAsset = (item) => {
-      ElMessage.info(`卖出 ${item.figure_name} 功能开发中`)
+      // 卖出功能已通过 QuickSellDialog 组件实现
+      // 此函数保留用于兼容性，实际逻辑在 AssetView.vue 中处理
     }
     
     const addPosition = (item) => {

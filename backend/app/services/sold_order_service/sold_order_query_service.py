@@ -21,13 +21,28 @@ class SoldOrderQueryService:
     """
 
     @staticmethod
-    def get_sold_orders(db: Session, current_user: User) -> List[SoldOrderListItem]:
+    def get_sold_orders(
+        db: Session,
+        current_user: User,
+        figure_name: Optional[str] = None,
+        order_number: Optional[str] = None,
+        sell_platform: Optional[str] = None
+    ) -> List[SoldOrderListItem]:
         """
         获取已出售订单列表
-        
-        只返回未软删除的订单（is_active=1）
+
+        Args:
+            db: 数据库会话
+            current_user: 当前用户
+            figure_name: 手办名称模糊搜索
+            order_number: 订单编号模糊搜索
+            sell_platform: 卖出平台筛选
+
+        Returns:
+            List[SoldOrderListItem]: 已出售订单列表
         """
-        orders = db.query(
+        # 构建基础查询
+        query = db.query(
             SoldOrder,
             Figure.name.label('figure_name'),
             Figure.images.label('figure_images')
@@ -36,7 +51,21 @@ class SoldOrderQueryService:
         ).filter(
             SoldOrder.user_id == current_user.id,
             SoldOrder.is_active == 1
-        ).all()
+        )
+
+        # 按手办名称模糊搜索
+        if figure_name:
+            query = query.filter(Figure.name.ilike(f"%{figure_name}%"))
+
+        # 按订单编号模糊搜索
+        if order_number:
+            query = query.filter(SoldOrder.order_number.ilike(f"%{order_number}%"))
+
+        # 按卖出平台筛选
+        if sell_platform:
+            query = query.filter(SoldOrder.sell_platform == sell_platform)
+
+        orders = query.all()
 
         return [
             SoldOrderListItem(

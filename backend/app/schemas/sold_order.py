@@ -5,6 +5,7 @@ from app.schemas.figure import Figure
 
 class SoldOrderBase(BaseModel):
     figure_id: int | str
+    quantity: int = 1  # 卖出数量，默认为1
     sell_price: float
     cost_price: float
     shipping_fee: float = 0.0

@@ -32,7 +32,7 @@ class SoldOrderInventoryService:
         当已出售订单创建时：
         - 扣减库存数量（trans_type='sell'）
         - 更新买入记录的 remaining_quantity
-        - 创建卖出交易记录
+        - 创建卖出交易记录（记录进货价作为成本基准）
 
         Args:
             db: 数据库会话
@@ -43,7 +43,14 @@ class SoldOrderInventoryService:
             创建的 AssetTransaction 卖出记录，如果库存不足则返回 None
         """
         figure_id = sold_order.figure_id
-        quantity_to_sell = 1  # 默认卖出1个
+
+        # 从订单中获取卖出数量和成本信息
+        quantity_to_sell = sold_order.quantity or 1  # 卖出数量
+        cost_total = sold_order.cost_price  # 成本总价
+
+        # 计算单位成本价（进货价）
+        # price字段应该记录单价，用于后续计算剩余持仓成本
+        unit_cost_price = cost_total / quantity_to_sell if quantity_to_sell > 0 else cost_total
 
         # 检查总持仓数量
         total_remaining = db.query(func.sum(AssetTransaction.remaining_quantity)).filter(
@@ -54,22 +61,21 @@ class SoldOrderInventoryService:
         ).scalar() or 0
 
         if total_remaining < quantity_to_sell:
-            # 库存不足，不阻止订单创建，但记录警告
-            # 实际业务中可能需要提醒用户
             pass
 
         # 创建卖出交易记录
+        # 库存账记录的是成本基准（进货价），用于计算剩余持仓成本
         sell_transaction = AssetTransaction(
             user_id=current_user_id,
             figure_id=figure_id,
             order_id=None,
             transaction_type="sell",
-            price=sold_order.sell_price,
+            price=unit_cost_price,  # 使用成本价（进货价）作为记录价格
             quantity=quantity_to_sell,
-            total_amount=sold_order.sell_price * quantity_to_sell,
+            total_amount=unit_cost_price * quantity_to_sell,
             remaining_quantity=0,  # 卖出记录的剩余数量为0
             transaction_date=datetime.now(),
-            notes=f"已出售订单 #{sold_order.id} - 库存扣减（卖出价格: ¥{sold_order.sell_price}/体）"
+            notes=f"已出售订单 #{sold_order.id} - 库存扣减（进货成本价: ¥{unit_cost_price}/体）"
         )
         db.add(sell_transaction)
 

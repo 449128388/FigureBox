@@ -9,6 +9,7 @@
 
 新代码应优先直接使用子服务，本文件仅用于保持向后兼容。
 """
+from datetime import date
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 
@@ -38,9 +39,15 @@ class OrderService:
         return OrderQueryService.get_unpaid_balance(db, current_user)
 
     @staticmethod
-    def get_orders(db: Session, current_user: User) -> List[OrderListItem]:
+    def get_orders(
+        db: Session,
+        current_user: User,
+        figure_name: Optional[str] = None,
+        due_date_start: Optional[date] = None,
+        due_date_end: Optional[date] = None
+    ) -> List[OrderListItem]:
         """获取订单列表"""
-        return OrderQueryService.get_orders(db, current_user)
+        return OrderQueryService.get_orders(db, current_user, figure_name, due_date_start, due_date_end)
 
     @staticmethod
     def get_order_by_id(db: Session, order_id: int, current_user: User) -> Optional[Order]:

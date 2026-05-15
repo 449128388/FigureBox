@@ -41,8 +41,17 @@
       </div>
     </div>
     
+    <!-- 【新增】搜索筛选组件 -->
+    <SoldOrdersSearch
+      v-model:searchFigureName="searchFigureName"
+      v-model:searchOrderNumber="searchOrderNumber"
+      v-model:searchSellPlatform="searchSellPlatform"
+      @search="handleSearch"
+      @reset="handleReset"
+    />
+
     <!-- 状态筛选 Tab 和统计 -->
-    <SoldOrderStatusTabs 
+    <SoldOrderStatusTabs
       :currentStatus="currentStatus"
       :statusCounts="statusCounts"
       :totalNetProfit="totalNetProfit"
@@ -109,6 +118,7 @@ import SoldOrderStatusTabs from './SoldOrders/components/SoldOrderStatusTabs.vue
 import SoldOrderItem from './SoldOrders/components/SoldOrderItem.vue'
 import SoldOrderForm from './SoldOrders/components/SoldOrderForm.vue'
 import SoldOrderDeleteConfirmDialog from './SoldOrders/components/SoldOrderDeleteConfirmDialog.vue'
+import SoldOrdersSearch from './SoldOrders/components/SoldOrdersSearch.vue'
 import { useSoldOrderManagement } from './SoldOrders/composables/useSoldOrderManagement'
 
 // 使用订单管理逻辑
@@ -147,14 +157,21 @@ const {
   handleStatusChange,
   handleLogout,
   initializeData,
-  
+
   // 批量选择方法
   toggleBatchMode,
   handleToggleSelection,
   handleSelectAll,
   handleBatchDelete,
   exitBatchMode,
-  isSelected
+  isSelected,
+
+  // 【新增】搜索相关
+  searchFigureName,
+  searchOrderNumber,
+  searchSellPlatform,
+  handleSearch,
+  handleReset
 } = useSoldOrderManagement()
 
 // 路由

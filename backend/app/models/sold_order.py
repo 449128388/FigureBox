@@ -32,8 +32,9 @@ class SoldOrder(Base):
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID（订单对应的手办）
     
     # 卖出信息
-    sell_price = Column(Float, nullable=False)  # 卖出价格
-    cost_price = Column(Float, nullable=False)  # 成本价格
+    quantity = Column(Integer, default=1)  # 卖出数量
+    sell_price = Column(Float, nullable=False)  # 卖出价格（总价）
+    cost_price = Column(Float, nullable=False)  # 成本价格（总价）
     shipping_fee = Column(Float, default=0)  # 运费（负数表示支出）
     platform_fee = Column(Float, default=0)  # 平台手续费（负数表示支出）
     

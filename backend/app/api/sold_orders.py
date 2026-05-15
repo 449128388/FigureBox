@@ -8,6 +8,8 @@ from app.schemas.sold_order import SoldOrder as SoldOrderSchema, SoldOrderCreate
 from app.api.users import get_current_user
 from app.models.user import User
 from app.services.sold_order_service import SoldOrderService
+from app.services.sold_order_service.quick_sell_service import QuickSellService
+from pydantic import BaseModel, field_validator
 
 router = APIRouter()
 
@@ -15,6 +17,29 @@ router = APIRouter()
 class BatchDeleteRequest(BaseModel):
     """批量删除请求模型"""
     order_ids: list[int]
+
+
+class QuickSellRequest(BaseModel):
+    """快速卖出请求模型"""
+    figure_id: int
+    figure_name: str
+    quantity: int
+    sell_price: float
+    cost_price: float
+
+    @field_validator('quantity')
+    @classmethod
+    def validate_quantity(cls, v):
+        if v <= 0:
+            raise ValueError('卖出数量必须大于0')
+        return v
+
+    @field_validator('sell_price')
+    @classmethod
+    def validate_sell_price(cls, v):
+        if v <= 0:
+            raise ValueError('卖出价格必须大于0')
+        return v
 
 
 @router.get("/statistics/")
@@ -51,13 +76,24 @@ def get_xianyu_monthly_statistics(
 
 
 @router.get("/", response_model=list[SoldOrderListItem])
-def get_sold_orders(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_sold_orders(
+    figure_name: str = None,
+    order_number: str = None,
+    sell_platform: str = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     获取已出售订单列表
-    
+
     只返回未软删除的订单（is_active=1）
+
+    查询参数：
+    - figure_name: 手办名称模糊搜索
+    - order_number: 订单编号模糊搜索
+    - sell_platform: 卖出平台筛选
     """
-    return SoldOrderService.get_sold_orders(db, current_user)
+    return SoldOrderService.get_sold_orders(db, current_user, figure_name, order_number, sell_platform)
 
 
 @router.get("/{order_id}/", response_model=SoldOrderSchema)
@@ -139,3 +175,49 @@ def batch_delete_sold_orders(request: BatchDeleteRequest, current_user: User = D
         )
     
     return SoldOrderService.batch_delete_sold_orders(db, request.order_ids, current_user)
+
+
+@router.post("/quick-sell", response_model=SoldOrderSchema)
+def quick_sell(request: QuickSellRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    快速卖出接口
+    
+    从持仓列表快速创建卖出订单，简化订单创建流程：
+    1. 自动生成订单编号（QS + 时间戳）
+    2. 默认使用"快速卖出"作为卖出平台
+    3. 默认状态为"已完成"
+    4. 自动联动更新：库存账、资金账、资产看板、手办状态
+    
+    Args:
+        figure_id: 手办ID
+        figure_name: 手办名称
+        quantity: 卖出数量
+        sell_price: 卖出单价
+        cost_price: 成本单价
+        
+    Returns:
+        创建的已出售订单对象
+        
+    Raises:
+        HTTPException: 参数校验失败或创建失败
+    """
+    try:
+        return QuickSellService.create_quick_sell_order(
+            db=db,
+            figure_id=request.figure_id,
+            figure_name=request.figure_name,
+            quantity=request.quantity,
+            sell_price=request.sell_price,
+            cost_price=request.cost_price,
+            current_user=current_user
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"快速卖出失败: {str(e)}"
+        )

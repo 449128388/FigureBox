@@ -35,6 +35,11 @@ export function useOrderManagement() {
   const currentStatus = ref('未支付') // 当前筛选状态：all, 未支付, 已支付, 已取消；默认显示未支付
   const figureError = ref('')
   const dueDateError = ref('')
+  
+  // 【新增】搜索相关状态
+  const searchFigureName = ref('')
+  const searchDueDateRange = ref([])
+  
   const newOrder = ref({
     figure_id: '',
     deposit: 0,
@@ -114,9 +119,39 @@ export function useOrderManagement() {
     }
   }
   
+  // 【新增】搜索过滤后的订单（不包含状态筛选，用于状态栏计数）
+  const searchFilteredOrders = computed(() => {
+    let orders = orderStore.orders
+
+    // 按手办名称模糊搜索
+    if (searchFigureName.value) {
+      const keyword = searchFigureName.value.toLowerCase()
+      orders = orders.filter(order =>
+        order.figure_name && order.figure_name.toLowerCase().includes(keyword)
+      )
+    }
+
+    // 按出荷日期范围筛选
+    if (searchDueDateRange.value && searchDueDateRange.value.length === 2) {
+      const startDate = searchDueDateRange.value[0] ? new Date(searchDueDateRange.value[0]) : null
+      const endDate = searchDueDateRange.value[1] ? new Date(searchDueDateRange.value[1]) : null
+
+      orders = orders.filter(order => {
+        if (!order.due_date) return false
+        const dueDate = new Date(order.due_date)
+
+        if (startDate && dueDate < startDate) return false
+        if (endDate && dueDate > endDate) return false
+        return true
+      })
+    }
+
+    return orders
+  })
+
   // 计算属性
   const filteredOrders = computed(() => {
-    let orders = orderStore.orders
+    let orders = searchFilteredOrders.value
 
     // 按状态筛选
     if (currentStatus.value !== 'all') {
@@ -168,15 +203,17 @@ export function useOrderManagement() {
   })
   
   const statusCounts = computed(() => {
+    // 【修复】使用搜索过滤后的订单计算状态数量
+    const orders = searchFilteredOrders.value
     const counts = {
-      all: orderStore.orders.length,
+      all: orders.length,
       '未支付': 0,
       '已支付': 0,
       '已取消': 0,
       '已完成': 0
     }
 
-    orderStore.orders.forEach(order => {
+    orders.forEach(order => {
       if (counts[order.status] !== undefined) {
         counts[order.status]++
       }
@@ -384,6 +421,18 @@ export function useOrderManagement() {
     }
   }
   
+  // 【新增】处理搜索
+  const handleSearch = () => {
+    currentPage.value = 1 // 搜索时重置到第一页
+  }
+  
+  // 【新增】处理重置
+  const handleReset = () => {
+    searchFigureName.value = ''
+    searchDueDateRange.value = []
+    currentPage.value = 1 // 重置时回到第一页
+  }
+  
   return {
     // 状态
     showAddForm,
@@ -406,6 +455,10 @@ export function useOrderManagement() {
     selectedCount,
     hasSelection,
     isAllSelected,
+
+    // 【新增】搜索相关状态
+    searchFigureName,
+    searchDueDateRange,
 
     // 计算属性
     filteredOrders,
@@ -437,6 +490,10 @@ export function useOrderManagement() {
     handleSelectAll,
     handleBatchDelete,
     exitBatchMode,
-    isSelected
+    isSelected,
+
+    // 【新增】搜索方法
+    handleSearch,
+    handleReset
   }
 }

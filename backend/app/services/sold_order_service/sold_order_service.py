@@ -34,9 +34,15 @@ class SoldOrderService:
     # 查询相关（委托给 SoldOrderQueryService）
     # ==========================================================================
     @staticmethod
-    def get_sold_orders(db: Session, current_user: User) -> List[SoldOrderListItem]:
+    def get_sold_orders(
+        db: Session,
+        current_user: User,
+        figure_name: Optional[str] = None,
+        order_number: Optional[str] = None,
+        sell_platform: Optional[str] = None
+    ) -> List[SoldOrderListItem]:
         """获取已出售订单列表"""
-        return SoldOrderQueryService.get_sold_orders(db, current_user)
+        return SoldOrderQueryService.get_sold_orders(db, current_user, figure_name, order_number, sell_platform)
 
     @staticmethod
     def get_sold_order_by_id(db: Session, order_id: int, current_user: User) -> Optional[SoldOrder]:

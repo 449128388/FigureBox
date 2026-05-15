@@ -67,6 +67,14 @@
       </div>
     </div>
     
+    <!-- 【新增】搜索筛选组件 -->
+    <OrdersSearch
+      v-model:searchFigureName="searchFigureName"
+      v-model:searchDueDateRange="searchDueDateRange"
+      @search="handleSearch"
+      @reset="handleReset"
+    />
+    
     <!-- 状态筛选 Tab -->
     <OrderStatusTabs 
       :currentStatus="currentStatus"
@@ -137,6 +145,7 @@ import OrderStatusTabs from './Orders/components/OrderStatusTabs.vue'
 import OrderItem from './Orders/components/OrderItem.vue'
 import OrderForm from './Orders/components/OrderForm.vue'
 import OrderDeleteConfirmDialog from './Orders/components/OrderDeleteConfirmDialog.vue'
+import OrdersSearch from './Orders/components/OrdersSearch.vue'
 import { useOrderManagement } from './Orders/composables/useOrderManagement'
 
 // 使用订单管理逻辑
@@ -158,13 +167,17 @@ const {
   statusCounts,
   availableFigures,
   totalUnpaidBalance,
-  
+
   // 【新增】批量选择相关
   isBatchMode,
   selectedCount,
   hasSelection,
   isAllSelected,
-  
+
+  // 【新增】搜索相关
+  searchFigureName,
+  searchDueDateRange,
+
   openAddForm,
   handleSaveOrder,
   openDeleteConfirmDialog,
@@ -177,14 +190,18 @@ const {
   handleStatusChange,
   handleLogout,
   initializeData,
-  
+
   // 【新增】批量选择方法
   toggleBatchMode,
   handleToggleSelection,
   handleSelectAll,
   handleBatchDelete,
   exitBatchMode,
-  isSelected
+  isSelected,
+
+  // 【新增】搜索方法
+  handleSearch,
+  handleReset
 } = useOrderManagement()
 
 // 路由

@@ -140,6 +140,7 @@ class SoldOrderCrudService:
             new_order = SoldOrder(
                 user_id=current_user.id,
                 figure_id=order_data.figure_id,
+                quantity=order_data.quantity or 1,  # 卖出数量
                 sell_price=order_data.sell_price,
                 cost_price=order_data.cost_price,
                 shipping_fee=order_data.shipping_fee or 0,

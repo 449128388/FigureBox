@@ -11,6 +11,7 @@ from sqlalchemy import func
 
 from app.models.figure import Figure
 from app.models.asset import AssetPriceHistory, AssetTransaction
+from app.models.order import Order
 
 
 class HoldingPositionService:
@@ -90,7 +91,7 @@ class HoldingPositionService:
         从库存账（AssetTransaction）获取手办当前库存数量
 
         统计逻辑：
-        - 查询该手办的所有买入记录（transaction_type='buy'）
+        - 只统计关联订单状态为"已完成"的买入记录（表示尾款已付清，手办已到手）
         - 累加 remaining_quantity 字段
         - 已出售订单会创建 sell 记录并扣减买入记录的 remaining_quantity
 
@@ -100,13 +101,17 @@ class HoldingPositionService:
             user_id: 用户ID
 
         Returns:
-            当前库存数量
+            当前库存数量（只包含已完成尾款且未卖出的数量）
         """
-        total_remaining = db.query(func.sum(AssetTransaction.remaining_quantity)).filter(
+        # 只统计关联订单状态为"已完成"的买入记录
+        total_remaining = db.query(func.sum(AssetTransaction.remaining_quantity)).join(
+            Order, AssetTransaction.order_id == Order.id
+        ).filter(
             AssetTransaction.user_id == user_id,
             AssetTransaction.figure_id == figure_id,
             AssetTransaction.transaction_type == "buy",
-            AssetTransaction.is_active == True
+            AssetTransaction.is_active == True,
+            Order.status == "已完成"  # 只统计尾款已完成的订单
         ).scalar() or 0
 
         return int(total_remaining)
@@ -121,7 +126,7 @@ class HoldingPositionService:
         计算当前剩余持仓的实际平均成本
 
         统计逻辑：
-        - 查询该手办的所有买入记录（transaction_type='buy'）
+        - 只查询关联订单状态为"已完成"的买入记录（表示尾款已付清，手办已到手）
         - 基于 remaining_quantity 和 price 计算剩余持仓的总成本
         - 平均成本 = 剩余总成本 / 剩余总数量
 
@@ -131,13 +136,17 @@ class HoldingPositionService:
             user_id: 用户ID
 
         Returns:
-            当前剩余持仓的平均成本
+            当前剩余持仓的平均成本（只基于已完成尾款的订单计算）
         """
-        buy_transactions = db.query(AssetTransaction).filter(
+        # 只查询关联订单状态为"已完成"的买入记录
+        buy_transactions = db.query(AssetTransaction).join(
+            Order, AssetTransaction.order_id == Order.id
+        ).filter(
             AssetTransaction.user_id == user_id,
             AssetTransaction.figure_id == figure_id,
             AssetTransaction.transaction_type == "buy",
-            AssetTransaction.is_active == True
+            AssetTransaction.is_active == True,
+            Order.status == "已完成"  # 只统计尾款已完成的订单
         ).all()
 
         total_remaining = 0
