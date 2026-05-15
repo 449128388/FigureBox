@@ -10,3 +10,4 @@ passlib[bcrypt]
 alembic
 python-dotenv
 pytz
+apscheduler

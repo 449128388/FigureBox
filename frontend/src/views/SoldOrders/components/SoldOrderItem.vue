@@ -36,6 +36,10 @@
         <span class="price-value cost">¥{{ formatNumber(order.cost_price) }}</span>
       </div>
       <div class="price-item">
+        <span class="price-label">数量:</span>
+        <span class="price-value quantity">{{ order.quantity || 1 }}体</span>
+      </div>
+      <div class="price-item">
         <span class="price-label">运费:</span>
         <span class="price-value shipping">{{ order.shipping_fee !== 0 ? '-¥' + formatNumber(Math.abs(order.shipping_fee)) : '¥0' }}</span>
       </div>

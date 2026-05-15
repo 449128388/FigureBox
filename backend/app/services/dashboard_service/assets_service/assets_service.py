@@ -19,7 +19,6 @@ from datetime import date
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
-from app.models.asset import AssetValueCache, UserSettings
 from app.models.figure import Figure
 from app.models.user import User
 
@@ -87,16 +86,6 @@ class AssetCalculationService:
         """保存今日市值缓存（用于明日计算日涨跌）"""
         return DailyCacheService.save(db, user_id, total_assets)
 
-    @classmethod
-    def calculate_position(
-        cls,
-        db: Session,
-        user_id: int,
-        figures: List[Figure]
-    ) -> Dict[str, Any]:
-        """计算仓位信息"""
-        return PositionCalculator.calculate(db, user_id, figures)
-
     # ==========================================================================
     # 市场基准服务（委托给 asset_market_benchmark_service）
     # ==========================================================================
@@ -135,14 +124,6 @@ class AssetCalculationService:
     def get_figure_image_url(figure: Figure) -> str:
         """获取手办图片URL"""
         return HoldingPositionService.get_figure_image_url(figure)
-
-    @staticmethod
-    def get_investment_budget(db: Session, user_id: int) -> float:
-        """获取用户设置的投资预算上限"""
-        user_settings = db.query(UserSettings).filter(
-            UserSettings.user_id == user_id
-        ).first()
-        return user_settings.annual_spending_limit if user_settings else 0
 
     @staticmethod
     def calculate_invested_cost(figures: List[Figure]) -> float:

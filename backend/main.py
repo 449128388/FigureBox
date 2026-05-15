@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 # 创建数据库表（如果不存在）
 Base.metadata.create_all(bind=engine)
 
+# 导入并启动定时任务调度器
+from app.services.scheduler_service import start_scheduler
+start_scheduler()
+
 # 增加请求体大小限制到 300MB
 app = FastAPI()
 

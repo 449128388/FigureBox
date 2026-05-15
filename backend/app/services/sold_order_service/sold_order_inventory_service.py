@@ -44,13 +44,8 @@ class SoldOrderInventoryService:
         """
         figure_id = sold_order.figure_id
 
-        # 从订单中获取卖出数量和成本信息
+        # 从订单中获取卖出数量
         quantity_to_sell = sold_order.quantity or 1  # 卖出数量
-        cost_total = sold_order.cost_price  # 成本总价
-
-        # 计算单位成本价（进货价）
-        # price字段应该记录单价，用于后续计算剩余持仓成本
-        unit_cost_price = cost_total / quantity_to_sell if quantity_to_sell > 0 else cost_total
 
         # 检查总持仓数量
         total_remaining = db.query(func.sum(AssetTransaction.remaining_quantity)).filter(
@@ -63,24 +58,12 @@ class SoldOrderInventoryService:
         if total_remaining < quantity_to_sell:
             pass
 
-        # 创建卖出交易记录
-        # 库存账记录的是成本基准（进货价），用于计算剩余持仓成本
-        sell_transaction = AssetTransaction(
-            user_id=current_user_id,
-            figure_id=figure_id,
-            order_id=None,
-            transaction_type="sell",
-            price=unit_cost_price,  # 使用成本价（进货价）作为记录价格
-            quantity=quantity_to_sell,
-            total_amount=unit_cost_price * quantity_to_sell,
-            remaining_quantity=0,  # 卖出记录的剩余数量为0
-            transaction_date=datetime.now(),
-            notes=f"已出售订单 #{sold_order.id} - 库存扣减（进货成本价: ¥{unit_cost_price}/体）"
-        )
-        db.add(sell_transaction)
-
-        # 扣减买入记录的剩余数量（先进先出）
+        # 扣减买入记录的剩余数量（先进先出 FIFO）
+        # 同时计算 FIFO 成本价（使用最早买入记录的价格）
         remaining_to_deduct = quantity_to_sell
+        fifo_total_cost = 0.0  # FIFO 总成本
+        deducted_records = []  # 记录扣减的买入记录信息
+
         buy_transactions = db.query(AssetTransaction).filter(
             AssetTransaction.user_id == current_user_id,
             AssetTransaction.figure_id == figure_id,
@@ -96,6 +79,33 @@ class SoldOrderInventoryService:
             deduct_amount = min(buy_tx.remaining_quantity, remaining_to_deduct)
             buy_tx.remaining_quantity -= deduct_amount
             remaining_to_deduct -= deduct_amount
+
+            # 累加 FIFO 成本（买入价格 × 扣减数量）
+            fifo_total_cost += (buy_tx.price or 0) * deduct_amount
+            deducted_records.append({
+                'id': buy_tx.id,
+                'price': buy_tx.price,
+                'quantity': deduct_amount
+            })
+
+        # 计算 FIFO 单位成本价
+        fifo_unit_price = fifo_total_cost / quantity_to_sell if quantity_to_sell > 0 else 0
+
+        # 创建卖出交易记录
+        # 使用 FIFO 成本价作为记录价格
+        sell_transaction = AssetTransaction(
+            user_id=current_user_id,
+            figure_id=figure_id,
+            order_id=None,
+            transaction_type="sell",
+            price=fifo_unit_price,  # 使用 FIFO 成本价
+            quantity=quantity_to_sell,
+            total_amount=fifo_total_cost,
+            remaining_quantity=0,  # 卖出记录的剩余数量为0
+            transaction_date=datetime.now(),
+            notes=f"已出售订单 #{sold_order.id} - 库存扣减（FIFO成本价: ¥{fifo_unit_price:.2f}/体，扣减记录: {deducted_records}）"
+        )
+        db.add(sell_transaction)
 
         db.flush()
         return sell_transaction

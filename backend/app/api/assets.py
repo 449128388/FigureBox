@@ -67,11 +67,11 @@ async def get_asset_dashboard(
     all_figures = db.query(Figure).all()
     figures = [fig for fig in all_figures if fig.id in figure_ids_with_valid_orders]
     
-    # 【修改】使用新的基于订单的计算方法计算总资产（仅统计已完成订单）
+    # 【修改】使用基于已完成订单的方法计算总资产（扣除已出售数量）
     from app.services.dashboard_service.assets_service.asset_core_calculations import (
         TotalAssetsCalculator, PositionCalculator
     )
-    total_assets = TotalAssetsCalculator.calculate_by_orders(valid_orders)
+    total_assets = TotalAssetsCalculator.calculate_by_orders(db, current_user.id, valid_orders)
     
     # 【修改】使用新的基于订单的计算方法计算仓位（基于所有订单的定金+尾款）
     position_info = PositionCalculator.calculate_by_orders(db, current_user.id, valid_orders)
@@ -438,3 +438,117 @@ def add_position(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"补仓失败: {str(e)}")
+
+
+@router.get("/collector/dashboard")
+async def get_collector_dashboard(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取收藏家模式看板数据"""
+    # 获取所有有效订单
+    valid_orders = db.query(Order).filter(
+        Order.is_active == 1,
+        Order.status != "已取消"
+    ).all()
+
+    # 获取有有效订单的手办ID集合
+    figure_ids_with_valid_orders = set(order.figure_id for order in valid_orders)
+
+    # 获取所有手办，但只保留有有效订单的
+    all_figures = db.query(Figure).all()
+    figures = [fig for fig in all_figures if fig.id in figure_ids_with_valid_orders]
+
+    # 计算总投入（基于订单的定金+尾款）
+    total_investment = 0.0
+    for order in valid_orders:
+        deposit = order.deposit or 0
+        balance = order.balance or 0
+        total_investment += deposit + balance
+
+    # 计算现估值（基于手办市场价）
+    total_valuation = sum(
+        (fig.market_price or fig.price or 0) * (fig.quantity or 1)
+        for fig in figures
+    )
+
+    # 计算回血额（基于已出售订单）
+    from app.models.sold_order import SoldOrder
+    sold_orders = db.query(SoldOrder).filter(
+        SoldOrder.user_id == current_user.id,
+        SoldOrder.is_active == True
+    ).all()
+    blood_money = sum(order.sell_price or 0 for order in sold_orders)
+
+    # 构建高价值藏品列表
+    valuable_items = []
+    for fig in figures:
+        cost_price = fig.average_purchase_price or fig.price or 0
+        current_price = fig.market_price or fig.price or 0
+        quantity = fig.quantity or 1
+
+        if cost_price > 0:
+            profit = (current_price - cost_price) * quantity
+            profit_percentage = ((current_price - cost_price) / cost_price) * 100
+
+            # 确定状态
+            if profit_percentage >= 50:
+                status = "海景房"
+            elif profit_percentage >= 0:
+                status = "小赚"
+            else:
+                status = "破发"
+
+            valuable_items.append({
+                "id": fig.id,
+                "name": fig.name,
+                "image": fig.image_url or "",
+                "profit": round(profit, 2),
+                "status": status
+            })
+
+    # 添加已转卖的手办
+    for sold_order in sold_orders:
+        if sold_order.figure:
+            valuable_items.append({
+                "id": sold_order.figure.id,
+                "name": sold_order.figure.name,
+                "image": sold_order.figure.image_url or "",
+                "status": "已转卖",
+                "sold_profit": round(sold_order.net_profit or 0, 2)
+            })
+
+    # 构建标签云数据
+    tags = [
+        {"name": "海景房", "count": len([i for i in valuable_items if i.get("status") == "海景房"])},
+        {"name": "破发区", "count": len([i for i in valuable_items if i.get("status") == "破发"])},
+        {"name": "待补款", "count": len([o for o in valid_orders if o.status == "待补款"])},
+        {"name": "已出坑", "count": len([i for i in valuable_items if i.get("status") == "已转卖"])}
+    ]
+
+    # 构建动态流数据
+    activities = []
+    for order in sorted(valid_orders, key=lambda x: x.order_date or datetime.min, reverse=True)[:5]:
+        if order.figure:
+            activities.append({
+                "date": order.order_date.strftime("%Y-%m-%d") if order.order_date else "",
+                "content": f"入手{order.figure.name}，等待补款",
+                "actions": ["查看详情"]
+            })
+
+    # 检查是否需要返回新的token（自动续期）
+    if hasattr(request.state, 'new_token'):
+        response.headers['X-New-Token'] = request.state.new_token
+
+    return {
+        "summary": {
+            "total_investment": round(total_investment, 2),
+            "total_valuation": round(total_valuation, 2),
+            "blood_money": round(blood_money, 2)
+        },
+        "valuable_items": valuable_items[:10],
+        "tags": tags,
+        "activities": activities
+    }

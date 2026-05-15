@@ -35,6 +35,17 @@
         <el-input v-model="order.order_number" placeholder="请输入订单号" />
       </div>
       <div class="form-group">
+        <label>卖出数量 <span class="required">*</span></label>
+        <el-input-number
+          v-model="order.quantity"
+          :min="1"
+          :step="1"
+          controls-position="right"
+          style="width: 100%;"
+          placeholder="请输入卖出数量"
+        />
+      </div>
+      <div class="form-group">
         <label>卖出状态 <span class="required">*</span></label>
         <el-select v-model="order.status" placeholder="请选择状态" style="width: 100%;">
           <el-option label="待发货" value="待发货" />

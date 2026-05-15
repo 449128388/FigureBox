@@ -26,28 +26,61 @@ class TotalAssetsCalculator:
     """总资产计算服务"""
     
     @staticmethod
-    def calculate_by_orders(orders: List[Order]) -> float:
+    def calculate_by_orders(db: Session, user_id: int, orders: List[Order]) -> float:
         """
-        计算总资产（基于已完成订单）
-        
+        计算总资产（基于已完成订单，扣除已出售数量）
+
         统计规则：
         1. 统计尾款管理中状态为"已完成"的全部订单
-        2. 计算手办市场总价 = 对应手办市场价（每个订单计为1个手办）
-        
+        2. 按手办ID分组统计每个手办的订单数量（即库存数量）
+        3. 扣除已出售订单中的数量
+        4. 计算手办市场总价 = 对应手办市场价 × (已完成订单数量 - 已出售数量)
+
         计算公式：
-        总资产 = Σ(手办市场价)  # 仅统计已完成订单
-        
+        总资产 = Σ(手办市场价 × (该手办的已完成订单数量 - 已出售数量))
+
         Args:
+            db: 数据库会话
+            user_id: 用户ID
             orders: 订单列表（仅包含已完成状态的订单）
-            
+
         Returns:
             float: 总资产金额（人民币）
         """
-        return sum(
-            (order.figure.market_price or order.figure.price or 0)
-            for order in orders
-            if order.status == "已完成" and order.figure
-        )
+        from collections import defaultdict
+        from app.models.sold_order import SoldOrder
+
+        # 按手办ID分组统计已完成订单数量
+        figure_order_count = defaultdict(int)
+        figure_price = {}  # 记录每个手办的市场价
+
+        for order in orders:
+            if order.status == "已完成" and order.figure:
+                figure_order_count[order.figure_id] += 1
+                if order.figure_id not in figure_price:
+                    figure_price[order.figure_id] = (
+                        order.figure.market_price or order.figure.price or 0
+                    )
+
+        # 查询已出售订单，按手办ID分组统计出售数量
+        sold_orders = db.query(SoldOrder).filter(
+            SoldOrder.user_id == user_id,
+            SoldOrder.is_active == True
+        ).all()
+
+        figure_sold_count = defaultdict(int)
+        for sold_order in sold_orders:
+            figure_sold_count[sold_order.figure_id] += sold_order.quantity or 1
+
+        # 计算总市值 = Σ(手办市场价 × (已完成订单数量 - 已出售数量))
+        total_assets = 0.0
+        for fig_id, order_count in figure_order_count.items():
+            # 扣除已出售数量
+            remaining_count = order_count - figure_sold_count.get(fig_id, 0)
+            if remaining_count > 0:
+                total_assets += figure_price.get(fig_id, 0) * remaining_count
+
+        return total_assets
     
     @staticmethod
     def calculate(figures: List[Figure]) -> float:
@@ -101,10 +134,10 @@ class TotalAssetsCalculator:
         # 关联手办表计算总市值
         total_assets = db.query(
             func.sum(
-                (func.coalesce(Figure.market_price, Figure.price, 0) * 
+                (func.coalesce(Figure.market_price, Figure.price, 0) *
                  func.coalesce(subquery.c.total_remaining, 0))
             )
-        ).outerjoin(Figure, Figure.id == subquery.c.figure_id).scalar()
+        ).select_from(subquery).outerjoin(Figure, Figure.id == subquery.c.figure_id).scalar()
         
         return total_assets or 0
 
@@ -195,9 +228,11 @@ class PositionCalculator:
         return amount * rate
 
     @staticmethod
-    def _calculate_invested_cost_by_orders(orders: List[Order]) -> float:
+    def _calculate_invested_cost_no_sold(
+        orders: List[Order]
+    ) -> float:
         """
-        计算已投入成本（基于订单的定金+尾款，转换为人民币）
+        计算已投入成本（无卖出记录时）
 
         统计规则：
         1. 统计尾款管理中所有订单的尾款+定金的总和
@@ -228,56 +263,67 @@ class PositionCalculator:
         return total_cost
 
     @staticmethod
-    def _calculate_invested_cost(figures: List[Figure]) -> float:
+    def _calculate_invested_cost_with_sold(
+        db: Session,
+        user_id: int,
+        orders: List[Order]
+    ) -> float:
         """
-        计算已投入成本（所有持仓手办的平均买入成本价总和）
-        向后兼容，基于手办列表的计算方式
-
-        Args:
-            figures: 手办列表
-
-        Returns:
-            float: 已投入成本
-        """
-        return sum(
-            (fig.average_purchase_price or 0) * (fig.quantity or 1)
-            for fig in figures
-        )
-
-    @staticmethod
-    def _calculate_invested_cost_from_transactions(db: Session, user_id: int) -> float:
-        """
-        计算已投入成本（基于库存账，支持卖出后正确统计）
+        计算已投入成本（有卖出记录时）
 
         统计规则：
-        1. 从库存账（AssetTransaction）获取每个手办的实际剩余库存和对应成本
-        2. 卖出后，已投入成本应减少（只统计剩余库存的成本）
-        3. 基于 FIFO 原则，卖出会先扣减最早买入的库存
+        1. 手办的成本 × 手办的库存（取自持仓列表中的成本和库存）
+        2. 加上订单状态不为"已完成"的(定金+尾款)
+        3. 需要考虑定金和尾款的币种转换
 
         计算公式：
-        已投入成本 = Σ(剩余数量 × 成本价)
+        已投入成本 = Σ(手办成本 × 手办库存) + Σ(未完成订单的定金+尾款)
 
         Args:
             db: 数据库会话
             user_id: 用户ID
+            orders: 订单列表
 
         Returns:
-            float: 已投入成本
+            float: 已投入成本（人民币）
         """
-        # 查询所有买入记录的剩余数量和成本
-        buy_transactions = db.query(AssetTransaction).filter(
-            AssetTransaction.user_id == user_id,
-            AssetTransaction.transaction_type == "buy",
-            AssetTransaction.is_active == True
-        ).all()
+        from app.services.dashboard_service.assets_service.holding_position_service import (
+            HoldingPositionService
+        )
+        from collections import defaultdict
 
-        total_cost = 0.0
-        for tx in buy_transactions:
-            remaining = tx.remaining_quantity or 0
-            cost = tx.price or 0
-            total_cost += remaining * cost
+        # 1. 获取所有有订单的手办ID
+        figure_ids = set(order.figure_id for order in orders if order.figure_id)
 
-        return total_cost
+        # 2. 计算手办成本 × 库存
+        total_figure_cost = 0.0
+        for figure_id in figure_ids:
+            # 获取手办库存
+            stock = HoldingPositionService.get_figure_inventory(db, figure_id, user_id)
+            if stock > 0:
+                # 获取手办成本
+                cost_price = HoldingPositionService.calculate_remaining_cost_price(
+                    db, figure_id, user_id
+                )
+                total_figure_cost += cost_price * stock
+
+        # 3. 计算未完成订单的定金+尾款
+        total_unfinished_cost = 0.0
+        for order in orders:
+            if order.status != "已完成":
+                # 转换定金为人民币
+                deposit_rmb = PositionCalculator._convert_to_rmb(
+                    order.deposit or 0,
+                    order.deposit_currency or 'CNY'
+                )
+                # 转换尾款为人民币
+                balance_rmb = PositionCalculator._convert_to_rmb(
+                    order.balance or 0,
+                    order.balance_currency or 'CNY'
+                )
+                total_unfinished_cost += deposit_rmb + balance_rmb
+
+        return total_figure_cost + total_unfinished_cost
 
     @classmethod
     def calculate_by_orders(
@@ -292,8 +338,11 @@ class PositionCalculator:
         计算公式：
         仓位 = 已投入成本 / 投资预算上限 × 100%
 
-        已投入成本计算：
-        - 基于所有订单的定金+尾款总和（已转换为人民币）
+        已投入成本计算规则：
+        1. 无卖出记录时：统计所有订单的定金+尾款总和（考虑币种转换）
+        2. 有卖出记录时：手办成本×手办库存 + 未完成订单的定金+尾款
+           - 手办成本和库存取自持仓列表服务
+           - 未完成订单指状态不为"已完成"的订单
 
         仓位状态分级表：
         - 空仓: 0% - 灰色
@@ -313,8 +362,22 @@ class PositionCalculator:
                      position_color(仓位颜色), investment_budget(投资预算),
                      invested_cost(已投入成本)
         """
+        from app.models.sold_order import SoldOrder
+
         investment_budget = cls._get_investment_budget(db, user_id)
-        invested_cost = cls._calculate_invested_cost_by_orders(orders)
+
+        # 检查是否有卖出记录
+        has_sold = db.query(SoldOrder).filter(
+            SoldOrder.user_id == user_id,
+            SoldOrder.is_active == True
+        ).first() is not None
+
+        if has_sold:
+            # 有卖出记录：使用手办成本×库存 + 未完成订单成本
+            invested_cost = cls._calculate_invested_cost_with_sold(db, user_id, orders)
+        else:
+            # 无卖出记录：统计所有订单的定金+尾款
+            invested_cost = cls._calculate_invested_cost_no_sold(orders)
 
         # 计算仓位百分比
         if investment_budget > 0:
@@ -348,74 +411,6 @@ class PositionCalculator:
             "position_color": position_color,
             "investment_budget": investment_budget,
             "invested_cost": round(invested_cost, 2)
-        }
-
-    @classmethod
-    def calculate(
-        cls,
-        db: Session,
-        user_id: int,
-        figures: List[Figure]
-    ) -> Dict[str, Any]:
-        """
-        计算仓位信息（向后兼容，基于手办列表）
-
-        计算公式：
-        仓位 = 已投入成本 / 投资预算上限 × 100%
-
-        仓位状态分级表：
-        - 空仓: 0% - 灰色
-        - 轻仓: 1% - 30% - 蓝色
-        - 半仓: 30% - 70% - 绿色
-        - 重仓: 70% - 90% - 黄色
-        - 满仓: 90% - 100% - 红色
-        - 超仓: >100% - 黑色
-
-        Args:
-            db: 数据库会话
-            user_id: 用户ID
-            figures: 手办列表
-
-        Returns:
-            Dict包含: position(仓位状态), position_percentage(仓位百分比),
-                     position_color(仓位颜色), investment_budget(投资预算),
-                     invested_cost(已投入成本)
-        """
-        investment_budget = cls._get_investment_budget(db, user_id)
-        invested_cost = cls._calculate_invested_cost(figures)
-
-        # 计算仓位百分比
-        if investment_budget > 0:
-            position_percentage = (invested_cost / investment_budget) * 100
-        else:
-            position_percentage = 100 if invested_cost > 0 else 0
-
-        # 根据仓位百分比确定仓位状态和颜色
-        if position_percentage == 0:
-            position = "空仓"
-            position_color = "gray"
-        elif position_percentage <= 30:
-            position = "轻仓"
-            position_color = "blue"
-        elif position_percentage <= 70:
-            position = "半仓"
-            position_color = "green"
-        elif position_percentage <= 90:
-            position = "重仓"
-            position_color = "yellow"
-        elif position_percentage <= 100:
-            position = "满仓"
-            position_color = "red"
-        else:
-            position = "超仓"
-            position_color = "black"
-
-        return {
-            "position": position,
-            "position_percentage": round(position_percentage, 2),
-            "position_color": position_color,
-            "investment_budget": investment_budget,
-            "invested_cost": invested_cost
         }
 
 

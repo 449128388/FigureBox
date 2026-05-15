@@ -176,13 +176,13 @@ export default {
   <tr>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">🚀 暴涨</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">单月涨幅 ≥ +15%</td>
-    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: green;">绿色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #F44336;">红色</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">考虑止盈或分批减仓</td>
   </tr>
   <tr>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">📈 上涨</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">涨幅 +5% ~ +15%</td>
-    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #67c23a;">浅绿</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #FF6B6B;">浅红</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">持有，设置+20%止盈点</td>
   </tr>
   <tr>
@@ -194,19 +194,19 @@ export default {
   <tr>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">📉 告警</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">跌幅 -10% ~ -20%</td>
-    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #e6a23c;">黄色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #E6A23C;">黄色</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">警惕，准备止损预案</td>
   </tr>
   <tr>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">🔴 破位</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">跌幅 ≥ -20% 或 破发</td>
-    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #f56c6c;">红色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #4CAF50;">绿色</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px; font-weight: bold;">强制止损，避免深套</td>
   </tr>
   <tr>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">💀 退市</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">跌幅 ≥ -50% 或 绝版无市</td>
-    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #000000;">黑色</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #2E7D32;">深绿</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">流动性归零，账面资产作废</td>
   </tr>
 </table>

@@ -189,8 +189,12 @@ export function useSoldOrderManagement() {
   const availableFigures = computed(() => {
     return figureStore.figures
   })
-  
-  const totalNetProfit = computed(() => soldOrderStore.totalNetProfit)
+
+  // 【修复】基于搜索过滤后的订单计算累计净利润
+  const totalNetProfit = computed(() => {
+    const orders = searchFilteredOrders.value
+    return orders.reduce((sum, order) => sum + (order.net_profit || 0), 0)
+  })
   
   // 方法
   const resetForm = () => {

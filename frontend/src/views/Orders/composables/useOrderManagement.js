@@ -222,6 +222,14 @@ export function useOrderManagement() {
     return counts
   })
   
+  // 【修复】基于搜索过滤后的订单计算待补款总额
+  const totalUnpaidBalance = computed(() => {
+    const orders = searchFilteredOrders.value
+    return orders
+      .filter(order => order.status === '未支付')
+      .reduce((sum, order) => sum + (order.balance || 0), 0)
+  })
+
   const availableFigures = computed(() => {
     // 获取已有订单的手办ID列表及其订单数量
     const figureOrderCounts = {}
@@ -466,7 +474,7 @@ export function useOrderManagement() {
     totalOrders,
     statusCounts,
     availableFigures,
-    totalUnpaidBalance: computed(() => orderStore.totalUnpaidBalance),
+    totalUnpaidBalance,
 
     // 方法
     resetForm,

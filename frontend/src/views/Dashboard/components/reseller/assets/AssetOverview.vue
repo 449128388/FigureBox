@@ -21,11 +21,12 @@
     </div>
     <div class="overview-item">
       <span class="label">日涨跌:</span>
-      <span 
-        class="value" 
-        :class="{ 
-          positive: dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change >= 0, 
-          negative: dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change < 0 
+      <span
+        class="value"
+        :class="{
+          'stock-up': dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change > 0,
+          'stock-down': dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change < 0,
+          'stock-flat': dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change === 0
         }"
       >
         <template v-if="dashboardData?.summary?.has_daily_change">
@@ -100,12 +101,17 @@ export default {
   color: #333;
 }
 
-.overview-item .value.positive {
-  color: #4CAF50;
+/* 中国股市颜色标准：涨红跌绿 */
+.overview-item .value.stock-up {
+  color: #F44336; /* 红色 - 上涨 */
 }
 
-.overview-item .value.negative {
-  color: #F44336;
+.overview-item .value.stock-down {
+  color: #4CAF50; /* 绿色 - 下跌 */
+}
+
+.overview-item .value.stock-flat {
+  color: #909399; /* 灰色 - 持平 */
 }
 
 /* 仓位状态颜色 */

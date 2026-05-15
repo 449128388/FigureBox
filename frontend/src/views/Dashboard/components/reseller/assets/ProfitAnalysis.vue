@@ -112,12 +112,13 @@ export default {
   margin-bottom: 5px;
 }
 
+/* 中国股市颜色标准：涨红跌绿 */
 .analysis-value.positive {
-  color: #52c41a;
+  color: #F44336; /* 红色 - 盈利 */
 }
 
 .analysis-value.negative {
-  color: #F44336;
+  color: #4CAF50; /* 绿色 - 亏损 */
 }
 
 .analysis-desc {

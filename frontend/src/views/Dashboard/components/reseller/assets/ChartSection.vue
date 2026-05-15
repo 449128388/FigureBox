@@ -111,7 +111,7 @@ export default {
 
     // 判断收益曲线是否有数据
     const hasProfitData = computed(() => {
-      return (props.dashboardData?.profit_trend || []).length > 0
+      return (props.dashboardData?.kline_data || []).length > 0
     })
     
     const formatNumber = (num) => {
@@ -208,23 +208,30 @@ export default {
     
     const initProfitChart = () => {
       if (!profitChart.value) return
-      
+
       if (profitChartInstance.value) {
         profitChartInstance.value.dispose()
       }
-      
+
       profitChartInstance.value = echarts.init(profitChart.value)
-      
-      const data = []
-      for (let i = 0; i < 30; i++) {
-        data.push([
-          new Date(Date.now() - (30 - i) * 86400000).toISOString().substring(0, 10),
-          100000 + i * 1000 + Math.random() * 5000
-        ])
+
+      // 使用后端返回的真实kline_data数据
+      const klineData = props.dashboardData?.kline_data || []
+
+      if (klineData.length === 0) {
+        profitChartInstance.value.setOption({
+          title: {
+            text: '暂无数据',
+            left: 'center',
+            top: 'center',
+            textStyle: { color: '#909399', fontSize: 14 }
+          }
+        })
+        return
       }
-      
-      const xAxisData = data.map(item => item[0])
-      const seriesData = data.map(item => item[1])
+
+      const xAxisData = klineData.map(item => item.date)
+      const seriesData = klineData.map(item => item.value)
       
       const option = {
         tooltip: {

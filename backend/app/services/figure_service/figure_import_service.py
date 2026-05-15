@@ -151,33 +151,35 @@ class FigureImportService:
             
             db.add(order)
             db.flush()  # 获取订单ID
-            
-            # 创建资产交易记录（库存账）和资金流水记录（资金账）
-            try:
-                # 1. 创建资产交易记录（库存账）- 每个订单对应1体手办
-                order_quantity = order_data.get('quantity', 1)
-                AssetTransactionService.create_buy_transaction_from_order(
-                    db=db,
-                    user_id=user_id,
-                    figure_id=figure.id,
-                    order=order,
-                    quantity=order_quantity
-                )
 
-                # 2. 创建资金流水记录（资金账）
-                purchase_date = FigureImportService.parse_date(order_data.get('purchase_date'))
-                OrderTransactionService.create_transaction_from_order(
-                    db=db,
-                    user_id=user_id,
-                    figure_id=figure.id,
-                    order=order,
-                    transaction_date=purchase_date,
-                    notes=f"订单导入 - {figure.name}"
-                )
-            except Exception as e:
-                print(f"导入订单时创建交易记录失败: {e}")
-                import traceback
-                traceback.print_exc()
+            # 创建资产交易记录（库存账）和资金流水记录（资金账）
+            # 【修复】只记录订单状态为"已完成"的数据，因为"已完成"说明已经拿到货物了
+            if order.status == "已完成":
+                try:
+                    # 1. 创建资产交易记录（库存账）- 每个订单对应1体手办
+                    order_quantity = order_data.get('quantity', 1)
+                    AssetTransactionService.create_buy_transaction_from_order(
+                        db=db,
+                        user_id=user_id,
+                        figure_id=figure.id,
+                        order=order,
+                        quantity=order_quantity
+                    )
+
+                    # 2. 创建资金流水记录（资金账）
+                    purchase_date = FigureImportService.parse_date(order_data.get('purchase_date'))
+                    OrderTransactionService.create_transaction_from_order(
+                        db=db,
+                        user_id=user_id,
+                        figure_id=figure.id,
+                        order=order,
+                        transaction_date=purchase_date,
+                        notes=f"订单导入 - {figure.name}"
+                    )
+                except Exception as e:
+                    print(f"导入订单时创建交易记录失败: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             imported_count += 1
         

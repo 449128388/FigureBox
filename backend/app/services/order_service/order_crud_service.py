@@ -75,46 +75,10 @@ class OrderCrudService:
         db.refresh(db_order)
 
         # 创建资产交易记录（库存账）和资金流水记录
+        # 【修复】只记录订单状态为"已完成"的数据，因为"已完成"说明已经拿到货物了
         try:
-            # 根据订单状态决定如何创建交易记录
-            if db_order.status == "已取消":
-                # 已取消订单：只记录定金，数量为0
-                deposit_amount = FigurePriceService.calculate_deposit_cny(
-                    deposit=db_order.deposit,
-                    deposit_currency=db_order.deposit_currency
-                )
-
-                # 1. 创建资产交易记录（库存账）- 已取消订单数量为0
-                AssetTransactionService.create_transaction_from_figure(
-                    db=db,
-                    user_id=current_user.id,
-                    figure_id=order_data.figure_id,
-                    price=deposit_amount,
-                    quantity=0,  # 已取消订单，数量为0
-                    order_id=db_order.id
-                )
-
-                # 2. 创建定金资金流水记录（资金账）- 独立记录以便追踪变更
-                from app.models.asset import OrderTransaction
-                deposit_txn = OrderTransaction(
-                    user_id=current_user.id,
-                    figure_id=order_data.figure_id,
-                    order_id=db_order.id,
-                    transaction_type="deposit",
-                    direction="out",
-                    quantity=0,
-                    unit_price=db_order.deposit or 0,
-                    total_amount=db_order.deposit or 0,
-                    currency=db_order.deposit_currency or "CNY",
-                    platform=db_order.shop_name,
-                    transaction_date=datetime.now(),
-                    notes=f"订单 #{db_order.id} 定金（已取消）",
-                    transaction_subtype="initial",
-                    changed_field="deposit"
-                )
-                db.add(deposit_txn)
-            else:
-                # 正常订单：创建完整的交易记录
+            if db_order.status == "已完成":
+                # 已完成订单：创建完整的交易记录（库存账和资金账）
                 # 计算订单总金额（考虑币种转换）
                 total_price = FigurePriceService.calculate_order_amount_cny(
                     deposit=db_order.deposit,

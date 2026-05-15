@@ -82,18 +82,18 @@ class HoldingPositionService:
         return "/imgs/no_image.png"
 
     @staticmethod
-    def get_figure_inventory_from_asset_transactions(
+    def get_figure_inventory(
         db: Session,
         figure_id: int,
         user_id: int
     ) -> int:
         """
-        从库存账（AssetTransaction）获取手办当前库存数量
+        获取手办当前库存数量
 
         统计逻辑：
-        - 只统计关联订单状态为"已完成"的买入记录（表示尾款已付清，手办已到手）
-        - 累加 remaining_quantity 字段
-        - 已出售订单会创建 sell 记录并扣减买入记录的 remaining_quantity
+        1. 首先查询该手办是否有卖出记录（AssetTransaction 中是否存在 sell 记录）
+        2. 如果没有卖出记录：直接统计订单状态为"已完成"的订单数量
+        3. 如果有卖出记录：关联 AssetTransaction 的 remaining_quantity 来计算剩余库存
 
         Args:
             db: 数据库会话
@@ -103,18 +103,36 @@ class HoldingPositionService:
         Returns:
             当前库存数量（只包含已完成尾款且未卖出的数量）
         """
-        # 只统计关联订单状态为"已完成"的买入记录
-        total_remaining = db.query(func.sum(AssetTransaction.remaining_quantity)).join(
-            Order, AssetTransaction.order_id == Order.id
-        ).filter(
-            AssetTransaction.user_id == user_id,
-            AssetTransaction.figure_id == figure_id,
-            AssetTransaction.transaction_type == "buy",
-            AssetTransaction.is_active == True,
-            Order.status == "已完成"  # 只统计尾款已完成的订单
-        ).scalar() or 0
+        from app.models.sold_order import SoldOrder
 
-        return int(total_remaining)
+        # 1. 检查该手办是否有卖出记录
+        has_sold = db.query(SoldOrder).filter(
+            SoldOrder.user_id == user_id,
+            SoldOrder.figure_id == figure_id,
+            SoldOrder.is_active == True
+        ).first() is not None
+
+        if has_sold:
+            # 2. 有卖出记录：从 AssetTransaction 统计 remaining_quantity
+            total_remaining = db.query(func.sum(AssetTransaction.remaining_quantity)).join(
+                Order, AssetTransaction.order_id == Order.id
+            ).filter(
+                AssetTransaction.user_id == user_id,
+                AssetTransaction.figure_id == figure_id,
+                AssetTransaction.transaction_type == "buy",
+                AssetTransaction.is_active == True,
+                Order.status == "已完成"
+            ).scalar() or 0
+            return int(total_remaining)
+        else:
+            # 3. 没有卖出记录：直接统计已完成订单的数量
+            total_count = db.query(func.count(Order.id)).filter(
+                Order.user_id == user_id,
+                Order.figure_id == figure_id,
+                Order.status == "已完成",
+                Order.is_active == 1
+            ).scalar() or 0
+            return int(total_count)
 
     @staticmethod
     def calculate_remaining_cost_price(
@@ -191,10 +209,7 @@ class HoldingPositionService:
 
         # 【修改】库存数量：从库存账（AssetTransaction）获取真实库存
         # 基于 remaining_quantity 统计，已出售订单会扣减该值
-        stock = cls.get_figure_inventory_from_asset_transactions(db, figure.id, user_id)
-        # 如果库存为0，默认显示1（保持向后兼容）
-        if stock <= 0:
-            stock = 1
+        stock = cls.get_figure_inventory(db, figure.id, user_id)
 
         # 【修复】盈亏计算：应该计算总盈亏（单价盈亏 × 库存数量）
         # 单价盈亏 = 当前价 - 成本价
@@ -267,6 +282,9 @@ class HoldingPositionService:
             )
             for fig in figures
         ]
+
+        # 【修复】过滤掉库存为0的手办（已完全卖出的不显示在持仓列表）
+        holdings = [h for h in holdings if h.get("stock", 0) > 0]
 
         # 按盈亏从高到低排序
         holdings.sort(key=lambda x: x.get("profit", 0), reverse=True)
