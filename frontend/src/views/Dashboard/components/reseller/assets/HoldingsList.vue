@@ -3,7 +3,7 @@
 
   功能说明：
   - 展示手办持仓列表，按盈亏排序
-  - 支持风险状态筛选
+  - 支持手办名字模糊搜索和手办状态筛选
   - 提供手办卡片展示，包含基本信息、收益情况
   - 支持点击手办名字跳转到详情页
   - 支持修改市场价功能
@@ -39,30 +39,52 @@
         筛选 ▼
       </el-button>
     </div>
-    
+
     <!-- 筛选条件 -->
     <div v-if="showFilter" class="filter-section">
-      <div class="filter-row">
-        <el-input placeholder="搜索" prefix-icon="el-icon-search" class="search-input"></el-input>
-        <el-button 
-          v-for="filter in holdingFilters" 
-          :key="filter.value"
-          :class="{ active: selectedHoldingFilter === filter.value }"
-          @click="selectedHoldingFilter = filter.value"
-        >
-          {{ filter.label }}
+      <!-- 手办名字搜索和状态筛选同一行 -->
+      <div class="filter-row combined-filter-row">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索手办名字"
+          prefix-icon="Search"
+          class="search-input"
+          clearable
+          @keyup.enter="handleSearch"
+        />
+        <div class="status-filter-buttons">
+          <el-button
+            v-for="filter in statusFilters"
+            :key="filter.value"
+            :type="selectedStatusFilter === filter.value ? 'primary' : 'default'"
+            size="small"
+            @click="selectedStatusFilter = filter.value"
+          >
+            {{ filter.label }}
+          </el-button>
+        </div>
+      </div>
+      <!-- 查询和重置按钮 -->
+      <div class="filter-row action-row">
+        <el-button type="primary" @click="handleSearch" :loading="loading">
+          <el-icon><Search /></el-icon>
+          查询
+        </el-button>
+        <el-button @click="handleReset">
+          <el-icon><RefreshRight /></el-icon>
+          重置
         </el-button>
       </div>
     </div>
-    
+
     <!-- 持仓卡片 -->
     <div class="holdings-cards">
       <!-- 空数据提示 -->
-      <div v-if="!dashboardData?.holdings || dashboardData.holdings.length === 0" class="empty-holdings">
-        <el-empty description="暂无数据" />
+      <div v-if="filteredHoldings.length === 0" class="empty-holdings">
+        <el-empty :description="emptyDescription" />
       </div>
       <div
-        v-for="(item, index) in dashboardData?.holdings || []"
+        v-for="(item, index) in filteredHoldings"
         :key="item.figure_id"
         class="holding-card"
         :class="getStatusClass(item.status)"
@@ -142,10 +164,16 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { Search, RefreshRight } from '@element-plus/icons-vue'
+import axios from '../../../../../axios'
 
 export default {
   name: 'HoldingsList',
+  components: {
+    Search,
+    RefreshRight
+  },
   props: {
     dashboardData: {
       type: Object,
@@ -153,18 +181,25 @@ export default {
     }
   },
   emits: ['sell-asset', 'add-position', 'cut-loss', 'edit-price'],
-  setup() {
+  setup(props) {
     const showFilter = ref(false)
-    const selectedHoldingFilter = ref('all')
-    
-    const holdingFilters = [
+    const searchKeyword = ref('')
+    const selectedStatusFilter = ref('all')
+    const loading = ref(false)
+    const filteredHoldingsData = ref([])
+    const hasSearched = ref(false)
+
+    // 手办状态筛选选项 - 使用实际风险状态
+    const statusFilters = [
       { label: '全部', value: 'all' },
-      { label: '收藏中', value: 'collecting' },
-      { label: '补款中', value: 'payment' },
-      { label: '已转卖', value: 'sold' },
-      { label: '破发 🔴', value: 'break-even' }
+      { label: '🚀 暴涨', value: '🚀 暴涨' },
+      { label: '📈 上涨', value: '📈 上涨' },
+      { label: '➖ 横盘', value: '➖ 横盘' },
+      { label: '📉 告警', value: '📉 告警' },
+      { label: '🟢 破位', value: '🟢 破位' },
+      { label: '💀 退市', value: '💀 退市' }
     ]
-    
+
     const statusTable = ref(`
 <table style="border-collapse: collapse; width: 100%; font-size: 12px;">
   <tr style="background-color: #f5f7fa; font-weight: bold;">
@@ -198,7 +233,7 @@ export default {
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">警惕，准备止损预案</td>
   </tr>
   <tr>
-    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">🔴 破位</td>
+    <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">🟢 破位</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px;">跌幅 ≥ -20% 或 破发</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px; color: #4CAF50;">绿色</td>
     <td style="border: 1px solid #dcdfe6; padding: 4px 8px; font-weight: bold;">强制止损，避免深套</td>
@@ -211,11 +246,11 @@ export default {
   </tr>
 </table>
     `)
-    
+
     const formatNumber = (num) => {
       return num?.toLocaleString() || '0'
     }
-    
+
     const getStatusClass = (status) => {
       if (!status) return ''
       if (status.includes('暴涨')) return 'status-surge'
@@ -226,19 +261,75 @@ export default {
       if (status.includes('退市')) return 'status-delisted'
       return ''
     }
-    
+
     const handleLongPress = (item) => {
 
     }
-    
+
+    // 查询持仓列表
+    const handleSearch = async () => {
+      loading.value = true
+      try {
+        const params = {}
+        if (searchKeyword.value && searchKeyword.value.trim()) {
+          params.keyword = searchKeyword.value.trim()
+        }
+        if (selectedStatusFilter.value && selectedStatusFilter.value !== 'all') {
+          params.status = selectedStatusFilter.value
+        }
+
+        const data = await axios.get('/assets/holdings/filter', { params })
+        if (data && data.holdings) {
+          filteredHoldingsData.value = data.holdings
+          hasSearched.value = true
+        }
+      } catch (error) {
+        console.error('查询持仓列表失败:', error)
+      } finally {
+        loading.value = false
+      }
+    }
+
+    // 重置筛选条件
+    const handleReset = () => {
+      searchKeyword.value = ''
+      selectedStatusFilter.value = 'all'
+      filteredHoldingsData.value = []
+      hasSearched.value = false
+    }
+
+    // 筛选后的持仓列表
+    const filteredHoldings = computed(() => {
+      // 如果已经执行过查询，使用查询结果
+      if (hasSearched.value) {
+        return filteredHoldingsData.value
+      }
+      // 否则使用原始数据
+      return props.dashboardData?.holdings || []
+    })
+
+    // 空数据提示文本
+    const emptyDescription = computed(() => {
+      if (hasSearched.value) {
+        return '没有找到匹配的手办'
+      }
+      return '暂无数据'
+    })
+
     return {
       showFilter,
-      selectedHoldingFilter,
-      holdingFilters,
+      searchKeyword,
+      selectedStatusFilter,
+      statusFilters,
       statusTable,
       formatNumber,
       getStatusClass,
-      handleLongPress
+      handleLongPress,
+      filteredHoldings,
+      emptyDescription,
+      loading,
+      handleSearch,
+      handleReset
     }
   }
 }
@@ -257,6 +348,15 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+/* 标题样式 - 确保问号和标题在同一行 */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: bold;
 }
 
 /* 状态帮助按钮样式 */
@@ -288,8 +388,36 @@ export default {
   flex-wrap: wrap;
 }
 
-.search-input {
+/* 联合筛选行样式 - 搜索和状态筛选在同一行 */
+.combined-filter-row {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.combined-filter-row .search-input {
   width: 200px;
+  flex-shrink: 0;
+}
+
+.status-filter-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.status-filter-buttons .el-button {
+  font-size: 14px;
+}
+
+/* 操作按钮行样式 */
+.action-row {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px dashed #dcdfe6;
+  justify-content: flex-end;
 }
 
 /* 持仓卡片 */
@@ -327,13 +455,13 @@ export default {
 
 /* 持仓状态样式 */
 .holding-card.status-surge {
-  border-left: 4px solid #52c41a;
-  background-color: #f6ffed;
+  border-left: 4px solid #F5222D;
+  background-color: #FFF1F0;
 }
 
 .holding-card.status-rise {
-  border-left: 4px solid #95de64;
-  background-color: #f6ffed;
+  border-left: 4px solid #FF7875;
+  background-color: #FFF2F2;
 }
 
 .holding-card.status-flat {
@@ -347,8 +475,8 @@ export default {
 }
 
 .holding-card.status-break {
-  border-left: 4px solid #f5222d;
-  background-color: #fff1f0;
+  border-left: 4px solid #52C41A;
+  background-color: #F6FFED;
 }
 
 .holding-card.status-delisted {

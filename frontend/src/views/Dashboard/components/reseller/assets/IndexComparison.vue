@@ -70,7 +70,27 @@
     <!-- 塑料手办指数 -->
     <div class="index-item">
       <span class="label">塑料手办指数:</span>
-      <span class="value">{{ dashboardData?.summary?.plastic_index || '--' }}</span>
+      <span class="value">{{ dashboardData?.summary?.plastic_index_comparison?.current_value || dashboardData?.summary?.plastic_index || '--' }}</span>
+      <span
+        v-if="dashboardData?.summary?.plastic_index_comparison"
+        class="index-change"
+        :class="{
+          up: dashboardData?.summary?.plastic_index_comparison?.trend === 'up',
+          down: dashboardData?.summary?.plastic_index_comparison?.trend === 'down',
+          flat: dashboardData?.summary?.plastic_index_comparison?.trend === 'flat'
+        }"
+      >
+        <template v-if="dashboardData?.summary?.plastic_index_comparison?.trend === 'up'">
+          ▲{{ dashboardData?.summary?.plastic_index_comparison?.change_percentage }}%
+        </template>
+        <template v-else-if="dashboardData?.summary?.plastic_index_comparison?.trend === 'down'">
+          ▼{{ Math.abs(dashboardData?.summary?.plastic_index_comparison?.change_percentage) }}%
+        </template>
+        <template v-else>
+          -{{ dashboardData?.summary?.plastic_index_comparison?.change_percentage }}%
+        </template>
+      </span>
+      <span v-else class="index-change no-history">--</span>
     </div>
     
     <!-- 跑赢/跑输大盘 - 仅当有手办时显示 -->

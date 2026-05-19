@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import axios from '../../../axios'
 import { ElMessage } from 'element-plus'
 
@@ -10,7 +10,7 @@ export function useCollectorData() {
   const fetchCollectorData = async () => {
     loading.value = true
     try {
-      const res = await axios.get('/assets/collector/dashboard')
+      const res = await axios.get('/collector/dashboard')
       collectorData.value = res
     } catch (error) {
       // 生成模拟数据
@@ -94,10 +94,8 @@ export function useCollectorData() {
     ElMessage.info(`执行操作: ${action}`)
   }
 
-  // 组件挂载时获取数据
-  onMounted(() => {
-    fetchCollectorData()
-  })
+  // 【修复】移除 onMounted 自动获取数据
+  // 现在由 Dashboard.vue 在切换到收藏家模式时手动调用 fetchCollectorData
 
   return {
     collectorData,

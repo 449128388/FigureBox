@@ -120,16 +120,20 @@ class IndexService:
     def _get_cached_index(cls, db: Session, index_code: str) -> Dict[str, Any]:
         """获取缓存的指数数据"""
         today = date.today()
+        now = datetime.now()
         config = INDEX_CONFIG[index_code]
         cache = db.query(StockIndexCache).filter(StockIndexCache.index_code == index_code).first()
-        
+
+        # 【修复】先判断是否需要获取新数据（在重置之前判断）
+        need_fetch = cls._check_need_fetch(cache, today)
+
         # 检查是否需要重置请求计数（系统时间已经变成第二天）
         if cache and cache.request_date != today:
             cache.request_count = 0
             cache.request_date = today
             db.commit()
-        
-        if cls._check_need_fetch(cache, today) and (not cache or cache.request_count < cls.DAILY_REQUEST_LIMIT):
+
+        if need_fetch and (not cache or cache.request_count < cls.DAILY_REQUEST_LIMIT):
             lock_key = index_code  # 使用指数代码作为固定锁键
             
             with _index_fetch_locks_lock:

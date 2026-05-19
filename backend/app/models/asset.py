@@ -299,3 +299,39 @@ class OrderTransaction(Base):
     figure = relationship("Figure")  # 关联手办对象
     order = relationship("Order")  # 关联订单对象
     parent_transaction = relationship("OrderTransaction", remote_side=[id])  # 自关联：关联父交易
+
+
+class PlasticIndexHistory(Base):
+    """
+    塑料手办指数历史记录模型 - 记录每日塑料手办指数变化
+
+    功能说明：
+    - 记录用户每日的塑料手办指数值
+    - 用于计算指数涨跌（对比昨日指数）
+    - 支持指数趋势分析
+
+    关联关系：
+    - user: 多对一关联 User 表
+    """
+    __tablename__ = "plastic_index_history"
+
+    # 主键
+    id = Column(Integer, primary_key=True, index=True)  # 记录唯一标识ID
+
+    # 外键关联
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
+
+    # 指数数据
+    current_value = Column(Float, nullable=False)  # 当前指数值
+    change_value = Column(Float, default=0)  # 涨跌值（相对于昨日）
+    change_percentage = Column(Float, default=0)  # 涨跌幅百分比
+    base_value = Column(Float, default=1000.0)  # 基准日指数值（默认1000）
+    base_date = Column(Date, nullable=False)  # 基准日期
+
+    # 时间信息
+    record_date = Column(Date, nullable=False)  # 记录日期（哪一天的数据）
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 记录创建时间
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # 最后更新时间
+
+    # 关系
+    user = relationship("User")  # 关联用户对象

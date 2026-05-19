@@ -21,7 +21,7 @@ class AssetDistributionService:
         "📈 上涨": {"color": "#FF6B6B"},  # 浅红 - 上涨
         "➖ 横盘": {"color": "#909399"},  # 灰色 - 持平
         "📉 告警": {"color": "#E6A23C"},  # 黄色 - 警告
-        "🔴 破位": {"color": "#4CAF50"},  # 绿色 - 大跌
+        "🟢 破位": {"color": "#4CAF50"},  # 绿色 - 破位/大跌
         "💀 退市": {"color": "#2E7D32"}   # 深绿 - 退市
     }
 

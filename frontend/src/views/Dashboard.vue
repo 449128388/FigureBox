@@ -102,15 +102,17 @@
       />
 
       <!-- 交易视图 -->
-      <TradeView 
-        v-else-if="activeView === 'trade'" 
+      <TradeView
+        v-else-if="activeView === 'trade'"
         :trade-data="tradeData"
+        :selected-month="selectedMonth"
         @open-buy-dialog="openBuyDialog"
         @open-sell-dialog="openSellDialog"
         @open-payment-dialog="openPaymentDialog"
         @open-cancel-dialog="openCancelDialog"
         @view-record="viewRecord"
         @delete-record="deleteRecord"
+        @month-change="handleMonthChange"
       />
     </div>
 
@@ -309,19 +311,34 @@ export default {
       }
     }
     
+    // 当前选中的年月
+    const selectedMonth = ref({
+      year: new Date().getFullYear(),
+      month: new Date().getMonth() + 1
+    })
+
     // 获取交易数据
     const fetchTradeData = async () => {
       try {
-        const res = await axios.get('/assets/trade/records')
+        const { year, month } = selectedMonth.value
+        const res = await axios.get('/trade_records/dashboard', {
+          params: { year, month }
+        })
         tradeData.value = res
       } catch (error) {
       }
+    }
+
+    // 处理月份切换
+    const handleMonthChange = (newMonth) => {
+      selectedMonth.value = newMonth
+      fetchTradeData()
     }
     
     // 获取行情数据
     const fetchMarketData = async () => {
       try {
-        const res = await axios.get('/assets/market/dashboard')
+        const res = await axios.get('/market/dashboard')
         marketData.value = res
       } catch (error) {
         // 生成模拟数据

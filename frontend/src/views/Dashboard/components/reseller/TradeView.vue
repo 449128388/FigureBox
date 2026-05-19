@@ -7,6 +7,7 @@
   - 处理交易相关的操作事件
 
   组件依赖：
+  - MonthSelector.vue - 月份切换器组件
   - TradeStats.vue - 交易统计组件
   - QuickActions.vue - 快速操作组件
   - TradeFlow.vue - 交易流水组件
@@ -19,10 +20,16 @@
 -->
 <template>
   <div class="trade-view">
+    <!-- 月份切换器 -->
+    <MonthSelector
+      v-model="currentMonth"
+      @change="handleMonthChange"
+    />
+
     <!-- 本月交易统计 -->
-    <TradeStats 
-      :displayTradeData="displayTradeData" 
-      :formatNumber="formatNumber" 
+    <TradeStats
+      :displayTradeData="displayTradeData"
+      :formatNumber="formatNumber"
     />
 
     <!-- 快速操作 -->
@@ -50,7 +57,8 @@
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import MonthSelector from './trade/MonthSelector.vue'
 import TradeStats from './trade/TradeStats.vue'
 import QuickActions from './trade/QuickActions.vue'
 import TradeFlow from './trade/TradeFlow.vue'
@@ -59,6 +67,7 @@ import ProfitAnalysis from './trade/ProfitAnalysis.vue'
 export default {
   name: 'TradeView',
   components: {
+    MonthSelector,
     TradeStats,
     QuickActions,
     TradeFlow,
@@ -68,9 +77,16 @@ export default {
     tradeData: {
       type: Object,
       default: () => ({})
+    },
+    selectedMonth: {
+      type: Object,
+      default: () => ({
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1
+      })
     }
   },
-  emits: ['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog', 'view-record', 'delete-record'],
+  emits: ['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog', 'view-record', 'delete-record', 'month-change'],
   setup(props) {
     // 生成模拟数据
     const getMockTradeData = () => {
@@ -139,7 +155,20 @@ export default {
       // 处理交易操作
 
     }
-    
+
+    // 当前月份（与父组件同步）
+    const currentMonth = ref({ ...props.selectedMonth })
+
+    // 监听父组件传入的月份变化
+    watch(() => props.selectedMonth, (newVal) => {
+      currentMonth.value = { ...newVal }
+    }, { deep: true })
+
+    // 处理月份切换
+    const handleMonthChange = (newMonth) => {
+      emit('month-change', newMonth)
+    }
+
     // 计算显示的交易数据（优先使用真实数据，无数据时使用模拟数据）
     const displayTradeData = computed(() => {
       if (props.tradeData && Object.keys(props.tradeData).length > 0) {
@@ -147,12 +176,14 @@ export default {
       }
       return getMockTradeData()
     })
-    
+
     return {
       formatNumber,
       handleTradeAction,
       displayTradeData,
-      getMockTradeData
+      getMockTradeData,
+      currentMonth,
+      handleMonthChange
     }
   }
 }

@@ -38,6 +38,10 @@ from .add_position_service import (
     AddPositionService
 )
 
+from .holding_filter_service import (
+    HoldingFilterService
+)
+
 __all__ = [
     # Facade 统一入口
     'AssetCalculationService',
@@ -51,5 +55,6 @@ __all__ = [
     'MarketBenchmarkService',
     'AssetDistributionService',
     'HoldingPositionService',
-    'AddPositionService'
+    'AddPositionService',
+    'HoldingFilterService'
 ]

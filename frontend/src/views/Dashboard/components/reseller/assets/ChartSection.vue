@@ -235,9 +235,9 @@ export default {
       
       const option = {
         tooltip: {
-          trigger: 'axis',
+          trigger: 'item',
           formatter: function(params) {
-            return `${params[0].name}<br/>收益: ¥${formatNumber(params[0].value)}`
+            return `${params.name}<br/>收益: ¥${formatNumber(params.value)}`
           }
         },
         xAxis: {

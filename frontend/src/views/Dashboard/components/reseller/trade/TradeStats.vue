@@ -30,11 +30,11 @@
       </div>
       <div class="stat-item">
         <div class="stat-label">净现金流</div>
-        <div class="stat-value" :class="{ positive: displayTradeData?.monthly_stats?.net_cashflow >= 0, negative: displayTradeData?.monthly_stats?.net_cashflow < 0 }">
-          {{ displayTradeData?.monthly_stats?.net_cashflow >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(displayTradeData?.monthly_stats?.net_cashflow || 0)) }}
+        <div class="stat-value" :class="{ inflow: displayTradeData?.monthly_stats?.net_cashflow < 0, outflow: displayTradeData?.monthly_stats?.net_cashflow > 0 }">
+          ¥{{ formatNumber(Math.abs(displayTradeData?.monthly_stats?.net_cashflow || 0)) }}
         </div>
-        <div class="stat-status" :class="{ positive: displayTradeData?.monthly_stats?.net_cashflow >= 0, negative: displayTradeData?.monthly_stats?.net_cashflow < 0 }">
-          {{ displayTradeData?.monthly_stats?.net_cashflow >= 0 ? '(收入>支出)' : '(支出>收入)' }}
+        <div class="stat-status" :class="{ inflow: displayTradeData?.monthly_stats?.net_cashflow < 0, outflow: displayTradeData?.monthly_stats?.net_cashflow > 0 }">
+          {{ displayTradeData?.monthly_stats?.net_cashflow > 0 ? '(支出>收入)' : '(收入>支出)' }}
         </div>
       </div>
     </div>
@@ -114,14 +114,24 @@ export default {
   display: inline-block;
 }
 
-.stat-status.positive {
+/* 净流入（收入>支出）标红 */
+.stat-status.inflow {
+  background-color: #fef0f0;
+  color: #f56c6c;
+}
+
+.stat-value.inflow {
+  color: #f56c6c;
+}
+
+/* 净流出（支出>收入）标绿 */
+.stat-status.outflow {
   background-color: #f0f9eb;
   color: #67c23a;
 }
 
-.stat-status.negative {
-  background-color: #fef0f0;
-  color: #f56c6c;
+.stat-value.outflow {
+  color: #67c23a;
 }
 
 @media (max-width: 1200px) {

@@ -12,6 +12,8 @@
 - AssetDistributionService: 风险分布、制造商分布等饼图统计（asset_distribution_service.py）
 - HoldingPositionService: 持仓明细构建、总成本计算、状态标签确定等（holding_position_service.py）
 - IndexService: 上证指数、沪深300获取（index_service.py）
+- ProfitAnalysisService: 盈亏分析服务（profit_analysis_service.py）
+- PlasticIndexService: 塑料手办指数服务（plastic_index_service.py）
 
 新代码应优先直接使用子服务，本文件仅用于保持向后兼容。
 """
@@ -33,6 +35,8 @@ from .asset_market_benchmark_service import MarketBenchmarkService
 from .asset_distribution_service import AssetDistributionService
 from .holding_position_service import HoldingPositionService
 from .index_service import IndexService
+from .profit_analysis_service import ProfitAnalysisService
+from .plastic_index_service import PlasticIndexService
 
 
 class AssetCalculationService:

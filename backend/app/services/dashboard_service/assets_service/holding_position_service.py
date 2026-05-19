@@ -33,12 +33,12 @@ class HoldingPositionService:
         """
         根据涨幅百分比确定状态标签
 
-        🚀 暴涨: 单月涨幅 ≥ +15% (绿色)
-        📈 上涨: 涨幅 +5% ~ +15% (浅绿)
+        🚀 暴涨: 单月涨幅 ≥ +15% (红色)
+        📈 上涨: 涨幅 +5% ~ +15% (浅红)
         ➖ 横盘: 波动 -5% ~ +5% (灰色)
         📉 告警: 跌幅 -10% ~ -20% (黄色)
-        🔴 破位: 跌幅 ≥ -20% 或 破发 (红色)
-        💀 退市: 跌幅 ≥ -50% 或 绝版无市 (黑色)
+        🟢 破位: 跌幅 ≥ -20% 或 破发 (绿色)
+        💀 退市: 跌幅 ≥ -50% 或 绝版无市 (深绿)
         """
         if profit_percentage >= 15:
             return "🚀 暴涨"
@@ -49,7 +49,7 @@ class HoldingPositionService:
         elif profit_percentage >= -20:
             return "📉 告警"
         elif profit_percentage >= -50:
-            return "🔴 破位"
+            return "🟢 破位"
         else:
             return "💀 退市"
 
