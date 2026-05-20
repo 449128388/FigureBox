@@ -56,10 +56,12 @@ class SoldOrderTransactionService:
         if sold_order.status:
             notes_parts.append(f"订单状态: {sold_order.status}")
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=current_user_id,
             figure_id=sold_order.figure_id,
             order_id=None,  # 已出售订单不关联购买订单
+            sold_order_id=sold_order.id,  # 关联卖出订单ID
             transaction_type="sell",
             direction="in",  # 卖出是资金流入
             quantity=1,  # 默认卖出1个
@@ -67,7 +69,9 @@ class SoldOrderTransactionService:
             total_amount=sell_price_cny,
             currency="CNY",
             platform=sold_order.sell_platform,
-            transaction_date=sold_order.shipping_date or datetime.now(),
+            transaction_date=sold_order.shipping_date or now,
+            created_at=now,
+            updated_at=now,
             notes=" | ".join(notes_parts),
             transaction_subtype="initial",
             changed_field="sell_price"
@@ -106,10 +110,12 @@ class SoldOrderTransactionService:
         if shipping_fee_cny <= 0:
             return None
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=current_user_id,
             figure_id=sold_order.figure_id,
             order_id=None,
+            sold_order_id=sold_order.id,  # 关联卖出订单ID
             transaction_type="fee",
             direction="out",  # 运费是资金流出
             quantity=0,
@@ -117,7 +123,9 @@ class SoldOrderTransactionService:
             total_amount=shipping_fee_cny,
             currency="CNY",
             platform=sold_order.sell_platform,
-            transaction_date=sold_order.shipping_date or datetime.now(),
+            transaction_date=sold_order.shipping_date or now,
+            created_at=now,
+            updated_at=now,
             notes=f"已出售订单 #{sold_order.id} - 运费支出",
             parent_transaction_id=parent_transaction_id,
             transaction_subtype="supplement",
@@ -157,10 +165,12 @@ class SoldOrderTransactionService:
         if platform_fee_cny <= 0:
             return None
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=current_user_id,
             figure_id=sold_order.figure_id,
             order_id=None,
+            sold_order_id=sold_order.id,  # 关联卖出订单ID
             transaction_type="fee",
             direction="out",  # 手续费是资金流出
             quantity=0,
@@ -168,7 +178,9 @@ class SoldOrderTransactionService:
             total_amount=platform_fee_cny,
             currency="CNY",
             platform=sold_order.sell_platform,
-            transaction_date=sold_order.shipping_date or datetime.now(),
+            transaction_date=sold_order.shipping_date or now,
+            created_at=now,
+            updated_at=now,
             notes=f"已出售订单 #{sold_order.id} - 平台手续费",
             parent_transaction_id=parent_transaction_id,
             transaction_subtype="supplement",

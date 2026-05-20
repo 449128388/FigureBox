@@ -244,6 +244,7 @@ class TransactionChangeService:
         change_detail = f"{change['previous_amount']}{change.get('original_currency', change['currency'])} → {change['current_amount']}{change['currency']}"
         notes = f"{notes} ({change_detail})"
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=current_user.id,
             figure_id=order.figure_id,
@@ -254,7 +255,9 @@ class TransactionChangeService:
             unit_price=change["amount"],
             total_amount=change["amount"],
             currency=change["currency"],
-            transaction_date=datetime.now(),
+            transaction_date=now,
+            created_at=now,
+            updated_at=now,
             transaction_subtype=change["change_type"],
             parent_transaction_id=parent_transaction.id if parent_transaction else None,
             change_reason=change_reason,

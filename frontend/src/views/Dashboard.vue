@@ -73,7 +73,7 @@
           </template>
           <!-- 交易版块按钮 -->
           <template v-if="activeView === 'trade'">
-            <el-button type="primary" @click="exportBill">
+            <el-button type="primary" @click="openBillExportDialog">
               <el-icon><Download /></el-icon> 账单导出
             </el-button>
             <el-button type="primary" @click="refreshTradeData">
@@ -208,6 +208,14 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 账单导出弹窗 -->
+    <BillExportDialog
+      v-model="billExportDialogVisible"
+      :current-month="selectedMonth"
+      :loading="billExportLoading"
+      @export="handleBillExport"
+    />
   </div>
 </template>
 
@@ -230,9 +238,12 @@ import ActivityFeed from './Dashboard/components/collector/ActivityFeed.vue'
 import AssetView from './Dashboard/components/reseller/AssetView.vue'
 import MarketView from './Dashboard/components/reseller/MarketView.vue'
 import TradeView from './Dashboard/components/reseller/TradeView.vue'
+import BillExportDialog from './Dashboard/components/reseller/trade/BillExportDialog.vue'
 
 // 导入收藏家模式 composable
 import { useCollectorData } from './Dashboard/composables/useCollectorData'
+// 导入账单导出 composable
+import { useBillExport } from './Dashboard/composables/useBillExport'
 
 export default {
   name: 'Dashboard',
@@ -252,17 +263,21 @@ export default {
     // 倒狗模式组件
     AssetView,
     MarketView,
-    TradeView
+    TradeView,
+    BillExportDialog
   },
   setup() {
     const router = useRouter()
     const userStore = useUserStore()
     const dashboardData = ref(null)
     const loading = ref(true)
-    
+
     // 使用收藏家模式 composable
     const { collectorData, loading: collectorLoading, fetchCollectorData, sharePoster, privacySettings, filterByTag, handleActivityAction } = useCollectorData()
-    
+
+    // 使用账单导出 composable
+    const { dialogVisible: billExportDialogVisible, loading: billExportLoading, openDialog: openBillExportDialog, exportBill: handleBillExport } = useBillExport()
+
     const activeView = ref('asset')
     const alertDialogVisible = ref(false)
     const figures = ref([])
@@ -609,7 +624,12 @@ export default {
       viewRecord,
       deleteRecord,
       logout,
-      fetchDashboardData
+      fetchDashboardData,
+      handleMonthChange,
+      billExportDialogVisible,
+      billExportLoading,
+      openBillExportDialog,
+      handleBillExport
     }
   }
 }

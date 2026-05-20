@@ -33,25 +33,25 @@
     />
 
     <!-- 快速操作 -->
-    <QuickActions 
+    <QuickActions
       @open-buy-dialog="$emit('open-buy-dialog')"
       @open-sell-dialog="$emit('open-sell-dialog')"
       @open-payment-dialog="$emit('open-payment-dialog')"
       @open-cancel-dialog="$emit('open-cancel-dialog')"
     />
 
+    <!-- 盈亏分析报表 -->
+    <ProfitAnalysis
+      :displayTradeData="displayTradeData"
+      :formatNumber="formatNumber"
+    />
+
     <!-- 交易流水 -->
-    <TradeFlow 
+    <TradeFlow
       :tradeData="tradeData"
       :formatNumber="formatNumber"
       :getMockTradeData="getMockTradeData"
       @handle-trade-action="handleTradeAction"
-    />
-
-    <!-- 盈亏分析报表 -->
-    <ProfitAnalysis 
-      :displayTradeData="displayTradeData" 
-      :formatNumber="formatNumber" 
     />
   </div>
 </template>
@@ -87,7 +87,7 @@ export default {
     }
   },
   emits: ['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog', 'view-record', 'delete-record', 'month-change'],
-  setup(props) {
+  setup(props, { emit }) {
     // 生成模拟数据
     const getMockTradeData = () => {
       return {

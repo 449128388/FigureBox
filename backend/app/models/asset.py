@@ -86,6 +86,7 @@ class AssetTransaction(Base):
     - user: 多对一关联 User 表
     - figure: 多对一关联 Figure 表
     - order: 多对一关联 Order 表（买入交易关联订单）
+    - sold_order: 多对一关联 SoldOrder 表（卖出交易关联）
     """
     __tablename__ = "asset_transactions"
 
@@ -96,6 +97,7 @@ class AssetTransaction(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # 关联订单ID（买入交易时关联）
+    sold_order_id = Column(Integer, ForeignKey("sold_orders.id"), nullable=True)  # 关联卖出订单ID（卖出交易时关联）
 
     # 交易信息
     transaction_type = Column(String(50), nullable=False)  # 交易类型：buy（买入）、sell（卖出）
@@ -105,7 +107,11 @@ class AssetTransaction(Base):
     remaining_quantity = Column(Integer, nullable=True)  # 单条交易记录剩余持仓数量（用于部分卖出后的持仓计算）,不是总库存的汇总值
     transaction_date = Column(DateTime(timezone=True), server_default=func.now())  # 交易日期时间
     notes = Column(String(255))  # 交易备注/说明
-    
+
+    # 时间戳字段
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 创建时间
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # 更新时间
+
     # 软删除字段
     is_active = Column(Boolean, default=True)  # 是否激活
     deleted_at = Column(DateTime(timezone=True), nullable=True)  # 删除时间
@@ -114,6 +120,7 @@ class AssetTransaction(Base):
     user = relationship("User")  # 关联用户对象
     figure = relationship("Figure")  # 关联手办对象
     order = relationship("Order")  # 关联订单对象
+    sold_order = relationship("SoldOrder")  # 关联卖出订单对象
 
 
 class StockIndexCache(Base):
@@ -262,6 +269,7 @@ class OrderTransaction(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # 关联订单ID（可选）
+    sold_order_id = Column(Integer, ForeignKey("sold_orders.id"), nullable=True)  # 关联卖出订单ID（卖出交易时关联）
 
     # 交易信息
     transaction_type = Column(String(50), nullable=False)  # 交易类型：buy(买入)/sell(卖出)/refund(退款)/fee(手续费)
@@ -277,7 +285,8 @@ class OrderTransaction(Base):
 
     # 时间字段
     transaction_date = Column(DateTime(timezone=True), nullable=False)  # 交易发生时间（业务时间）
-    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 系统记录时间
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # 系统记录时间（创建时间）
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # 更新时间
 
     # 备注
     notes = Column(String(255))  # 交易备注/说明
@@ -298,6 +307,7 @@ class OrderTransaction(Base):
     user = relationship("User")  # 关联用户对象
     figure = relationship("Figure")  # 关联手办对象
     order = relationship("Order")  # 关联订单对象
+    sold_order = relationship("SoldOrder")  # 关联卖出订单对象
     parent_transaction = relationship("OrderTransaction", remote_side=[id])  # 自关联：关联父交易
 
 

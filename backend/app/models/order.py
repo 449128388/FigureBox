@@ -48,6 +48,10 @@ class Order(Base):
     order_number = Column(String(100))  # 订单编号（外部系统订单号，如淘宝订单号）
     remarks = Column(String(500))  # 订单备注（用户自定义备注信息）
 
+    # 时间戳
+    created_at = Column(DateTime, nullable=True)  # 创建时间（订单创建时间）
+    updated_at = Column(DateTime, nullable=True)  # 更新时间（订单最后修改时间）
+
     # 软删除标记
     is_active = Column(Integer, default=1)  # 是否激活：1=正常，0=已删除
     deleted_at = Column(DateTime, nullable=True)  # 删除时间（软删除标记）

@@ -148,7 +148,9 @@ class FigureImportService:
             order.shop_name = order_data.get('shop_name', '')
             order.shop_contact = order_data.get('shop_contact', '')
             order.tracking_number = order_data.get('tracking_number')
-            
+            order.created_at = datetime.now()
+            order.updated_at = datetime.now()
+
             db.add(order)
             db.flush()  # 获取订单ID
 

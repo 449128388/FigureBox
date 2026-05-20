@@ -137,7 +137,9 @@ class AddPositionService:
                 shop_name=None,  # 补仓订单不填充购买店铺
                 shop_contact="",
                 tracking_number="",
-                remarks=remarks  # 在备注中记录补仓详情
+                remarks=remarks,  # 在备注中记录补仓详情
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             )
             db.add(order)
             orders.append(order)
@@ -161,6 +163,7 @@ class AddPositionService:
         transactions = []
 
         for order in orders:
+            now = datetime.now()
             transaction = AssetTransaction(
                 user_id=user_id,
                 figure_id=figure_id,
@@ -170,6 +173,9 @@ class AddPositionService:
                 quantity=1,
                 total_amount=price,
                 remaining_quantity=1,
+                transaction_date=now,
+                created_at=now,
+                updated_at=now,
                 notes=f"补仓买入: 1体，补仓价格: ¥{price}/体"
             )
             db.add(transaction)
@@ -193,6 +199,7 @@ class AddPositionService:
         transactions = []
 
         for order in orders:
+            now = datetime.now()
             transaction = OrderTransaction(
                 user_id=user_id,
                 figure_id=figure_id,
@@ -204,7 +211,9 @@ class AddPositionService:
                 total_amount=price,
                 currency="CNY",
                 platform="补仓",
-                transaction_date=datetime.now(),
+                transaction_date=now,
+                created_at=now,
+                updated_at=now,
                 notes=f"补仓买入: 1体 @ ¥{price}/体"
             )
             db.add(transaction)

@@ -93,16 +93,20 @@ class SoldOrderInventoryService:
 
         # 创建卖出交易记录
         # 使用 FIFO 成本价作为记录价格
+        now = datetime.now()
         sell_transaction = AssetTransaction(
             user_id=current_user_id,
             figure_id=figure_id,
             order_id=None,
+            sold_order_id=sold_order.id,  # 关联卖出订单ID
             transaction_type="sell",
             price=fifo_unit_price,  # 使用 FIFO 成本价
             quantity=quantity_to_sell,
             total_amount=fifo_total_cost,
             remaining_quantity=0,  # 卖出记录的剩余数量为0
-            transaction_date=datetime.now(),
+            transaction_date=now,
+            created_at=now,
+            updated_at=now,
             notes=f"已出售订单 #{sold_order.id} - 库存扣减（FIFO成本价: ¥{fifo_unit_price:.2f}/体，扣减记录: {deducted_records}）"
         )
         db.add(sell_transaction)
@@ -153,12 +157,12 @@ class SoldOrderInventoryService:
         Returns:
             是否成功恢复
         """
-        # 查找对应的卖出交易记录
+        # 查找对应的卖出交易记录（优先使用 sold_order_id 关联）
         sell_transaction = db.query(AssetTransaction).filter(
             AssetTransaction.user_id == current_user_id,
             AssetTransaction.figure_id == sold_order.figure_id,
             AssetTransaction.transaction_type == "sell",
-            AssetTransaction.notes.like(f"%已出售订单 #{sold_order.id}%"),
+            AssetTransaction.sold_order_id == sold_order.id,
             AssetTransaction.is_active == True
         ).first()
 

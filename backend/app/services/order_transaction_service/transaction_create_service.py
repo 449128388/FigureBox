@@ -36,6 +36,7 @@ class TransactionCreateService:
         if total_amount is None:
             total_amount = unit_price * quantity
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -48,7 +49,9 @@ class TransactionCreateService:
             currency="CNY",
             payment_method=payment_method,
             platform=platform,
-            transaction_date=transaction_date or datetime.now(),
+            transaction_date=transaction_date or now,
+            created_at=now,
+            updated_at=now,
             notes=notes
         )
 
@@ -80,6 +83,7 @@ class TransactionCreateService:
         if total_amount is None:
             total_amount = unit_price * quantity
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -92,7 +96,9 @@ class TransactionCreateService:
             currency="CNY",
             payment_method=payment_method,
             platform=platform,
-            transaction_date=transaction_date or datetime.now(),
+            transaction_date=transaction_date or now,
+            created_at=now,
+            updated_at=now,
             notes=notes
         )
 
@@ -122,6 +128,7 @@ class TransactionCreateService:
         if total_amount is None:
             total_amount = unit_price
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -134,7 +141,9 @@ class TransactionCreateService:
             currency="CNY",
             payment_method=payment_method,
             platform=platform,
-            transaction_date=transaction_date or datetime.now(),
+            transaction_date=transaction_date or now,
+            created_at=now,
+            updated_at=now,
             notes=notes
         )
 
@@ -166,6 +175,7 @@ class TransactionCreateService:
         if total_amount is None:
             total_amount = unit_price * quantity
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -178,7 +188,9 @@ class TransactionCreateService:
             currency="CNY",
             payment_method=payment_method,
             platform=platform,
-            transaction_date=transaction_date or datetime.now(),
+            transaction_date=transaction_date or now,
+            created_at=now,
+            updated_at=now,
             notes=notes
         )
 
@@ -204,6 +216,7 @@ class TransactionCreateService:
         使用场景：
         - 平台手续费（闲鱼扣费等）
         """
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -216,7 +229,9 @@ class TransactionCreateService:
             currency="CNY",
             payment_method=payment_method,
             platform=platform,
-            transaction_date=transaction_date or datetime.now(),
+            transaction_date=transaction_date or now,
+            created_at=now,
+            updated_at=now,
             notes=notes
         )
 
@@ -252,6 +267,7 @@ class TransactionCreateService:
         if total_amount <= 0:
             return None
 
+        now = datetime.now()
         transaction = OrderTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -263,7 +279,9 @@ class TransactionCreateService:
             total_amount=total_amount,
             currency="CNY",
             platform=order.shop_name,
-            transaction_date=transaction_date or datetime.now(),
+            transaction_date=transaction_date or now,
+            created_at=now,
+            updated_at=now,
             notes=notes or f"订单支付 - {order.shop_name or '未知店铺'}",
             transaction_subtype="initial",  # 标记为初始交易
             changed_field="total"  # 表示整单金额

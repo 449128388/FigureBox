@@ -213,14 +213,21 @@ export function useFigureManagement() {
 
       if (isEditing.value) {
         await figureStore.updateFigure(currentEditFigureId.value, figureData)
+        ElMessage.success('手办编辑成功')
       } else {
         await figureStore.createFigure(figureData)
+        ElMessage.success('手办添加成功')
       }
 
       showAddForm.value = false
       resetForm()
       await fetchFiguresWithSearch()
     } catch (error) {
+      if (isEditing.value) {
+        ElMessage.error('手办编辑失败，请稍后重试')
+      } else {
+        ElMessage.error('手办添加失败，请稍后重试')
+      }
     }
   }
 

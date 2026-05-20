@@ -21,31 +21,49 @@
     <div class="analysis-grid">
       <div class="analysis-item">
         <div class="analysis-label">本年已实现收益</div>
-        <div class="analysis-value" :class="{ positive: displayTradeData?.profit_analysis?.yearly_profit >= 0, negative: displayTradeData?.profit_analysis?.yearly_profit < 0 }">
-          {{ displayTradeData?.profit_analysis?.yearly_profit >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(displayTradeData?.profit_analysis?.yearly_profit || 0)) }}
+        <div class="analysis-value" :class="{ positive: displayTradeData?.profit_analysis?.yearly_profit > 0, negative: displayTradeData?.profit_analysis?.yearly_profit < 0, neutral: displayTradeData?.profit_analysis?.yearly_profit === 0 }">
+          <template v-if="hasTradeData">
+            {{ displayTradeData?.profit_analysis?.yearly_profit > 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(displayTradeData?.profit_analysis?.yearly_profit || 0)) }}
+          </template>
+          <template v-else>--</template>
         </div>
       </div>
       <div class="analysis-item">
         <div class="analysis-label">本年交易胜率</div>
         <div class="analysis-value">
-          {{ displayTradeData?.profit_analysis?.win_rate || 0 }}% ({{ displayTradeData?.profit_analysis?.win_count || 0 }}胜{{ displayTradeData?.profit_analysis?.loss_count || 0 }}负)
+          <template v-if="hasTradeData">
+            {{ displayTradeData?.profit_analysis?.win_rate || 0 }}% ({{ displayTradeData?.profit_analysis?.win_count || 0 }}胜{{ displayTradeData?.profit_analysis?.loss_count || 0 }}负)
+          </template>
+          <template v-else>0% (0胜0负)</template>
         </div>
       </div>
       <div class="analysis-item">
         <div class="analysis-label">平均盈利</div>
-        <div class="analysis-value positive">+¥{{ formatNumber(displayTradeData?.profit_analysis?.avg_profit || 0) }}/笔</div>
+        <div class="analysis-value" :class="{ positive: hasTradeData && displayTradeData?.profit_analysis?.avg_profit > 0, neutral: !hasTradeData }">
+          <template v-if="hasTradeData">+¥{{ formatNumber(displayTradeData?.profit_analysis?.avg_profit || 0) }}/笔</template>
+          <template v-else>--</template>
+        </div>
       </div>
       <div class="analysis-item">
         <div class="analysis-label">平均亏损</div>
-        <div class="analysis-value negative">-¥{{ formatNumber(displayTradeData?.profit_analysis?.avg_loss || 0) }}/笔</div>
+        <div class="analysis-value" :class="{ negative: hasTradeData && displayTradeData?.profit_analysis?.avg_loss > 0, neutral: !hasTradeData }">
+          <template v-if="hasTradeData">-¥{{ formatNumber(displayTradeData?.profit_analysis?.avg_loss || 0) }}/笔</template>
+          <template v-else>--</template>
+        </div>
       </div>
       <div class="analysis-item full-width">
         <div class="analysis-label">最大单笔盈利</div>
-        <div class="analysis-value positive">{{ displayTradeData?.profit_analysis?.max_profit_item || '' }} +¥{{ formatNumber(displayTradeData?.profit_analysis?.max_profit || 0) }}</div>
+        <div class="analysis-value" :class="{ positive: hasTradeData && displayTradeData?.profit_analysis?.max_profit > 0, neutral: !hasTradeData }">
+          <template v-if="hasTradeData">{{ displayTradeData?.profit_analysis?.max_profit_item || '' }} +¥{{ formatNumber(displayTradeData?.profit_analysis?.max_profit || 0) }}</template>
+          <template v-else>--</template>
+        </div>
       </div>
       <div class="analysis-item full-width">
         <div class="analysis-label">最大单笔亏损</div>
-        <div class="analysis-value negative">{{ displayTradeData?.profit_analysis?.max_loss_item || '' }} -¥{{ formatNumber(displayTradeData?.profit_analysis?.max_loss || 0) }}</div>
+        <div class="analysis-value" :class="{ negative: hasTradeData && displayTradeData?.profit_analysis?.max_loss > 0, neutral: !hasTradeData }">
+          <template v-if="hasTradeData">{{ displayTradeData?.profit_analysis?.max_loss_item || '' }} -¥{{ formatNumber(displayTradeData?.profit_analysis?.max_loss || 0) }}</template>
+          <template v-else>--</template>
+        </div>
       </div>
     </div>
   </div>
@@ -62,6 +80,14 @@ export default {
     formatNumber: {
       type: Function,
       default: (num) => num?.toLocaleString() || '0'
+    }
+  },
+  computed: {
+    // 判断是否有交易数据（本年有卖出记录）
+    hasTradeData() {
+      const winCount = this.displayTradeData?.profit_analysis?.win_count || 0
+      const lossCount = this.displayTradeData?.profit_analysis?.loss_count || 0
+      return winCount + lossCount > 0
     }
   }
 }
@@ -118,11 +144,15 @@ export default {
 }
 
 .analysis-value.positive {
-  color: #67c23a;
+  color: #f56c6c;
 }
 
 .analysis-value.negative {
-  color: #f56c6c;
+  color: #67c23a;
+}
+
+.analysis-value.neutral {
+  color: #909399;
 }
 
 @media (max-width: 1200px) {

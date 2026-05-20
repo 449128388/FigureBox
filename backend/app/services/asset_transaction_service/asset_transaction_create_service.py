@@ -43,6 +43,7 @@ class AssetTransactionCreateService:
         """
         total_amount = price if quantity == 0 else price * quantity
 
+        now = datetime.now()
         transaction = AssetTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -52,6 +53,9 @@ class AssetTransactionCreateService:
             quantity=quantity,
             total_amount=total_amount,
             remaining_quantity=quantity,
+            transaction_date=now,
+            created_at=now,
+            updated_at=now,
             notes="自动创建：从订单管理数据中创建"
         )
 
@@ -171,6 +175,7 @@ class AssetTransactionCreateService:
         cost_price = total_cost / quantity if quantity > 0 else 0
 
         # 创建卖出交易记录，price 和 total_amount 使用出库成本，而非卖出价
+        now = datetime.now()
         transaction = AssetTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -180,6 +185,9 @@ class AssetTransactionCreateService:
             quantity=quantity,
             total_amount=round(total_cost, 2),  # FIFO出库总成本
             remaining_quantity=0,
+            transaction_date=now,
+            created_at=now,
+            updated_at=now,
             notes=notes or "卖出交易"
         )
         db.add(transaction)
@@ -220,6 +228,7 @@ class AssetTransactionCreateService:
         )
         unit_price = total_amount / quantity if quantity > 0 and total_amount > 0 else 0
 
+        now = datetime.now()
         transaction = AssetTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -229,6 +238,9 @@ class AssetTransactionCreateService:
             quantity=quantity,
             total_amount=total_amount,
             remaining_quantity=quantity,
+            transaction_date=now,
+            created_at=now,
+            updated_at=now,
             notes=f"订单导入 - {order.shop_name or '未知店铺'}"
         )
 
@@ -268,6 +280,7 @@ class AssetTransactionCreateService:
         """
         total_amount = price * abs(quantity_change)
 
+        now = datetime.now()
         if quantity_change > 0:
             transaction = AssetTransaction(
                 user_id=user_id,
@@ -278,6 +291,9 @@ class AssetTransactionCreateService:
                 quantity=quantity_change,
                 total_amount=total_amount,
                 remaining_quantity=quantity_change,
+                transaction_date=now,
+                created_at=now,
+                updated_at=now,
                 notes=f"数量调整补录：{original_quantity} → {new_quantity}（+{quantity_change}）"
             )
         else:
@@ -290,6 +306,9 @@ class AssetTransactionCreateService:
                 quantity=quantity_change,
                 total_amount=-total_amount,
                 remaining_quantity=0,
+                transaction_date=now,
+                created_at=now,
+                updated_at=now,
                 notes=f"数量调整冲正：{original_quantity} → {new_quantity}（{quantity_change}）"
             )
 
@@ -342,6 +361,7 @@ class AssetTransactionCreateService:
         price_diff = new_price - old_price
         total_diff = price_diff * quantity
 
+        now = datetime.now()
         transaction = AssetTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -351,6 +371,9 @@ class AssetTransactionCreateService:
             quantity=quantity,
             total_amount=total_diff,
             remaining_quantity=None,
+            transaction_date=now,
+            created_at=now,
+            updated_at=now,
             notes=f"价格调整：¥{old_price} → ¥{new_price}（差值：¥{price_diff}）"
         )
 

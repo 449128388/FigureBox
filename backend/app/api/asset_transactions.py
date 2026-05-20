@@ -40,6 +40,7 @@ class TransactionResponse(BaseModel):
     id: int
     figure_id: int
     order_id: Optional[int]
+    sold_order_id: Optional[int]  # 关联卖出订单ID
     transaction_type: str
     price: float
     quantity: int

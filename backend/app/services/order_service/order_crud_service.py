@@ -68,6 +68,8 @@ class OrderCrudService:
 
         db_order = Order(
             user_id=current_user.id,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
             **order_data.dict()
         )
         db.add(db_order)
@@ -99,6 +101,7 @@ class OrderCrudService:
 
                 # 2. 创建定金资金流水记录（独立记录，便于追踪变更）
                 from app.models.asset import OrderTransaction
+                now = datetime.now()
                 if db_order.deposit and db_order.deposit > 0:
                     deposit_txn = OrderTransaction(
                         user_id=current_user.id,
@@ -111,7 +114,9 @@ class OrderCrudService:
                         total_amount=db_order.deposit,
                         currency=db_order.deposit_currency or "CNY",
                         platform=db_order.shop_name,
-                        transaction_date=datetime.now(),
+                        transaction_date=now,
+                        created_at=now,
+                        updated_at=now,
                         notes=f"订单 #{db_order.id} 定金",
                         transaction_subtype="initial",
                         changed_field="deposit"
@@ -131,7 +136,9 @@ class OrderCrudService:
                         total_amount=db_order.balance,
                         currency=db_order.balance_currency or "CNY",
                         platform=db_order.shop_name,
-                        transaction_date=datetime.now(),
+                        transaction_date=now,
+                        created_at=now,
+                        updated_at=now,
                         notes=f"订单 #{db_order.id} 尾款",
                         transaction_subtype="initial",
                         changed_field="balance"
@@ -196,6 +203,7 @@ class OrderCrudService:
 
         for key, value in order_data.dict(exclude_unset=True).items():
             setattr(db_order, key, value)
+        db_order.updated_at = datetime.now()
         db.commit()
         db.refresh(db_order)
 
@@ -232,10 +240,11 @@ class OrderCrudService:
                     change_type = "追加"
                 else:
                     change_type = "减少"
-                
+
                 # price 为该笔调整后的订单总成本（定金+尾款的人民币金额）
                 total_cost_after_change = new_deposit_cny + new_balance_cny
-                
+                now = datetime.now()
+
                 deposit_adjust = AssetTransaction(
                     user_id=current_user.id,
                     figure_id=db_order.figure_id,
@@ -245,6 +254,9 @@ class OrderCrudService:
                     quantity=0,
                     total_amount=total_cost_after_change,
                     remaining_quantity=0,
+                    transaction_date=now,
+                    created_at=now,
+                    updated_at=now,
                     notes=f"定金{change_type}导致的成本调整 ({old_deposit_cny:.2f} CNY → {new_deposit_cny:.2f} CNY)"
                 )
                 db.add(deposit_adjust)
@@ -258,10 +270,11 @@ class OrderCrudService:
                     change_type = "追加"
                 else:
                     change_type = "减少"
-                
+
                 # price 为该笔调整后的订单总成本（定金+尾款的人民币金额）
                 total_cost_after_change = new_deposit_cny + new_balance_cny
-                
+                now = datetime.now()
+
                 balance_adjust = AssetTransaction(
                     user_id=current_user.id,
                     figure_id=db_order.figure_id,
@@ -271,6 +284,9 @@ class OrderCrudService:
                     quantity=0,
                     total_amount=total_cost_after_change,
                     remaining_quantity=0,
+                    transaction_date=now,
+                    created_at=now,
+                    updated_at=now,
                     notes=f"尾款{change_type}导致的成本调整 ({old_balance_cny:.2f} CNY → {new_balance_cny:.2f} CNY)"
                 )
                 db.add(balance_adjust)

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from datetime import date
+from datetime import date, datetime
+from typing import Optional
 from app.schemas.figure import Figure
 
 class OrderBase(BaseModel):
@@ -43,6 +44,8 @@ class Order(OrderBase):
     remarks: str | None = None
     figure: Figure
     due_date: date | None = None  # 允许为空
+    created_at: Optional[datetime] = None  # 创建时间
+    updated_at: Optional[datetime] = None  # 更新时间
 
     class Config:
         from_attributes = True
@@ -57,6 +60,8 @@ class OrderListItem(OrderBase):
     figure_name: str
     figure_image: str | None = None
     due_date: date | None = None
+    created_at: Optional[datetime] = None  # 创建时间
+    updated_at: Optional[datetime] = None  # 更新时间
 
     class Config:
         from_attributes = True
