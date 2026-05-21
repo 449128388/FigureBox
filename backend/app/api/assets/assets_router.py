@@ -34,6 +34,7 @@ from . import operation_price
 from . import operation_position
 from . import operation_holding_filter
 from . import settings_annual_limit
+from . import operation_figure_cost
 
 # 创建主路由
 router = APIRouter()
@@ -71,4 +72,11 @@ router.include_router(
     settings_annual_limit.router,
     prefix="",
     tags=["asset-settings"]
+)
+
+# 注册手办成本查询路由
+router.include_router(
+    operation_figure_cost.router,
+    prefix="",
+    tags=["asset-operations"]
 )

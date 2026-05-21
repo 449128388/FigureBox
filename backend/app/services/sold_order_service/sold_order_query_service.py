@@ -82,8 +82,11 @@ class SoldOrderQueryService:
                 sell_platform=order.SoldOrder.sell_platform,
                 order_number=order.SoldOrder.order_number,
                 buyer_phone=order.SoldOrder.buyer_phone,
+                buyer_address=order.SoldOrder.buyer_address,
                 tracking_number=order.SoldOrder.tracking_number,
+                shipping_date=order.SoldOrder.shipping_date,
                 status=order.SoldOrder.status,
+                remark=order.SoldOrder.remark,
                 figure_name=order.figure_name,
                 figure_image=order.figure_images[0] if order.figure_images and len(order.figure_images) > 0 else None
             )

@@ -219,19 +219,27 @@ export function useSoldOrderManagement() {
     resetForm()
     showAddForm.value = true
   }
-  
+
+  const handleCancelForm = () => {
+    showAddForm.value = false
+    resetForm()
+  }
+
   const handleSaveOrder = async (orderData) => {
     try {
       if (isEditing.value) {
         await soldOrderStore.updateSoldOrder(currentEditOrderId.value, orderData)
+        ElMessage.success('订单编辑成功')
       } else {
         await soldOrderStore.createSoldOrder(orderData)
+        ElMessage.success('订单创建成功')
       }
-      
+
       showAddForm.value = false
       resetForm()
     } catch (error) {
-      ElMessage.error('保存失败，请稍后重试')
+      const errorMsg = error.response?.data?.detail || error.message || '保存失败，请稍后重试'
+      ElMessage.error("保存失败:" + errorMsg)
     }
   }
 
@@ -360,9 +368,10 @@ export function useSoldOrderManagement() {
     totalNetProfit,
 
     resetForm,
-    openAddForm,
-    handleSaveOrder,
-    handleCalculatePlatformFee,
+  openAddForm,
+  handleSaveOrder,
+  handleCancelForm,
+  handleCalculatePlatformFee,
     openDeleteConfirmDialog,
     cancelDelete,
     confirmDelete,

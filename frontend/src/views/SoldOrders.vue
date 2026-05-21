@@ -96,7 +96,7 @@
       :newOrder="newOrder"
       :availableFigures="availableFigures"
       @saveOrder="handleSaveOrder"
-      @cancel="showAddForm = false"
+      @cancel="handleCancelForm"
       @calculatePlatformFee="handleCalculatePlatformFee"
     />
 
@@ -138,15 +138,17 @@ const {
   statusCounts,
   availableFigures,
   totalNetProfit,
-  
+
   // 批量选择相关
   isBatchMode,
   selectedCount,
   hasSelection,
   isAllSelected,
-  
+
+  resetForm,
   openAddForm,
   handleSaveOrder,
+  handleCancelForm,
   handleCalculatePlatformFee,
   openDeleteConfirmDialog,
   cancelDelete,

@@ -42,8 +42,12 @@ from .holding_filter_service import (
     HoldingFilterService
 )
 
+from .figure_cost_service import (
+    FigureCostService
+)
+
 __all__ = [
-    # Facade 统一入口
+    # Facade统一入口
     'AssetCalculationService',
     'HoldingAnalysisService',
     'IndexService',
@@ -56,5 +60,6 @@ __all__ = [
     'AssetDistributionService',
     'HoldingPositionService',
     'AddPositionService',
-    'HoldingFilterService'
+    'HoldingFilterService',
+    'FigureCostService'
 ]

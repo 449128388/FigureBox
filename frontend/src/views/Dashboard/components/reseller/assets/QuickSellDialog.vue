@@ -29,15 +29,15 @@
       <!-- 当前持仓信息 -->
       <div class="current-info">
         <div class="info-row">
-          <span class="info-label">当前持仓:</span>
+          <span class="info-label">当前库存数:</span>
           <span class="info-value">{{ formatNumber(currentFigure.stock || 0) }}体</span>
         </div>
         <div class="info-row">
-          <span class="info-label">当前均价:</span>
+          <span class="info-label">当前成本价:</span>
           <span class="info-value">{{ formatMoney(currentFigure.cost_price || 0) }}/体</span>
         </div>
         <div class="info-row">
-          <span class="info-label">当前市值:</span>
+          <span class="info-label">当前市值价:</span>
           <span class="info-value">{{ formatMoney(currentFigure.current_price || 0) }}/体</span>
         </div>
       </div>

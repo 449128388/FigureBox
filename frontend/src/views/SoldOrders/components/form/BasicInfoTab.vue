@@ -8,6 +8,7 @@
           placeholder="🔍 搜索手办"
           filterable
           style="width: 100%;"
+          :disabled="isEditing"
           @change="handleFigureChange"
         >
           <el-option
@@ -67,19 +68,22 @@
 </template>
 
 <script>
+import { useFigureCost } from '../../composables/useFigureCost'
+
 export default {
   name: 'BasicInfoTab',
   props: {
     order: Object,
-    availableFigures: Array
+    availableFigures: Array,
+    isEditing: Boolean
   },
   emits: ['figureChange'],
   setup(props, context) {
-    const handleFigureChange = (figureId) => {
-      const figure = props.availableFigures.find(f => f.id === figureId)
-      if (figure) {
-        props.order.cost_price = figure.average_purchase_price || 0
-      }
+    const { fillOrderCostPrice } = useFigureCost()
+
+    const handleFigureChange = async (figureId) => {
+      // 调用API获取实际剩余持仓成本价
+      await fillOrderCostPrice(figureId, props.order)
       context.emit('figureChange', figureId)
     }
 
@@ -96,7 +100,7 @@ export default {
   padding: 20px;
 }
 
-/* 表单网格 */
+/* 表单网格 - 两列布局 */
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -122,5 +126,12 @@ export default {
 .form-group label .required {
   color: #f56c6c;
   margin-left: 4px;
+}
+
+/* 响应式：小屏幕单列 */
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

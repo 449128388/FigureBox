@@ -31,9 +31,10 @@
             :precision="2"
             controls-position="right"
             class="price-input"
+            :disabled="true"
             @change="$emit('profitChange')"
           />
-          <el-select v-model="order.cost_price_currency" class="currency-select">
+          <el-select v-model="order.cost_price_currency" class="currency-select" :disabled="true">
             <el-option label="人民币" value="CNY" />
             <el-option label="美元" value="USD" />
             <el-option label="日元" value="JPY" />
@@ -100,7 +101,9 @@ export default {
   name: 'PriceCostTab',
   components: { QuestionFilled },
   props: {
-    order: Object
+    order: Object,
+    isEditing: Boolean,
+    figureId: [Number, String]
   },
   emits: ['profitChange']
 }

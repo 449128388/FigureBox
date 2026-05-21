@@ -210,6 +210,9 @@ class SoldOrderCrudService:
         if not order:
             raise ValueError("订单不存在或已被删除")
 
+        # 记录原数量（用于数量变更处理）
+        old_quantity = order.quantity or 1
+
         # 更新基本字段
         if order_data.figure_id is not None:
             order.figure_id = order_data.figure_id
@@ -246,16 +249,16 @@ class SoldOrderCrudService:
         if order_data.remark is not None:
             order.remark = order_data.remark
 
-        # 如果涉及金额的字段有变化，重新计算净利润和利润率（支持多币种）
-        if (order_data.sell_price is not None or
-            order_data.cost_price is not None or
-            order_data.shipping_fee is not None or
-            order_data.platform_fee is not None or
-            order_data.sell_price_currency is not None or
-            order_data.cost_price_currency is not None or
-            order_data.shipping_fee_currency is not None or
-            order_data.platform_fee_currency is not None):
+        # 标记是否涉及金额字段变更
+        amount_fields_changed = (order_data.sell_price is not None or
+                                  order_data.shipping_fee is not None or
+                                  order_data.platform_fee is not None or
+                                  order_data.sell_price_currency is not None or
+                                  order_data.shipping_fee_currency is not None or
+                                  order_data.platform_fee_currency is not None)
 
+        # 如果涉及金额的字段有变化，重新计算净利润和利润率（支持多币种）
+        if amount_fields_changed or order_data.cost_price is not None or order_data.cost_price_currency is not None:
             profit_data = SoldOrderCrudService._calculate_profit_with_currency(
                 sell_price=order.sell_price,
                 sell_price_currency=order.sell_price_currency,
@@ -268,6 +271,37 @@ class SoldOrderCrudService:
             )
             order.net_profit = profit_data['net_profit']
             order.profit_rate = profit_data['profit_rate']
+
+        # 如果涉及卖出价、运费、手续费变更，更新 order_transactions 记录
+        if amount_fields_changed:
+            SoldOrderTransactionService.update_sold_order_transactions(
+                db, order, current_user.id
+            )
+
+        # 如果涉及数量变更，更新库存和交易记录
+        if order_data.quantity is not None and order_data.quantity != old_quantity:
+            new_quantity = order_data.quantity
+
+            # 1. 更新 asset_transactions（库存账）
+            inventory_result = SoldOrderInventoryService.update_quantity_on_sold_order_change(
+                db, order, current_user.id, old_quantity, new_quantity
+            )
+
+            if inventory_result.get("error"):
+                db.rollback()
+                raise ValueError(inventory_result["error"])
+
+            # 2. 更新 order_transactions（资金账）
+            transaction_result = SoldOrderTransactionService.update_sell_transaction_quantity(
+                db, order, current_user.id, new_quantity
+            )
+
+            if transaction_result.get("error"):
+                db.rollback()
+                raise ValueError(transaction_result["error"])
+
+            # 更新订单数量
+            order.quantity = new_quantity
 
         db.commit()
         db.refresh(order)

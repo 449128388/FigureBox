@@ -13,9 +13,10 @@
                   <span>基础信息</span>
                 </div>
               </template>
-              <BasicInfoTab 
-                :order="localOrder" 
+              <BasicInfoTab
+                :order="localOrder"
                 :available-figures="availableFigures"
+                :is-editing="isEditing"
                 @figure-change="handleFigureChange"
               />
             </el-tab-pane>
@@ -28,8 +29,10 @@
                   <span>价格成本</span>
                 </div>
               </template>
-              <PriceCostTab 
+              <PriceCostTab
                 :order="localOrder"
+                :is-editing="isEditing"
+                :figure-id="localOrder.figure_id"
                 @profit-change="calculateProfit"
               />
             </el-tab-pane>

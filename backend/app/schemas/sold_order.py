@@ -98,6 +98,7 @@ class SoldOrderCreate(SoldOrderBase):
 
 class SoldOrderUpdate(BaseModel):
     figure_id: int | None = None
+    quantity: int | None = None
     sell_price: float | None = None
     cost_price: float | None = None
     shipping_fee: float | None = None
