@@ -244,8 +244,22 @@ class SoldOrderCrudService:
             order.tracking_number = order_data.tracking_number
         if order_data.shipping_date is not None:
             order.shipping_date = order_data.shipping_date
+
+        # 处理状态变更（特别是退款/纠纷状态）
+        old_status = order.status
         if order_data.status is not None:
             order.status = order_data.status
+
+        # 如果状态从其他状态变为"退款/纠纷"，执行库存回撤
+        if order_data.status == "退款/纠纷" and old_status != "退款/纠纷":
+            # 执行库存回撤（FIFO原则：撤销最后卖出的记录）
+            inventory_return_result = SoldOrderInventoryService.return_inventory_for_dispute(
+                db, order, current_user.id
+            )
+            if inventory_return_result.get("error"):
+                db.rollback()
+                raise ValueError(inventory_return_result["error"])
+
         if order_data.remark is not None:
             order.remark = order_data.remark
 

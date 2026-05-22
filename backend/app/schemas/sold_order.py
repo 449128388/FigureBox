@@ -79,6 +79,14 @@ class SoldOrderBase(BaseModel):
             return None
         return v
 
+    @field_validator('shipping_date', mode='before')
+    @classmethod
+    def validate_shipping_date(cls, v):
+        # 发货日期为非必填项，空字符串转为None
+        if v == '' or v == 'null' or v == 'undefined':
+            return None
+        return v
+
     @field_validator('sell_price', mode='before')
     @classmethod
     def validate_sell_price(cls, v):

@@ -259,6 +259,11 @@ export const useSoldOrderStore = defineStore('soldOrder', {
       }
       const response = await axios.get(url)
       return response
+    },
+    async fetchFigureCostPrice(figureId) {
+      // 获取手办的实际成本价（基于库存账计算）
+      const response = await axios.get(`/sold-orders/figure-cost-price/${figureId}/`)
+      return response
     }
   }
 })

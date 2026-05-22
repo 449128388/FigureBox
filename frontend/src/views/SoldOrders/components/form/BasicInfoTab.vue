@@ -9,6 +9,7 @@
           filterable
           style="width: 100%;"
           :disabled="isEditing"
+          :loading="loadingCostPrice"
           @change="handleFigureChange"
         >
           <el-option
@@ -68,7 +69,8 @@
 </template>
 
 <script>
-import { useFigureCost } from '../../composables/useFigureCost'
+import { ref } from 'vue'
+import { useSoldOrderStore } from '../../../../store'
 
 export default {
   name: 'BasicInfoTab',
@@ -79,16 +81,37 @@ export default {
   },
   emits: ['figureChange'],
   setup(props, context) {
-    const { fillOrderCostPrice } = useFigureCost()
+    const soldOrderStore = useSoldOrderStore()
+    const loadingCostPrice = ref(false)
 
     const handleFigureChange = async (figureId) => {
-      // 调用API获取实际剩余持仓成本价
-      await fillOrderCostPrice(figureId, props.order)
+      // 触发事件通知父组件
       context.emit('figureChange', figureId)
+
+      // 如果不是编辑模式，调用API获取实际成本价
+      if (!props.isEditing && figureId) {
+        loadingCostPrice.value = true
+        try {
+          const response = await soldOrderStore.fetchFigureCostPrice(figureId)
+          if (response && response.cost_price !== undefined) {
+            props.order.cost_price = response.cost_price
+          }
+        } catch (error) {
+          console.error('获取成本价失败:', error)
+          // 如果API调用失败，使用手办的average_purchase_price作为备选
+          const figure = props.availableFigures.find(f => f.id === figureId)
+          if (figure) {
+            props.order.cost_price = figure.average_purchase_price || 0
+          }
+        } finally {
+          loadingCostPrice.value = false
+        }
+      }
     }
 
     return {
-      handleFigureChange
+      handleFigureChange,
+      loadingCostPrice
     }
   }
 }
@@ -100,7 +123,7 @@ export default {
   padding: 20px;
 }
 
-/* 表单网格 - 两列布局 */
+/* 表单网格 */
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -126,12 +149,5 @@ export default {
 .form-group label .required {
   color: #f56c6c;
   margin-left: 4px;
-}
-
-/* 响应式：小屏幕单列 */
-@media (max-width: 768px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

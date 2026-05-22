@@ -204,6 +204,13 @@ export default {
       }
     }, { deep: true, immediate: true })
 
+    // 监听表单显示状态，打开时重置标签页到第一个
+    watch(() => props.visible, (newVal) => {
+      if (newVal) {
+        localActiveTab.value = 'basic'
+      }
+    })
+
     // 表单校验
     const validateForm = () => {
       const order = localOrder.value

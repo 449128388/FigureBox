@@ -11,7 +11,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.asset import AssetTransaction
+from app.models.asset import AssetTransaction, OrderTransaction
 from app.models.sold_order import SoldOrder
 
 
@@ -182,6 +182,185 @@ class SoldOrderInventoryService:
         return True
 
     @staticmethod
+    def return_inventory_for_dispute(
+        db: Session,
+        sold_order: SoldOrder,
+        current_user_id: int
+    ) -> dict:
+        """
+        退款/纠纷状态下的库存回撤
+
+        当订单状态变为"退款/纠纷"时，按照 FIFO 原则撤销所有卖出记录：
+        - 查找该订单的所有 sell 记录（按创建时间倒序）
+        - 撤销所有 sell 记录（软删除）
+        - 恢复对应的库存到买入记录（后卖先回）
+        - 创建 return 记录标记回撤
+
+        Args:
+            db: 数据库会话
+            sold_order: 已出售订单对象
+            current_user_id: 当前用户ID
+
+        Returns:
+            操作结果字典
+        """
+        result = {
+            "inventory_returned": False,
+            "return_quantity": 0,
+            "error": None
+        }
+
+        now = datetime.now()
+
+        # 1. 查找该订单的所有 sell 记录（按创建时间倒序，后卖出的先撤销）
+        sell_transactions = db.query(AssetTransaction).filter(
+            AssetTransaction.user_id == current_user_id,
+            AssetTransaction.figure_id == sold_order.figure_id,
+            AssetTransaction.transaction_type == "sell",
+            AssetTransaction.sold_order_id == sold_order.id,
+            AssetTransaction.is_active == True
+        ).order_by(AssetTransaction.created_at.desc()).all()
+
+        if not sell_transactions:
+            return result
+
+        total_return_quantity = 0
+        total_return_cost = 0.0
+        returned_records_info = []
+
+        # 2. 逐个撤销 sell 记录
+        for sell_tx in sell_transactions:
+            return_quantity = sell_tx.quantity
+            return_cost = (sell_tx.price or 0) * return_quantity
+            total_return_quantity += return_quantity
+            total_return_cost += return_cost
+
+            returned_records_info.append({
+                'sell_tx_id': sell_tx.id,
+                'price': sell_tx.price,
+                'quantity': return_quantity
+            })
+
+            # 软删除 sell 记录
+            sell_tx.is_active = False
+            sell_tx.deleted_at = now
+
+            # 3. 恢复库存到买入记录（从该 sell 记录的扣减记录中恢复）
+            deducted_records = []
+            try:
+                match = re.search(r"扣减记录: (\[.*?\])", sell_tx.notes or "")
+                if match:
+                    deducted_records = json.loads(match.group(1).replace("'", '"'))
+            except:
+                pass
+
+            remaining_to_restore = return_quantity
+
+            if deducted_records:
+                # 按扣减记录的倒序恢复（后卖先回）
+                for record in reversed(deducted_records):
+                    if remaining_to_restore <= 0:
+                        break
+
+                    buy_tx = db.query(AssetTransaction).filter(
+                        AssetTransaction.id == record['id'],
+                        AssetTransaction.user_id == current_user_id,
+                        AssetTransaction.transaction_type == "buy"
+                    ).first()
+
+                    if buy_tx:
+                        sold_from_this = buy_tx.quantity - buy_tx.remaining_quantity
+                        restore_amount = min(remaining_to_restore, sold_from_this)
+
+                        if restore_amount > 0:
+                            buy_tx.remaining_quantity += restore_amount
+                            remaining_to_restore -= restore_amount
+
+            # 如果还有未恢复的数量，按比例从已卖出的 buy 记录中恢复
+            if remaining_to_restore > 0:
+                buy_transactions = db.query(AssetTransaction).filter(
+                    AssetTransaction.user_id == current_user_id,
+                    AssetTransaction.figure_id == sold_order.figure_id,
+                    AssetTransaction.transaction_type == "buy",
+                    AssetTransaction.is_active == True
+                ).order_by(AssetTransaction.transaction_date.desc()).all()
+
+                for buy_tx in buy_transactions:
+                    if remaining_to_restore <= 0:
+                        break
+                    sold_from_this = buy_tx.quantity - buy_tx.remaining_quantity
+                    restore_amount = min(remaining_to_restore, sold_from_this)
+                    if restore_amount > 0:
+                        buy_tx.remaining_quantity += restore_amount
+                        remaining_to_restore -= restore_amount
+
+        # 4. 创建 Asset RETURN 记录（标记为退款/纠纷导致的库存回撤）
+        if total_return_quantity > 0:
+            return_unit_price = total_return_cost / total_return_quantity if total_return_quantity > 0 else 0
+
+            return_transaction = AssetTransaction(
+                user_id=current_user_id,
+                figure_id=sold_order.figure_id,
+                order_id=None,
+                sold_order_id=sold_order.id,
+                transaction_type="return",
+                price=return_unit_price,
+                quantity=total_return_quantity,
+                total_amount=total_return_cost,
+                remaining_quantity=total_return_quantity,
+                transaction_date=now,
+                created_at=now,
+                updated_at=now,
+                notes=f"已出售订单 #{sold_order.id} - 退款/纠纷状态库存回撤（撤销记录:{returned_records_info}）"
+            )
+            db.add(return_transaction)
+
+            result["inventory_returned"] = True
+            result["return_quantity"] = total_return_quantity
+
+        # 5. 处理 OrderTransaction（资金账）记录
+        # 查找该订单的所有 sell 类型 order_transactions 记录
+        order_sell_transactions = db.query(OrderTransaction).filter(
+            OrderTransaction.user_id == current_user_id,
+            OrderTransaction.sold_order_id == sold_order.id,
+            OrderTransaction.transaction_type == "sell",
+            OrderTransaction.is_active == True
+        ).all()
+
+        total_refund_amount = 0.0
+        for order_sell_tx in order_sell_transactions:
+            total_refund_amount += order_sell_tx.total_amount or 0
+            # 软删除 sell 记录
+            order_sell_tx.is_active = False
+            order_sell_tx.deleted_at = now
+
+        # 创建 refund 类型的 OrderTransaction 记录（标记退款）
+        if total_refund_amount > 0:
+            refund_transaction = OrderTransaction(
+                user_id=current_user_id,
+                figure_id=sold_order.figure_id,
+                order_id=None,
+                sold_order_id=sold_order.id,
+                transaction_type="refund",  # 退款类型
+                direction="out",  # 退款是资金流出（退回给买家）
+                quantity=total_return_quantity,
+                unit_price=total_refund_amount / total_return_quantity if total_return_quantity > 0 else 0,
+                total_amount=total_refund_amount,
+                currency="CNY",
+                platform=sold_order.sell_platform,
+                transaction_date=now,
+                created_at=now,
+                updated_at=now,
+                notes=f"已出售订单 #{sold_order.id} - 退款/纠纷资金回撤",
+                transaction_subtype="refund",
+                changed_field="status"
+            )
+            db.add(refund_transaction)
+
+        db.flush()
+        return result
+
+    @staticmethod
     def calculate_average_cost(
         db: Session,
         figure_id: int,
@@ -264,19 +443,104 @@ class SoldOrderInventoryService:
             # ========== 场景A：数量减少（回库）==========
             return_quantity = abs(quantity_diff)  # 回库数量
 
-            # 1. 查找原 SELL 记录获取成本价和扣减记录
-            original_sell_tx = db.query(AssetTransaction).filter(
+            # 1. FIFO 原则（后卖先回）：
+            # 当订单数量多次变更时，可能有多条 sell 记录
+            # 数量减少时，应该撤销最后卖出的那部分（最后创建的 sell 记录）
+            # 按 created_at 倒序查找该订单的所有 sell 记录
+            sell_transactions = db.query(AssetTransaction).filter(
                 AssetTransaction.user_id == current_user_id,
                 AssetTransaction.figure_id == sold_order.figure_id,
                 AssetTransaction.transaction_type == "sell",
                 AssetTransaction.sold_order_id == sold_order.id,
                 AssetTransaction.is_active == True
-            ).first()
+            ).order_by(AssetTransaction.created_at.desc()).all()
 
-            if original_sell_tx:
-                # 2. 创建 RETURN 记录
-                return_price = original_sell_tx.price  # 使用原成本价
-                return_total = return_price * return_quantity
+            if sell_transactions:
+                # 2. 计算需要撤销的卖出记录（从最后卖出的开始）
+                remaining_to_return = return_quantity
+                total_return_cost = 0.0
+                returned_records_info = []  # 记录撤销了哪些 sell 记录
+
+                for sell_tx in sell_transactions:
+                    if remaining_to_return <= 0:
+                        break
+
+                    # 计算该 sell 记录需要撤销的数量
+                    # sell_tx.quantity 是该次卖出的数量
+                    return_from_this = min(sell_tx.quantity, remaining_to_return)
+                    remaining_to_return -= return_from_this
+
+                    # 累加成本
+                    return_cost = (sell_tx.price or 0) * return_from_this
+                    total_return_cost += return_cost
+
+                    returned_records_info.append({
+                        'sell_tx_id': sell_tx.id,
+                        'price': sell_tx.price,
+                        'return_quantity': return_from_this
+                    })
+
+                    # 减少该 sell 记录的数量（软删除或更新）
+                    if return_from_this >= sell_tx.quantity:
+                        # 全部撤销，软删除该 sell 记录
+                        sell_tx.is_active = False
+                        sell_tx.deleted_at = now
+                    else:
+                        # 部分撤销，更新数量
+                        sell_tx.quantity -= return_from_this
+                        sell_tx.total_amount = sell_tx.price * sell_tx.quantity
+
+                    # 3. 从 notes 中解析该 sell 记录的扣减记录，恢复库存
+                    deducted_records = []
+                    try:
+                        match = re.search(r"扣减记录: (\[.*?\])", sell_tx.notes or "")
+                        if match:
+                            deducted_records = json.loads(match.group(1).replace("'", '"'))
+                    except:
+                        pass
+
+                    remaining_to_restore = return_from_this
+
+                    if deducted_records:
+                        # 按扣减记录的倒序恢复（后卖先回）
+                        for record in reversed(deducted_records):
+                            if remaining_to_restore <= 0:
+                                break
+
+                            buy_tx = db.query(AssetTransaction).filter(
+                                AssetTransaction.id == record['id'],
+                                AssetTransaction.user_id == current_user_id,
+                                AssetTransaction.transaction_type == "buy"
+                            ).first()
+
+                            if buy_tx:
+                                sold_from_this = buy_tx.quantity - buy_tx.remaining_quantity
+                                restore_amount = min(remaining_to_restore, sold_from_this)
+
+                                if restore_amount > 0:
+                                    buy_tx.remaining_quantity += restore_amount
+                                    remaining_to_restore -= restore_amount
+
+                    # 如果还有未恢复的数量，按比例从已卖出的 buy 记录中恢复
+                    if remaining_to_restore > 0:
+                        buy_transactions = db.query(AssetTransaction).filter(
+                            AssetTransaction.user_id == current_user_id,
+                            AssetTransaction.figure_id == sold_order.figure_id,
+                            AssetTransaction.transaction_type == "buy",
+                            AssetTransaction.is_active == True
+                        ).order_by(AssetTransaction.transaction_date.desc()).all()
+
+                        for buy_tx in buy_transactions:
+                            if remaining_to_restore <= 0:
+                                break
+                            sold_from_this = buy_tx.quantity - buy_tx.remaining_quantity
+                            restore_amount = min(remaining_to_restore, sold_from_this)
+                            if restore_amount > 0:
+                                buy_tx.remaining_quantity += restore_amount
+                                remaining_to_restore -= restore_amount
+
+                # 4. 创建 RETURN 记录（使用加权平均成本价）
+                return_unit_price = total_return_cost / return_quantity if return_quantity > 0 else 0
 
                 return_transaction = AssetTransaction(
                     user_id=current_user_id,
@@ -284,74 +548,16 @@ class SoldOrderInventoryService:
                     order_id=None,
                     sold_order_id=sold_order.id,
                     transaction_type="return",  # 回库类型
-                    price=return_price,
+                    price=return_unit_price,
                     quantity=return_quantity,
-                    total_amount=return_total,
+                    total_amount=total_return_cost,
                     remaining_quantity=return_quantity,  # 回库数量加入库存
                     transaction_date=now,
                     created_at=now,
                     updated_at=now,
-                    notes=f"已出售订单 #{sold_order.id} - 数量减少回库（原数量:{old_quantity}, 新数量:{new_quantity}）"
+                    notes=f"已出售订单 #{sold_order.id} - 数量减少回库（原数量:{old_quantity}, 新数量:{new_quantity}, 撤销记录:{returned_records_info}）"
                 )
                 db.add(return_transaction)
-
-                # 3. FIFO 赎回退回原则（后卖先回）：
-                # 卖出时按先进先出扣减，赎回时按后进先出恢复
-                # 即从最后扣减的买入记录开始恢复
-
-                # 从 notes 中解析扣减记录
-                deducted_records = []
-                try:
-                    # 尝试从 notes 中解析扣减记录
-                    match = re.search(r"扣减记录: (\[.*?\])", original_sell_tx.notes or "")
-                    if match:
-                        deducted_records = json.loads(match.group(1).replace("'", '"'))
-                except:
-                    pass
-
-                remaining_to_restore = return_quantity
-
-                if deducted_records:
-                    # 按扣减记录的倒序恢复（后卖先回）
-                    # 卖出时：先扣减 record[0]，再扣减 record[1]...
-                    # 赎回时：先恢复 record[-1]，再恢复 record[-2]...
-                    for record in reversed(deducted_records):
-                        if remaining_to_restore <= 0:
-                            break
-
-                        buy_tx = db.query(AssetTransaction).filter(
-                            AssetTransaction.id == record['id'],
-                            AssetTransaction.user_id == current_user_id,
-                            AssetTransaction.transaction_type == "buy"
-                        ).first()
-
-                        if buy_tx:
-                            # 计算该记录最多可恢复的数量
-                            # 已卖出数量 = 原数量 - 剩余数量
-                            sold_from_this = buy_tx.quantity - buy_tx.remaining_quantity
-                            restore_amount = min(remaining_to_restore, sold_from_this)
-
-                            if restore_amount > 0:
-                                buy_tx.remaining_quantity += restore_amount
-                                remaining_to_restore -= restore_amount
-
-                # 如果还有未恢复的数量（可能是旧数据没有记录），按比例恢复
-                if remaining_to_restore > 0:
-                    buy_transactions = db.query(AssetTransaction).filter(
-                        AssetTransaction.user_id == current_user_id,
-                        AssetTransaction.figure_id == sold_order.figure_id,
-                        AssetTransaction.transaction_type == "buy",
-                        AssetTransaction.is_active == True
-                    ).order_by(AssetTransaction.transaction_date.desc()).all()
-
-                    for buy_tx in buy_transactions:
-                        if remaining_to_restore <= 0:
-                            break
-                        sold_from_this = buy_tx.quantity - buy_tx.remaining_quantity
-                        restore_amount = min(remaining_to_restore, sold_from_this)
-                        if restore_amount > 0:
-                            buy_tx.remaining_quantity += restore_amount
-                            remaining_to_restore -= restore_amount
 
                 result["asset_transaction_created"] = True
                 result["asset_transaction_type"] = "return"

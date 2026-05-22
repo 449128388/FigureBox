@@ -9,6 +9,7 @@ from app.api.users import get_current_user
 from app.models.user import User
 from app.services.sold_order_service import SoldOrderService
 from app.services.sold_order_service.quick_sell_service import QuickSellService
+from app.services.dashboard_service.assets_service.holding_position_service import HoldingPositionService
 from pydantic import BaseModel, field_validator
 
 router = APIRouter()
@@ -220,4 +221,47 @@ def quick_sell(request: QuickSellRequest, current_user: User = Depends(get_curre
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"快速卖出失败: {str(e)}"
+        )
+
+
+@router.get("/figure-cost-price/{figure_id}/")
+def get_figure_cost_price(
+    figure_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取手办的实际成本价
+
+    基于库存账计算当前剩余持仓的实际平均成本，与持仓列表保持一致。
+    用于添加已出售订单时自动填充成本价。
+
+    计算逻辑：
+    - 查询该手办所有买入记录（transaction_type='buy'）
+    - 基于 remaining_quantity 和 price 计算加权平均成本
+    - 平均成本 = 剩余总成本 / 剩余总数量
+
+    Args:
+        figure_id: 手办ID
+
+    Returns:
+        Dict: 包含成本价和库存数量
+        - cost_price: 实际平均成本价（人民币）
+        - stock: 当前库存数量
+    """
+    try:
+        cost_price = HoldingPositionService.calculate_remaining_cost_price(
+            db, figure_id, current_user.id
+        )
+        stock = HoldingPositionService.get_figure_inventory(
+            db, figure_id, current_user.id
+        )
+        return {
+            "cost_price": cost_price,
+            "stock": stock
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取成本价失败: {str(e)}"
         )
