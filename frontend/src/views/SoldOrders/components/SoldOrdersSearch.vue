@@ -29,6 +29,7 @@
         <el-option value="转转" label="转转" />
         <el-option value="微信群" label="微信群" />
         <el-option value="QQ群" label="QQ群" />
+        <el-option value="快速卖出" label="快速卖出" />
         <el-option value="其他" label="其他" />
       </el-select>
       <el-button type="primary" @click="handleSearch">搜索</el-button>

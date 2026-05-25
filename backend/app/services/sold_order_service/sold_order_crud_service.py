@@ -260,6 +260,23 @@ class SoldOrderCrudService:
                 db.rollback()
                 raise ValueError(inventory_return_result["error"])
 
+        # 如果状态从"退款/纠纷"变为"已完成"/"已发货"/"待发货"，执行正常订单创建流程
+        if old_status == "退款/纠纷" and order_data.status in ["已完成", "已发货", "待发货"]:
+            # 1. 尾款管理：创建卖出订单主记录和资金流水（3笔）
+            SoldOrderTransactionService.create_all_sold_order_transactions(
+                db, order, current_user.id
+            )
+
+            # 2. 库存账：扣减库存数量
+            SoldOrderInventoryService.deduct_inventory(
+                db, order, current_user.id
+            )
+
+            # 3. 手办聚合状态：更新库存数量和售罄状态
+            SoldOrderFigureService.update_figure_status(
+                db, order, current_user.id
+            )
+
         if order_data.remark is not None:
             order.remark = order_data.remark
 

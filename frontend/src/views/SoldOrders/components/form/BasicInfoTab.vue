@@ -29,6 +29,7 @@
           <el-option label="转转" value="转转" />
           <el-option label="微信群" value="微信群" />
           <el-option label="QQ群" value="QQ群" />
+          <el-option label="快速卖出" value="快速卖出" />
           <el-option label="其他" value="其他" />
         </el-select>
       </div>
