@@ -2,12 +2,14 @@
   AssetOverview.vue - 资产概览组件
 
   功能说明：
-  - 展示总资产、日涨跌、仓位等核心资产指标
+  - 展示总市值、日涨跌、仓位等核心资产指标
   - 根据涨跌情况显示不同颜色
   - 仓位状态根据风险等级显示不同样式
+  - 使用 DailyChangeDisplay 组件展示日涨跌
 
   组件依赖：
   - 接收 dashboardData 作为 props，包含 summary 数据
+  - DailyChangeDisplay 组件用于展示日涨跌
 
   维护提示：
   - 使用 formatNumber 方法格式化数字显示
@@ -16,26 +18,20 @@
 <template>
   <div class="asset-overview">
     <div class="overview-item">
-      <span class="label">总资产:</span>
-      <span class="value">¥{{ formatNumber(dashboardData?.summary?.total_assets || 0) }}</span>
+      <span class="label" style="margin-bottom: 10px;">总市值:</span>
+      <span class="value">¥{{ formatNumber(dashboardData?.summary?.total_market_value || 0) }}</span>
     </div>
     <div class="overview-item">
       <span class="label">日涨跌:</span>
-      <span
-        class="value"
-        :class="{
-          'stock-up': dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change > 0,
-          'stock-down': dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change < 0,
-          'stock-flat': dashboardData?.summary?.has_daily_change && dashboardData?.summary?.daily_change === 0
-        }"
-      >
-        <template v-if="dashboardData?.summary?.has_daily_change">
-          {{ dashboardData?.summary?.daily_change >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(dashboardData?.summary?.daily_change || 0)) }}({{ dashboardData?.summary?.daily_change >= 0 ? '+' : '' }}{{ (dashboardData?.summary?.daily_change_percentage || 0).toFixed(2) }}%)
-        </template>
-        <template v-else>
-          -- (--%)
-        </template>
-      </span>
+      <DailyChangeDisplay
+        :daily-change="dashboardData?.summary?.daily_change || 0"
+        :daily-change-percentage="dashboardData?.summary?.daily_change_percentage || 0"
+        :has-daily-change="dashboardData?.summary?.has_daily_change || false"
+        :comparison-date="dashboardData?.summary?.comparison_date"
+        :comparison-type="dashboardData?.summary?.comparison_type"
+        :days-since-last-update="dashboardData?.summary?.days_since_last_update"
+        :show-stale-warning="dashboardData?.summary?.show_stale_warning || false"
+      />
     </div>
     <div class="overview-item">
       <span class="label">仓位:</span>
@@ -53,8 +49,13 @@
 </template>
 
 <script>
+import DailyChangeDisplay from './DailyChangeDisplay.vue'
+
 export default {
   name: 'AssetOverview',
+  components: {
+    DailyChangeDisplay
+  },
   props: {
     dashboardData: {
       type: Object,
@@ -99,19 +100,6 @@ export default {
   font-size: 24px;
   font-weight: bold;
   color: #333;
-}
-
-/* 中国股市颜色标准：涨红跌绿 */
-.overview-item .value.stock-up {
-  color: #F44336; /* 红色 - 上涨 */
-}
-
-.overview-item .value.stock-down {
-  color: #4CAF50; /* 绿色 - 下跌 */
-}
-
-.overview-item .value.stock-flat {
-  color: #909399; /* 灰色 - 持平 */
 }
 
 /* 仓位状态颜色 */

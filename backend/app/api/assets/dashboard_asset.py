@@ -34,6 +34,7 @@ from app.services.dashboard_service.assets_service.plastic_index_service import 
 from app.services.dashboard_service.assets_service.asset_core_calculations import (
     TotalAssetsCalculator, PositionCalculator
 )
+from app.services.dashboard_service.assets_service.daily_change_service import DailyChangeService
 from .assets_common import AssetsCommonService
 
 router = APIRouter()
@@ -75,11 +76,21 @@ async def get_asset_dashboard(
     # 向后兼容：保留原有的总成本计算
     total_cost = AssetCalculationService.calculate_total_cost(figures)
     
-    # 使用服务层计算日涨跌
-    daily_change, daily_change_percentage, has_daily_change = \
-        AssetCalculationService.calculate_daily_change(db, current_user.id, total_assets)
-    
-    # 保存今日市值缓存
+    # 使用新的日涨跌服务计算日涨跌（支持T-1/T-2/最近日期/30天提示）
+    daily_change_data = DailyChangeService.calculate_daily_change(
+        db, current_user.id, total_assets
+    )
+    daily_change = daily_change_data["daily_change"]
+    daily_change_percentage = daily_change_data["daily_change_percentage"]
+    has_daily_change = daily_change_data["has_daily_change"]
+    comparison_date = daily_change_data.get("comparison_date")
+    comparison_type = daily_change_data.get("comparison_type")
+    days_since_last_update = daily_change_data.get("days_since_last_update")
+    show_stale_warning = daily_change_data.get("show_stale_warning", False)
+    # 向后兼容
+    is_historical_comparison = comparison_type in ["day_before_yesterday", "recent", "stale"]
+
+    # 保存今日市值缓存（向后兼容）
     AssetCalculationService.save_daily_cache(db, current_user.id, total_assets)
     
     # 使用塑料手办指数服务计算指数及涨跌
@@ -146,10 +157,15 @@ async def get_asset_dashboard(
     
     # 构建资产摘要
     summary = {
-        "total_assets": total_assets or 0,
+        "total_market_value": total_assets or 0,
         "daily_change": daily_change,
         "daily_change_percentage": daily_change_percentage,
         "has_daily_change": has_daily_change,
+        "comparison_date": comparison_date,
+        "comparison_type": comparison_type,
+        "days_since_last_update": days_since_last_update,
+        "show_stale_warning": show_stale_warning,
+        "is_historical_comparison": is_historical_comparison,
         "plastic_index": plastic_index_data["current_value"],
         "plastic_index_comparison": plastic_index_comparison or {
             "current_value": plastic_index_data["current_value"],
@@ -222,7 +238,7 @@ async def get_asset_dashboard(
     
     # 检查token续期
     AssetsCommonService.check_token_refresh(request, response)
-    
+
     return {
         "summary": summary,
         "profit": profit,
@@ -234,4 +250,48 @@ async def get_asset_dashboard(
         "manufacturer_distribution": distribution_data["manufacturer_distribution"],
         "holding_period_distribution": distribution_data["holding_period_distribution"],
         "tier_distribution": distribution_data["tier_distribution"]
+    }
+
+
+@router.post("/dashboard/init-daily-change")
+def init_daily_change_baseline(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    初始化日涨跌基准数据
+
+    首次使用时调用，将当前总资产作为昨日基准数据写入快照表
+    明天即可正常计算日涨跌
+
+    Returns:
+        {"message": "基准数据已创建", "yesterday_snapshot": {...}}
+    """
+    # 计算当前总资产
+    from app.services.dashboard_service.assets_service.asset_core_calculations import TotalAssetsCalculator
+    from app.models.order import Order
+
+    valid_orders = db.query(Order).filter(
+        Order.status == "已完成",
+        Order.is_active == True
+    ).all()
+
+    total_assets = TotalAssetsCalculator.calculate_by_orders(db, current_user.id, valid_orders)
+
+    # 创建或获取昨日快照
+    yesterday_snapshot = DailyChangeService.get_or_create_yesterday_snapshot(
+        db, current_user.id, total_assets
+    )
+
+    # 检查token续期
+    AssetsCommonService.check_token_refresh(request, response)
+
+    return {
+        "message": "日涨跌基准数据已创建，明天开始正常计算",
+        "yesterday_snapshot": {
+            "snapshot_date": yesterday_snapshot.snapshot_date.isoformat(),
+            "total_asset": float(yesterday_snapshot.total_asset)
+        }
     }

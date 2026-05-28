@@ -35,7 +35,8 @@ from app.services.dashboard_service.trade_records_service import (
     MonthlyStatsService,
     TransactionQueryService,
     TradeProfitAnalysisService,
-    BillExportService
+    BillExportService,
+    BuyOrderService
 )
 
 router = APIRouter()
@@ -47,6 +48,7 @@ async def get_trade_records(
     response: Response,
     year: Optional[int] = Query(None, description="查询年份，默认为当前年份"),
     month: Optional[int] = Query(None, description="查询月份，默认为当前月份"),
+    filter_type: Optional[str] = Query("all", description="筛选类型: all-全部, income-收入, expense-支出, fee-费用"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -55,6 +57,7 @@ async def get_trade_records(
 
     返回交易流水、月度统计、盈亏分析等数据
     支持按指定年月查询历史数据
+    支持按类型筛选（全部/收入/支出/费用）
     """
     user_id = current_user.id
 
@@ -74,8 +77,8 @@ async def get_trade_records(
         db, user_id, month_start, month_end
     )
 
-    # 获取交易流水
-    transactions = TransactionQueryService.get_transactions(db, user_id)
+    # 获取交易流水（支持筛选）
+    transactions = TransactionQueryService.get_transactions(db, user_id, filter_type)
 
     # 获取盈亏分析
     profit_analysis = TradeProfitAnalysisService.get_profit_analysis(
@@ -89,6 +92,9 @@ async def get_trade_records(
         "query_month": {
             "year": query_year,
             "month": query_month
+        },
+        "filter": {
+            "type": filter_type
         }
     }
 
@@ -142,3 +148,78 @@ async def export_trade_bill(
             "Content-Disposition": f"attachment; filename={filename.encode('utf-8').decode('latin-1')}"
         }
     )
+
+
+@router.get("/buy-order/{order_id}")
+async def get_buy_order_detail(
+    request: Request,
+    response: Response,
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取买入订单详情
+
+    返回买入订单的完整信息，包括：
+    - 订单头部信息（手办名称、平台等）
+    - 订单基本信息（订单编号、类型、状态等）
+    - 支付明细（全款/定金+尾款）
+    - 物流信息
+    - 备注
+    - 可用操作按钮
+
+    Args:
+        order_id: 订单ID
+
+    Returns:
+        订单详情数据
+    """
+    user_id = current_user.id
+
+    # 获取订单详情
+    order_detail = BuyOrderService.get_order_detail(db, user_id, order_id)
+
+    if "error" in order_detail:
+        response.status_code = 404
+        return {"error": order_detail["error"]}
+
+    # 获取可用操作按钮
+    status_code = order_detail.get("order_info", {}).get("status_code", "")
+    available_actions = BuyOrderService.get_available_actions(status_code)
+
+    return {
+        "order": order_detail,
+        "actions": available_actions
+    }
+
+
+@router.put("/buy-order/{order_id}/remarks")
+async def update_buy_order_remarks(
+    request: Request,
+    response: Response,
+    order_id: int,
+    remarks_data: Dict[str, str],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    更新买入订单备注
+
+    Args:
+        order_id: 订单ID
+        remarks_data: {"remarks": "新备注内容"}
+
+    Returns:
+        更新结果
+    """
+    user_id = current_user.id
+    remarks = remarks_data.get("remarks", "")
+
+    result = BuyOrderService.update_remarks(db, user_id, order_id, remarks)
+
+    if not result.get("success"):
+        response.status_code = 400
+        return {"error": result.get("error", "更新失败")}
+
+    return result

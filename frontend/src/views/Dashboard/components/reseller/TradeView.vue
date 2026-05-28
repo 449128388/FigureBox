@@ -50,7 +50,6 @@
     <TradeFlow
       :tradeData="tradeData"
       :formatNumber="formatNumber"
-      :getMockTradeData="getMockTradeData"
       @handle-trade-action="handleTradeAction"
     />
   </div>
@@ -88,65 +87,6 @@ export default {
   },
   emits: ['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog', 'view-record', 'delete-record', 'month-change'],
   setup(props, { emit }) {
-    // 生成模拟数据
-    const getMockTradeData = () => {
-      return {
-        monthly_stats: {
-          buy_count: 3,
-          buy_amount: 5600,
-          sell_count: 2,
-          sell_amount: 2400,
-          net_cashflow: -3200
-        },
-        transactions: [
-          {
-            id: 1,
-            date: '04-02 14:30',
-            amount: -800,
-            title: '买入: 初音未来 韶华 Ver. (尾款支付)',
-            order_id: 'ORD20260402001',
-            status: '✅ 成功',
-            payment_method: '支付宝',
-            merchant: 'AmiAmi',
-            actions: ['查看订单', '申请售后', '下载电子发票']
-          },
-          {
-            id: 2,
-            date: '03-28 10:15',
-            amount: 1200,
-            title: '卖出: 蕾姆 婚纱 Ver.',
-            buyer: '闲鱼用户_xxx',
-            platform: '闲鱼',
-            status: '✅ 已到账',
-            fee: 7.2,
-            net_profit: 292.8,
-            actions: ['查看买家信息', '物流信息', '评价']
-          },
-          {
-            id: 3,
-            date: '03-20 09:00',
-            amount: -200,
-            title: '定金: Saber 礼服 Ver. (预定锁定)',
-            status: '⏳ 持有中',
-            estimated_payment: '2026-06',
-            actions: ['补款提醒设置', '转让定金', '放弃定金']
-          }
-        ],
-        profit_analysis: {
-          yearly_profit: 3400,
-          win_rate: 66.7,
-          win_count: 4,
-          loss_count: 2,
-          avg_profit: 850,
-          avg_loss: 200,
-          max_profit: 1200,
-          max_profit_item: '初音韶华',
-          max_loss: 200,
-          max_loss_item: '蕾姆'
-        }
-      }
-    }
-    
     const formatNumber = (num) => {
       return num?.toLocaleString() || '0'
     }
@@ -169,19 +109,15 @@ export default {
       emit('month-change', newMonth)
     }
 
-    // 计算显示的交易数据（优先使用真实数据，无数据时使用模拟数据）
+    // 计算显示的交易数据
     const displayTradeData = computed(() => {
-      if (props.tradeData && Object.keys(props.tradeData).length > 0) {
-        return props.tradeData
-      }
-      return getMockTradeData()
+      return props.tradeData || {}
     })
 
     return {
       formatNumber,
       handleTradeAction,
       displayTradeData,
-      getMockTradeData,
       currentMonth,
       handleMonthChange
     }

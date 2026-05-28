@@ -2,19 +2,21 @@
   TradeFlow.vue - 交易流水组件
 
   功能说明：
-  - 展示交易流水记录，按时间倒序排列
-  - 支持按交易类型、年份、月份筛选
-  - 显示交易详情，包括手办名称、类型、金额、日期等
+  - 展示聚合后的交易流水记录，按时间倒序排列
+  - 支持按交易类型筛选（全部/收入/支出/费用）
+  - 使用 TradeFlowCard 组件展示聚合卡片
   - 支持点击操作按钮处理交易
+  - 筛选变更时触发事件重新获取数据
 
   组件依赖：
   - 接收 tradeData 作为 props，包含交易记录数据
-  - 接收 formatNumber 作为 props 用于数字格式化
-  - 接收 getMockTradeData 作为 props 用于获取模拟数据
+  - TradeFlowCard 组件用于展示聚合交易卡片
 
   维护提示：
-  - 筛选功能通过 selectedTradeType、selectedTradeYear、selectedTradeMonth 控制
+  - 筛选功能通过 selectedFilterType 控制
   - 交易操作通过 handleTradeAction 方法处理
+  - 聚合逻辑由后端 TransactionQueryService 实现
+  - 筛选变更时触发 filter-change 事件通知父组件重新获取数据
 -->
 <template>
   <div class="trade-flow">
@@ -28,75 +30,28 @@
     <!-- 筛选条件 -->
     <div v-if="showFilter" class="filter-section">
       <div class="filter-row">
-        <el-button 
-          v-for="type in tradeTypes" 
+        <el-button
+          v-for="type in filterTypes"
           :key="type.value"
-          :class="{ active: selectedTradeType === type.value }"
-          @click="selectedTradeType = type.value"
+          :class="{ active: selectedFilterType === type.value }"
+          @click="handleFilterChange(type.value)"
         >
           {{ type.label }}
         </el-button>
       </div>
-      <div class="filter-row">
-        <el-button 
-          v-for="year in tradeYears" 
-          :key="year.value"
-          :class="{ active: selectedTradeYear === year.value }"
-          @click="selectedTradeYear = year.value"
-        >
-          {{ year.label }}
-        </el-button>
-        <el-button 
-          v-for="month in tradeMonths" 
-          :key="month.value"
-          :class="{ active: selectedTradeMonth === month.value }"
-          @click="selectedTradeMonth = month.value"
-        >
-          {{ month.label }}
-        </el-button>
-      </div>
     </div>
 
-    <!-- 交易记录 -->
+    <!-- 交易记录列表 -->
     <div class="trade-records">
-      <div 
-        v-for="record in filteredTradeRecords" 
+      <TradeFlowCard
+        v-for="record in tradeRecords"
         :key="record.id"
-        class="trade-record"
-      >
-        <div class="record-header">
-          <span class="record-date">📅 {{ record.date }}</span>
-          <span class="record-amount" :class="{ positive: record.amount >= 0, negative: record.amount < 0 }">
-            {{ record.amount >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(record.amount)) }}
-          </span>
-        </div>
-        <div class="record-divider"></div>
-        <div class="record-content">
-          <div class="record-title">{{ record.title }}</div>
-          <div class="record-details">
-            <span v-if="record.order_id" class="detail-item">订单号: {{ record.order_id }}</span>
-            <span v-if="record.buyer" class="detail-item">买家: {{ record.buyer }}</span>
-            <span v-if="record.platform" class="detail-item">平台: {{ record.platform }}</span>
-          </div>
-          <div class="record-status">
-            <span class="status-item">状态: {{ record.status }}</span>
-            <span v-if="record.payment_method" class="status-item">支付方式: {{ record.payment_method }}</span>
-            <span v-if="record.merchant" class="status-item">商户: {{ record.merchant }}</span>
-            <span v-if="record.fee" class="status-item">手续费: -¥{{ formatNumber(record.fee) }}</span>
-            <span v-if="record.net_profit" class="status-item" :class="{ positive: record.net_profit >= 0, negative: record.net_profit < 0 }">
-              净利润: {{ record.net_profit >= 0 ? '+' : '' }}¥{{ formatNumber(Math.abs(record.net_profit)) }}
-            </span>
-          </div>
-          <div class="record-actions">
-            <el-button v-if="record.actions" v-for="action in record.actions" :key="action" size="small" @click="handleTradeAction(action, record)">
-              {{ action }}
-            </el-button>
-          </div>
-        </div>
-      </div>
-      
+        :record="record"
+        @action="handleTradeAction"
+      />
+
       <!-- 空数据提示 -->
-      <div v-if="filteredTradeRecords.length === 0" class="empty-records">
+      <div v-if="tradeRecords.length === 0" class="empty-records">
         <el-empty description="暂无交易记录" />
       </div>
     </div>
@@ -106,89 +61,55 @@
 <script>
 import { ref, computed } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
+import TradeFlowCard from './TradeFlowCard.vue'
 
 export default {
   name: 'TradeFlow',
   components: {
-    ArrowDown
+    ArrowDown,
+    TradeFlowCard
   },
   props: {
     tradeData: {
       type: Object,
       default: () => ({})
-    },
-    formatNumber: {
-      type: Function,
-      default: (num) => num?.toLocaleString() || '0'
-    },
-    getMockTradeData: {
-      type: Function,
-      default: () => ({
-        transactions: []
-      })
     }
   },
-  emits: ['handle-trade-action'],
+  emits: ['handle-trade-action', 'filter-change'],
   setup(props, { emit }) {
     const showFilter = ref(false)
-    const selectedTradeType = ref('all')
-    const selectedTradeYear = ref('2026')
-    const selectedTradeMonth = ref('')
-    
-    const tradeTypes = [
-      { label: '全部类型', value: 'all' },
-      { label: '买入', value: 'buy' },
-      { label: '卖出', value: 'sell' },
-      { label: '补款', value: 'payment' },
-      { label: '运费', value: 'shipping' },
-      { label: '退款', value: 'refund' }
+    const selectedFilterType = ref('all')
+
+    // 筛选类型：全部/收入/支出/费用
+    const filterTypes = [
+      { label: '全部', value: 'all' },
+      { label: '收入', value: 'income' },
+      { label: '支出', value: 'expense' },
+      { label: '费用', value: 'fee' }
     ]
-    
-    const tradeYears = [
-      { label: '2026年', value: '2026' },
-      { label: '2025年', value: '2025' }
-    ]
-    
-    const tradeMonths = [
-      { label: '3月', value: '3' },
-      { label: '2月', value: '2' },
-      { label: '1月', value: '1' }
-    ]
-    
-    const filteredTradeRecords = computed(() => {
-      let records = props.tradeData?.transactions || props.getMockTradeData().transactions
-      
-      // 按类型筛选
-      if (selectedTradeType.value !== 'all') {
-        // 这里可以根据实际情况添加类型筛选逻辑
-      }
-      
-      // 按年份筛选
-      if (selectedTradeYear.value) {
-        // 这里可以根据实际情况添加年份筛选逻辑
-      }
-      
-      // 按月份筛选
-      if (selectedTradeMonth.value) {
-        // 这里可以根据实际情况添加月份筛选逻辑
-      }
-      
-      return records
+
+    // 交易记录列表（直接使用后端返回的数据）
+    const tradeRecords = computed(() => {
+      return props.tradeData?.transactions || []
     })
-    
+
+    // 处理筛选变更
+    const handleFilterChange = (filterType) => {
+      selectedFilterType.value = filterType
+      // 触发筛选变更事件，通知父组件重新获取数据
+      emit('filter-change', filterType)
+    }
+
     const handleTradeAction = (action, record) => {
       emit('handle-trade-action', action, record)
     }
-    
+
     return {
       showFilter,
-      selectedTradeType,
-      selectedTradeYear,
-      selectedTradeMonth,
-      tradeTypes,
-      tradeYears,
-      tradeMonths,
-      filteredTradeRecords,
+      selectedFilterType,
+      filterTypes,
+      tradeRecords,
+      handleFilterChange,
       handleTradeAction
     }
   }
@@ -231,12 +152,7 @@ export default {
 .filter-row {
   display: flex;
   gap: 10px;
-  margin-bottom: 10px;
   flex-wrap: wrap;
-}
-
-.filter-row:last-child {
-  margin-bottom: 0;
 }
 
 .filter-row .el-button {
@@ -248,103 +164,10 @@ export default {
   color: white;
 }
 
-/* 交易记录 */
+/* 交易记录列表 */
 .trade-records {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-}
-
-.trade-record {
-  background-color: #f9f9f9;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  transition: all 0.3s ease;
-}
-
-.trade-record:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.record-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.record-date {
-  font-size: 14px;
-  color: #666;
-}
-
-.record-amount {
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.record-amount.positive {
-  color: #67c23a;
-}
-
-.record-amount.negative {
-  color: #f56c6c;
-}
-
-.record-divider {
-  height: 1px;
-  background-color: #e0e0e0;
-  margin: 10px 0;
-}
-
-.record-content {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.record-title {
-  font-size: 16px;
-  font-weight: bold;
-  color: #333;
-}
-
-.record-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  font-size: 14px;
-}
-
-.detail-item {
-  color: #666;
-}
-
-.record-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  font-size: 14px;
-}
-
-.status-item {
-  color: #666;
-}
-
-.status-item.positive {
-  color: #67c23a;
-}
-
-.status-item.negative {
-  color: #f56c6c;
-}
-
-.record-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-start;
-  margin-top: 10px;
 }
 
 .empty-records {
@@ -352,16 +175,5 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-@media (max-width: 768px) {
-  .flow-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .filter-row {
-    flex-direction: column;
-  }
 }
 </style>

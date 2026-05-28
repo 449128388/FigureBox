@@ -434,6 +434,17 @@ export default {
     const refreshData = async () => {
       if (activeView.value === 'asset') {
         await fetchDashboardData()
+        // 如果日涨跌数据不存在，自动初始化基准数据
+        if (dashboardData.value?.summary?.has_daily_change === false) {
+          try {
+            await axios.post('/assets/dashboard/init-daily-change')
+            ElMessage.success('日涨跌基准数据已创建，明天开始正常计算')
+            // 重新获取数据以更新显示
+            await fetchDashboardData()
+          } catch (error) {
+            console.error('初始化日涨跌基准数据失败:', error)
+          }
+        }
       } else if (activeView.value === 'market') {
         await fetchMarketData()
       }

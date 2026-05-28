@@ -151,7 +151,7 @@ def _get_transactions(db: Session, user_id: int) -> List[Dict[str, Any]]:
 
         records.append({
             "id": ot.id,
-            "date": ot.transaction_date.strftime("%m-%d %H:%M") if ot.transaction_date else "",
+            "date": ot.transaction_date.strftime("%m-%d %H:%M:%S") if ot.transaction_date else "",
             "amount": -ot.total_amount if ot.direction == "out" else ot.total_amount,
             "title": f"{ot.transaction_type}: {figure_name} ({direction_text})",
             "order_id": str(ot.order_id) if ot.order_id else "",
@@ -182,7 +182,7 @@ def _get_transactions(db: Session, user_id: int) -> List[Dict[str, Any]]:
 
         records.append({
             "id": so.id + 10000,
-            "date": so.created_at.strftime("%m-%d %H:%M") if so.created_at else "",
+            "date": so.created_at.strftime("%m-%d %H:%M:%S") if so.created_at else "",
             "amount": so.sell_price,
             "title": f"卖出: {figure_name}",
             "order_id": so.order_number or "",
