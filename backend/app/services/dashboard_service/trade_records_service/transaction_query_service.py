@@ -277,18 +277,23 @@ class TransactionQueryService:
             # 订单状态映射
             status_map = {
                 "已完成": "✅ 已完成",
-                "已支付": "⏳ 已支付",
-                "未支付": "⏳ 未支付",
+                "已支付": "⏳ 已支付定金",
+                "未支付": "⏳ 未支付定金",
                 "已取消": "❌ 已取消"
             }
-            order_status = status_map.get(order.status, "✅ 成功")
+            order_status = status_map.get(order.status, order.status) or "-"
+
+            # 出荷日期格式化
+            due_date = ""
+            if order.due_date:
+                due_date = order.due_date.strftime("%Y-%m-%d")
 
             records.append({
                 "id": order.id,
                 "date": order_date,
                 "type": "buy",
                 "card_type": "buy",  # 买入卡片样式
-                "order_number": str(order.id),
+                "order_number": order.display_order_number,
                 "filter_category": "expense",  # 用于筛选：income/expense/fee
 
                 # 金额信息
@@ -310,6 +315,7 @@ class TransactionQueryService:
                 "platform": order.shop_name or "",
                 "status": order_status,
                 "payment_method": "",
+                "due_date": due_date,  # 出荷日期
 
                 # 备注信息（有数据时展示，无数据时不展示）
                 "remarks": order.remarks or "",

@@ -72,8 +72,11 @@
             <div class="info-row">
               <span class="info-label">订单类型</span>
               <span class="info-value">
-                <el-tag size="small" :type="getOrderTypeTag(orderData.order_info?.order_type)">
-                  {{ orderData.order_info?.order_type }}
+                <el-tag
+                  size="small"
+                  :style="{ backgroundColor: orderData.order_info?.order_type?.color, borderColor: orderData.order_info?.order_type?.color, color: '#fff' }"
+                >
+                  {{ orderData.order_info?.order_type?.name }}
                 </el-tag>
               </span>
             </div>
@@ -300,9 +303,9 @@ export default {
     // 加载订单详情
     const loadOrderDetail = async () => {
       try {
-        const response = await axios.get(`/api/trade_records/buy-order/${props.orderId}`)
-        orderData.value = response.data.order
-        availableActions.value = response.data.actions
+        const response = await axios.get(`/trade_records/buy-order/${props.orderId}`)
+        orderData.value = response.order
+        availableActions.value = response.actions
       } catch (error) {
         console.error('加载订单详情失败:', error)
       }
@@ -350,7 +353,7 @@ export default {
     // 保存备注
     const saveRemarks = async () => {
       try {
-        await axios.put(`/api/trade_records/buy-order/${props.orderId}/remarks`, {
+        await axios.put(`/trade_records/buy-order/${props.orderId}/remarks`, {
           remarks: editingRemarks.value
         })
         orderData.value.remarks = editingRemarks.value

@@ -46,6 +46,7 @@ class Order(Base):
     shop_contact = Column(String(200))  # 店铺联系方式（客服、QQ群等）
     tracking_number = Column(String(100))  # 物流订单号/快递单号
     order_number = Column(String(100))  # 订单编号（外部系统订单号，如淘宝订单号）
+    display_order_number = Column(String(100))  # 展示订单编号（系统生成，格式：ORDER-YYYYMMDD-XXX）
     remarks = Column(String(500))  # 订单备注（用户自定义备注信息）
 
     # 时间戳

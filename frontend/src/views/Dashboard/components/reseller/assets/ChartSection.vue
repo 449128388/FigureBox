@@ -215,63 +215,141 @@ export default {
 
       profitChartInstance.value = echarts.init(profitChart.value)
 
-      // 使用后端返回的真实kline_data数据
+      // 使用后端返回的收益曲线数据（每日收益 = 当日总市值 - 当日总成本）
       const klineData = props.dashboardData?.kline_data || []
 
+      // 边界情况处理：全新用户/空仓 - 显示y=0直线
       if (klineData.length === 0) {
-        profitChartInstance.value.setOption({
-          title: {
-            text: '暂无数据',
-            left: 'center',
-            top: 'center',
-            textStyle: { color: '#909399', fontSize: 14 }
-          }
-        })
+        const today = new Date().toISOString().split('T')[0]
+        const emptyData = [
+          { date: today, profit: 0 }
+        ]
+        renderProfitChart(emptyData, true)
         return
       }
 
-      const xAxisData = klineData.map(item => item.date)
-      const seriesData = klineData.map(item => item.value)
-      
+      renderProfitChart(klineData, false)
+    }
+
+    // 渲染收益曲线图表
+    const renderProfitChart = (data, isEmptyData) => {
+      const xAxisData = data.map(item => item.date)
+      const seriesData = data.map(item => item.profit || item.value || 0)
+
+      // 计算数据范围，用于确定视觉映射
+      const minProfit = Math.min(...seriesData)
+      const maxProfit = Math.max(...seriesData)
+
+      // 判断是否有正负混合数据
+      const hasPositive = maxProfit > 0
+      const hasNegative = minProfit < 0
+
       const option = {
         tooltip: {
-          trigger: 'item',
+          trigger: 'axis',
           formatter: function(params) {
-            return `${params.name}<br/>收益: ¥${formatNumber(params.value)}`
+            const value = params[0].value
+            const color = value >= 0 ? '#FF4D4F' : '#52C41A'
+            return `${params[0].name}<br/>收益: <span style="color:${color}">¥${formatNumber(value)}</span>`
           }
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          top: '10%',
+          containLabel: true
         },
         xAxis: {
           type: 'category',
           data: xAxisData,
-          boundaryGap: false
+          boundaryGap: false,
+          axisLine: { lineStyle: { color: '#ccc' } },
+          axisLabel: { color: '#666' }
         },
         yAxis: {
           type: 'value',
           axisLabel: {
-            formatter: '¥{value}'
+            formatter: '¥{value}',
+            color: '#666'
+          },
+          splitLine: {
+            lineStyle: {
+              color: '#f0f0f0'
+            }
           }
         },
         series: [
           {
+            name: '收益',
             data: seriesData,
             type: 'line',
             smooth: true,
+            // 零轴参考线
+            markLine: {
+              symbol: 'none',
+              data: [
+                {
+                  yAxis: 0,
+                  lineStyle: {
+                    color: '#999',
+                    type: 'dashed',
+                    width: 1
+                  },
+                  label: {
+                    show: false
+                  }
+                }
+              ]
+            },
+            // 根据数值正负显示不同颜色
+            lineStyle: {
+              width: 2,
+              color: function(params) {
+                // 根据数据点值返回颜色
+                return params.value >= 0 ? '#FF4D4F' : '#52C41A'
+              }
+            },
+            // 使用 visualMap 实现红绿颜色区分
+            visualMap: {
+              show: false,
+              dimension: 1,
+              pieces: [
+                { gt: 0, color: '#FF4D4F' },  // 正收益：红色
+                { lte: 0, color: '#52C41A' }  // 负收益：绿色
+              ]
+            },
+            // 区域填充：盈利区域浅红色，亏损区域浅绿色
             areaStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(76, 175, 80, 0.5)' },
-                { offset: 1, color: 'rgba(76, 175, 80, 0.1)' }
+                { offset: 0, color: 'rgba(255, 77, 79, 0.3)' },
+                { offset: 0.5, color: 'rgba(255, 230, 230, 0.1)' },
+                { offset: 1, color: 'rgba(82, 196, 26, 0.3)' }
               ])
-            },
-            lineStyle: {
-              color: '#4CAF50',
-              width: 2
             },
             symbol: 'circle',
             symbolSize: 4
           }
         ]
       }
-      
+
+      // 如果是空数据（全新用户），显示y=0直线
+      if (isEmptyData) {
+        option.series[0].lineStyle = {
+          color: '#999',
+          width: 1,
+          type: 'dashed'
+        }
+        option.series[0].areaStyle = null
+        option.series[0].visualMap = null
+        option.title = {
+          text: '暂无收益数据',
+          left: 'center',
+          top: 'center',
+          textStyle: { color: '#909399', fontSize: 14 }
+        }
+      }
+
       profitChartInstance.value.setOption(option)
     }
     

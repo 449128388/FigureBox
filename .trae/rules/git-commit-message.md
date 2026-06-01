@@ -1,3 +1,7 @@
+---
+scene: git_message
+---
+
 # 提交说明规范（Conventional Commits）
 # 格式：<type>(<scope>): <subject>
 # 空一行

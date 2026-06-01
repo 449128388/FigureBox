@@ -56,14 +56,17 @@
 
       <!-- 交易信息 -->
       <div class="card-info">
+        <span v-if="record.order_number" class="info-item">
+          <span class="info-label">订单流水号:</span> {{ record.order_number }}
+        </span>
+        <span class="info-item">
+          <span class="info-label">订单状态:</span> {{ record.status }}
+        </span>
         <span class="info-item">
           <span class="info-label">平台:</span> {{ record.platform || '-' }}
         </span>
-        <span class="info-item">
-          <span class="info-label">状态:</span> {{ record.status }}
-        </span>
-        <span v-if="record.order_number" class="info-item">
-          <span class="info-label">订单流水号:</span> {{ record.order_number }}
+        <span v-if="record.card_type === 'buy' && record.due_date" class="info-item">
+          <span class="info-label">出荷日期:</span> {{ record.due_date }}
         </span>
       </div>
 

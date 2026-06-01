@@ -30,6 +30,7 @@ from app.models.user import User
 from app.api.users import get_current_user
 from app.services import IndexService, AssetCalculationService, HoldingAnalysisService
 from app.services.dashboard_service.assets_service.profit_analysis_service import ProfitAnalysisService
+from app.services.dashboard_service.assets_service.profit_curve_service import ProfitCurveService
 from app.services.dashboard_service.assets_service.plastic_index_service import PlasticIndexService
 from app.services.dashboard_service.assets_service.asset_core_calculations import (
     TotalAssetsCalculator, PositionCalculator
@@ -199,18 +200,9 @@ async def get_asset_dashboard(
         "max_drawdown": profit_data["max_drawdown"]
     }
 
-    # 构建K线数据
-    kline_data = []
-    if figures:
-        from app.models.asset import AssetValueCache
-        history = db.query(AssetValueCache).filter(
-            AssetValueCache.user_id == current_user.id
-        ).order_by(AssetValueCache.cache_date.desc()).limit(30).all()
-        for record in reversed(history):
-            kline_data.append({
-                "date": record.cache_date.isoformat(),
-                "value": record.total_value
-            })
+    # 构建收益曲线数据（近1月）
+    # 使用新的收益曲线服务：每日收益 = 当日总市值 - 当日总成本
+    kline_data = ProfitCurveService.get_profit_curve_data(db, current_user.id, days=30)
 
     # 构建涨跌排行
     rankings = []

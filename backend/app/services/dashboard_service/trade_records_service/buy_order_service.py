@@ -63,11 +63,14 @@ class BuyOrderService:
         # 获取物流信息
         logistics_info = cls._get_logistics_info(order)
 
+        # 获取展示订单编号（只使用数据库中的）
+        display_order_number = order.display_order_number or "-"
+
         # 构建订单详情
         order_detail = {
             # 头部区信息
             "header": {
-                "order_number": f"ORDER-{order.created_at.strftime('%Y%m%d')}-{order.id:03d}" if order.created_at else f"ORDER-{order.id:03d}",
+                "order_number": display_order_number,
                 "figure_image": figure_info.get("image", ""),
                 "figure_name": figure_info.get("name", "未知手办"),
                 "figure_series": figure_info.get("series", ""),
@@ -78,7 +81,7 @@ class BuyOrderService:
             # 订单信息区
             "order_info": {
                 "order_id": order.id,
-                "order_number": f"ORDER-{order.created_at.strftime('%Y%m%d')}-{order.id:03d}" if order.created_at else f"ORDER-{order.id:03d}",
+                "order_number": display_order_number,
                 "order_type": cls._get_order_type(order),
                 "platform": order.shop_name or "-",
                 "order_time": order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-",
@@ -108,34 +111,70 @@ class BuyOrderService:
         if not figure:
             return {"name": "未知手办", "series": "", "image": ""}
 
+        # 从 images JSON 数组中获取第一张图片
+        image_url = ""
+        if figure.images and isinstance(figure.images, list) and len(figure.images) > 0:
+            image_url = figure.images[0]
+
         return {
             "name": figure.name or "未知手办",
-            "series": figure.series or "",
-            "image": figure.image_url or ""
+            "series": figure.work or "",
+            "image": image_url
         }
 
     @classmethod
-    def _get_order_type(cls, order: Order) -> str:
+    def _get_order_type(cls, order: Order) -> Dict[str, str]:
         """
         判断订单类型
 
-        根据定金和尾款判断：
-        - 定金>0 且 尾款>0：全款预定
-        - 定金>0 且 尾款=0：散货
-        - 定金=0 且 尾款>0：现货
-        - 其他：补仓
+        判断流程：
+        1. 如果尾款 > 0：订单类型 = "预定"（定金+尾款模式，分两笔支付）
+        2. 如果状态 == "已取消"：订单类型 = "已取消预定"（只付了定金，后续取消）
+        3. 尾款 == 0 且 未取消：
+           - 如果备注包含"补仓" 或 平台 == "补仓"：订单类型 = "补仓"
+           - 如果出荷日期存在且不为空：订单类型 = "全款预定"（一次性付清，有出荷日期）
+           - 其他：订单类型 = "现货"（无出荷日期，即买即发）
+
+        订单类型颜色映射：
+        - 预定: 蓝色 #1890FF
+        - 全款预定: 紫色 #722ED1
+        - 现货: 青色 #13C2C2
+        - 补仓: 橙色 #FA8C16
+        - 已取消预定: 灰色 #8C8C8C
         """
-        deposit = order.deposit or 0
         balance = order.balance or 0
 
-        if deposit > 0 and balance > 0:
-            return "全款预定"
-        elif deposit > 0 and balance == 0:
-            return "散货"
-        elif deposit == 0 and balance > 0:
-            return "现货"
-        else:
-            return "补仓"
+        # 订单类型颜色映射
+        type_colors = {
+            "预定": "#1890FF",      # 蓝色
+            "全款预定": "#722ED1",  # 紫色
+            "现货": "#13C2C2",      # 青色
+            "补仓": "#FA8C16",      # 橙色
+            "已取消预定": "#8C8C8C" # 灰色
+        }
+
+        # 1. 尾款 > 0：预定（定金+尾款模式）
+        if balance > 0:
+            return {"name": "预定", "color": type_colors["预定"]}
+
+        # 2. 状态 == "已取消"：已取消预定
+        if order.status == "已取消":
+            return {"name": "已取消预定", "color": type_colors["已取消预定"]}
+
+        # 3. 尾款 == 0 且 未取消
+        remarks = order.remarks or ""
+        shop_name = order.shop_name or ""
+
+        # 备注包含"补仓" 或 平台 == "补仓"
+        if "补仓" in remarks or shop_name == "补仓":
+            return {"name": "补仓", "color": type_colors["补仓"]}
+
+        # 出荷日期存在且不为空
+        if order.due_date:
+            return {"name": "全款预定", "color": type_colors["全款预定"]}
+
+        # 无出荷日期，即买即发
+        return {"name": "现货", "color": type_colors["现货"]}
 
     @classmethod
     def _format_status(cls, status: str) -> Dict[str, Any]:
@@ -183,7 +222,7 @@ class BuyOrderService:
                     "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
                     "method": tx.payment_method or "-",
                     "status": "paid" if tx.direction == "out" else "pending",
-                    "transaction_no": tx.transaction_no or f"TRX-{tx.id}"
+                    "transaction_no": f"TRX-{tx.id}"
                 })
 
         # 如果没有交易记录，根据订单状态构建默认支付明细
@@ -209,8 +248,9 @@ class BuyOrderService:
                     "transaction_no": "-"
                 })
 
+        order_type_info = cls._get_order_type(order)
         return {
-            "payment_type": cls._get_order_type(order),
+            "payment_type": order_type_info["name"],
             "total_amount": total_amount,
             "items": payment_items,
             "deposit": deposit,
@@ -227,8 +267,8 @@ class BuyOrderService:
         }
         return type_map.get(tx_type, tx_type)
 
-    @staticmethod
-    def _get_logistics_info(order: Order) -> Dict[str, Any]:
+    @classmethod
+    def _get_logistics_info(cls, order: Order) -> Dict[str, Any]:
         """获取物流信息"""
         has_tracking = bool(order.tracking_number)
 

@@ -15,6 +15,7 @@ from app.services.asset_transaction_service import AssetTransactionService
 from app.services.order_transaction_service import OrderTransactionService
 from app.services.figure_service import FigureService
 from app.services.figure_service.figure_price_service import FigurePriceService
+from app.services.order_service.order_number_service import OrderNumberService
 
 
 class OrderCrudService:
@@ -75,6 +76,9 @@ class OrderCrudService:
         db.add(db_order)
         db.commit()
         db.refresh(db_order)
+
+        # 生成展示订单编号（格式：ORDER-YYYYMMDD-XXX）
+        OrderNumberService.update_order_display_number(db, db_order)
 
         # 创建资产交易记录（库存账）和资金流水记录
         # 【修复】只记录订单状态为"已完成"的数据，因为"已完成"说明已经拿到货物了
