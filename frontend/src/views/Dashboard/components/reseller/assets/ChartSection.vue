@@ -119,7 +119,11 @@ export default {
     }
     
     const initPieChart = () => {
-      if (!pieChart.value) return
+      // 如果DOM元素不存在，延迟重试
+      if (!pieChart.value) {
+        setTimeout(() => initPieChart(), 100)
+        return
+      }
       
       if (pieChartInstance.value) {
         pieChartInstance.value.dispose()
@@ -207,7 +211,11 @@ export default {
     }
     
     const initProfitChart = () => {
-      if (!profitChart.value) return
+      // 如果DOM元素不存在，延迟重试
+      if (!profitChart.value) {
+        setTimeout(() => initProfitChart(), 100)
+        return
+      }
 
       if (profitChartInstance.value) {
         profitChartInstance.value.dispose()
@@ -246,16 +254,16 @@ export default {
 
       const option = {
         tooltip: {
-          trigger: 'axis',
+          trigger: 'item',
           formatter: function(params) {
-            const value = params[0].value
+            const value = params.value
             const color = value >= 0 ? '#FF4D4F' : '#52C41A'
-            return `${params[0].name}<br/>收益: <span style="color:${color}">¥${formatNumber(value)}</span>`
+            return `${params.name}<br/>收益: <span style="color:${color}">¥${formatNumber(value)}</span>`
           }
         },
         grid: {
           left: '3%',
-          right: '4%',
+          right: '8%',
           bottom: '3%',
           top: '10%',
           containLabel: true
@@ -265,7 +273,15 @@ export default {
           data: xAxisData,
           boundaryGap: false,
           axisLine: { lineStyle: { color: '#ccc' } },
-          axisLabel: { color: '#666' }
+          axisLabel: {
+            color: '#666',
+            interval: 'auto',
+            rotate: 0,
+            formatter: function(value) {
+              // 确保日期格式正确显示
+              return value
+            }
+          }
         },
         yAxis: {
           type: 'value',
@@ -285,9 +301,11 @@ export default {
             data: seriesData,
             type: 'line',
             smooth: true,
-            // 零轴参考线
+            // 零轴参考线 - 使用 markLine 强制显示在 Y=0 位置
             markLine: {
               symbol: 'none',
+              silent: true,
+              animation: false,
               data: [
                 {
                   yAxis: 0,
@@ -302,30 +320,44 @@ export default {
                 }
               ]
             },
-            // 根据数值正负显示不同颜色
-            lineStyle: {
-              width: 2,
+            // 使用 itemStyle 实现根据数据点正负值显示不同颜色
+            itemStyle: {
               color: function(params) {
-                // 根据数据点值返回颜色
                 return params.value >= 0 ? '#FF4D4F' : '#52C41A'
               }
             },
-            // 使用 visualMap 实现红绿颜色区分
-            visualMap: {
-              show: false,
-              dimension: 1,
-              pieces: [
-                { gt: 0, color: '#FF4D4F' },  // 正收益：红色
-                { lte: 0, color: '#52C41A' }  // 负收益：绿色
-              ]
+            lineStyle: {
+              width: 2,
+              // 使用渐变色实现线条根据正负值显示不同颜色
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [
+                  { offset: 0, color: '#FF4D4F' },  // 正值区域：红色
+                  { offset: 0.5, color: '#FF4D4F' }, // 中间过渡
+                  { offset: 0.5, color: '#52C41A' }, // 零轴位置切换颜色
+                  { offset: 1, color: '#52C41A' }    // 负值区域：绿色
+                ]
+              }
             },
-            // 区域填充：盈利区域浅红色，亏损区域浅绿色
+            // 区域填充：根据正负值显示不同颜色
             areaStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(255, 77, 79, 0.3)' },
-                { offset: 0.5, color: 'rgba(255, 230, 230, 0.1)' },
-                { offset: 1, color: 'rgba(82, 196, 26, 0.3)' }
-              ])
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [
+                  { offset: 0, color: '#FFE6E6' },      // 正值区域：浅红色
+                  { offset: 0.5, color: 'rgba(255, 230, 230, 0.1)' },
+                  { offset: 0.5, color: 'rgba(230, 247, 230, 0.1)' },
+                  { offset: 1, color: '#E6F7E6' }       // 负值区域：浅绿色
+                ]
+              }
             },
             symbol: 'circle',
             symbolSize: 4
@@ -335,13 +367,13 @@ export default {
 
       // 如果是空数据（全新用户），显示y=0直线
       if (isEmptyData) {
+        option.visualMap = null
         option.series[0].lineStyle = {
           color: '#999',
           width: 1,
           type: 'dashed'
         }
         option.series[0].areaStyle = null
-        option.series[0].visualMap = null
         option.title = {
           text: '暂无收益数据',
           left: 'center',

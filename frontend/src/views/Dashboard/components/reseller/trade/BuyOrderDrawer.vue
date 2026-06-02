@@ -36,9 +36,6 @@
       <!-- 头部区 -->
       <div class="drawer-header">
         <div class="header-top">
-          <el-button class="close-btn" link @click="handleClose">
-            <el-icon><Close /></el-icon>
-          </el-button>
           <span class="header-title">查看买入订单</span>
           <span class="order-number-tag">#{{ orderData.header?.order_number }}</span>
         </div>
@@ -112,7 +109,14 @@
               <div class="payment-info-list">
                 <div class="payment-info-item">
                   <span class="label">实付金额</span>
-                  <span class="value amount">¥{{ formatNumber(orderData.payment?.total_amount) }}</span>
+                  <span class="value amount">
+                    ¥{{ formatNumber(orderData.payment?.total_amount_cny) }}
+                    <span v-if="hasMultiCurrency(orderData.payment?.total_by_currency)" class="original-currency">
+                      <span v-for="(amount, currency, idx) in orderData.payment?.total_by_currency" :key="idx">
+                        {{ idx > 0 ? ' + ' : '' }}({{ formatCurrency(amount, currency) }})
+                      </span>
+                    </span>
+                  </span>
                 </div>
                 <div class="payment-info-item">
                   <span class="label">支付方式</span>
@@ -140,24 +144,39 @@
                 >
                   <div class="timeline-left">
                     <el-icon v-if="item.status === 'paid'" class="status-icon success"><CircleCheck /></el-icon>
+                    <el-icon v-else-if="item.status === 'cancelled'" class="status-icon cancelled"><CircleClose /></el-icon>
                     <el-icon v-else class="status-icon pending"><Clock /></el-icon>
                   </div>
                   <div class="timeline-content">
                     <div class="timeline-header">
                       <span class="payment-type">{{ item.type }}</span>
-                      <span class="payment-amount">¥{{ formatNumber(item.amount) }}</span>
+                      <span v-if="item.amount_display" class="payment-amount payment-amount--empty">{{ item.amount_display }}</span>
+                      <span v-else class="payment-amount">{{ formatCurrency(item.amount, item.currency) }}</span>
                     </div>
                     <div class="timeline-meta">
                       <span class="payment-date">{{ item.date }}</span>
                       <span class="payment-method">{{ item.method }}</span>
                       <el-tag v-if="item.status === 'pending'" size="small" type="warning">待支付</el-tag>
+                      <el-tag v-else-if="item.status === 'paid'" size="small" type="success">已支付</el-tag>
+                      <el-tag v-else-if="item.status === 'cancelled'" size="small" type="danger">已取消</el-tag>
                     </div>
                   </div>
                 </div>
               </div>
               <div class="payment-total">
-                <span class="total-label">实付合计</span>
-                <span class="total-amount">¥{{ formatNumber(orderData.payment?.total_amount) }}</span>
+                <span class="total-label">
+                  实付合计
+                  <span v-if="hasMultiCurrency(orderData.payment?.total_by_currency)" class="total-currency-hint">（折合人民币）</span>
+                </span>
+                <span class="total-amount">
+                  ¥{{ formatNumber(orderData.payment?.total_amount_cny) }}
+                </span>
+              </div>
+              <div v-if="hasMultiCurrency(orderData.payment?.total_by_currency)" class="payment-original-currencies">
+                <span class="original-label">原始金额：</span>
+                <span v-for="(amount, currency, idx) in orderData.payment?.total_by_currency" :key="idx">
+                  {{ idx > 0 ? ' + ' : '' }}{{ formatCurrency(amount, currency) }}
+                </span>
               </div>
             </template>
           </div>
@@ -165,23 +184,54 @@
 
         <!-- 物流信息区 -->
         <div class="section logistics-section">
-          <h4 class="section-title">物流信息</h4>
+          <h4 class="section-title">
+            物流信息
+            <el-button
+              v-if="orderData.order_info?.status_code !== '已完成' && !isEditingLogistics"
+              type="primary"
+              link
+              size="small"
+              @click="startEditLogistics"
+            >
+              <el-icon><Edit /></el-icon>
+              补录物流
+            </el-button>
+          </h4>
           <div class="logistics-content">
-            <template v-if="orderData.logistics?.has_tracking">
+            <template v-if="isEditingLogistics">
               <div class="info-grid">
                 <div class="info-row">
                   <span class="info-label">快递单号</span>
-                  <span class="info-value">{{ orderData.logistics?.tracking_number }}</span>
+                  <span class="info-value">
+                    <el-input
+                      v-model="editingTrackingNumber"
+                      size="small"
+                      placeholder="请输入快递单号"
+                      style="width: 200px;"
+                    />
+                  </span>
+                </div>
+              </div>
+              <div class="logistics-actions">
+                <el-button size="small" @click="cancelEditLogistics">取消</el-button>
+                <el-button type="primary" size="small" @click="saveLogistics">保存</el-button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="info-grid">
+                <div class="info-row">
+                  <span class="info-label">快递单号</span>
+                  <span class="info-value">{{ orderData.logistics?.tracking_number || '--' }}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">物流公司</span>
-                  <span class="info-value">{{ orderData.logistics?.logistics_company }}</span>
+                  <span class="info-value">{{ orderData.logistics?.logistics_company || '--' }}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">发货状态</span>
                   <span class="info-value">
-                    <el-tag size="small" :type="getLogisticsStatusType(orderData.logistics?.status)">
-                      {{ orderData.logistics?.status }}
+                    <el-tag size="small" :type="orderData.logistics?.tracking_number ? getLogisticsStatusType(orderData.logistics?.status) : 'info'">
+                      {{ orderData.logistics?.tracking_number ? orderData.logistics?.status : '待发货' }}
                     </el-tag>
                   </span>
                 </div>
@@ -189,14 +239,6 @@
                   <span class="info-label">签收时间</span>
                   <span class="info-value">{{ orderData.logistics?.delivery_time }}</span>
                 </div>
-              </div>
-            </template>
-            <template v-else>
-              <div class="empty-logistics">
-                <span class="empty-text">--</span>
-                <el-button type="primary" link size="small" @click="handleAddLogistics">
-                  补录物流
-                </el-button>
               </div>
             </template>
           </div>
@@ -254,7 +296,7 @@
 
 <script>
 import { ref, computed, watch } from 'vue'
-import { Close, CircleCheck, Clock, Edit } from '@element-plus/icons-vue'
+import { Close, CircleCheck, CircleClose, Clock, Edit } from '@element-plus/icons-vue'
 import axios from '../../../../../axios'
 
 export default {
@@ -262,6 +304,7 @@ export default {
   components: {
     Close,
     CircleCheck,
+    CircleClose,
     Clock,
     Edit
   },
@@ -286,6 +329,8 @@ export default {
     const availableActions = ref([])
     const isEditingRemarks = ref(false)
     const editingRemarks = ref('')
+    const isEditingLogistics = ref(false)
+    const editingTrackingNumber = ref('')
 
     // 是否为全款支付
     const isFullPayment = computed(() => {
@@ -338,6 +383,34 @@ export default {
       return statusMap[status] || 'info'
     }
 
+    // 获取币种符号
+    const getCurrencySymbol = (currency) => {
+      const symbolMap = {
+        'CNY': '¥',
+        'JPY': '¥',
+        'USD': '$',
+        'EUR': '€'
+      }
+      return symbolMap[currency] || '¥'
+    }
+
+    // 格式化金额显示，区分日元和人名币符号
+    const formatCurrency = (amount, currency) => {
+      const symbol = getCurrencySymbol(currency)
+      const formatted = formatNumber(amount)
+      if (currency === 'JPY') {
+        return `JP¥${formatted}`
+      }
+      return `${symbol}${formatted}`
+    }
+
+    // 判断是否存在多币种
+    const hasMultiCurrency = (totalByCurrency) => {
+      if (!totalByCurrency) return false
+      const currencies = Object.keys(totalByCurrency)
+      return currencies.length > 1 || (currencies.length === 1 && currencies[0] !== 'CNY')
+    }
+
     // 开始编辑备注
     const startEditRemarks = () => {
       editingRemarks.value = orderData.value?.remarks || ''
@@ -374,9 +447,36 @@ export default {
       }
     }
 
-    // 补录物流
-    const handleAddLogistics = () => {
-      emit('action', 'add_logistics', props.orderId)
+    // 开始编辑物流信息
+    const startEditLogistics = () => {
+      editingTrackingNumber.value = orderData.value?.logistics?.tracking_number || ''
+      isEditingLogistics.value = true
+    }
+
+    // 取消编辑物流信息
+    const cancelEditLogistics = () => {
+      isEditingLogistics.value = false
+      editingTrackingNumber.value = ''
+    }
+
+    // 保存物流信息
+    const saveLogistics = async () => {
+      try {
+        const response = await axios.put(`/trade_records/buy-order/${props.orderId}/logistics`, {
+          tracking_number: editingTrackingNumber.value
+        })
+        // 更新本地数据
+        if (!orderData.value.logistics) {
+          orderData.value.logistics = {}
+        }
+        orderData.value.logistics.tracking_number = editingTrackingNumber.value
+        orderData.value.logistics.logistics_company = response.logistics_company || ''
+        orderData.value.logistics.has_tracking = true
+        orderData.value.logistics.status = response.status || '已发货'
+        isEditingLogistics.value = false
+      } catch (error) {
+        console.error('保存物流信息失败:', error)
+      }
     }
 
     // 关闭抽屉
@@ -386,6 +486,8 @@ export default {
       availableActions.value = []
       isEditingRemarks.value = false
       editingRemarks.value = ''
+      isEditingLogistics.value = false
+      editingTrackingNumber.value = ''
       emit('close')
     }
 
@@ -395,15 +497,22 @@ export default {
       availableActions,
       isEditingRemarks,
       editingRemarks,
+      isEditingLogistics,
+      editingTrackingNumber,
       isFullPayment,
       formatNumber,
+      formatCurrency,
       getOrderTypeTag,
       getLogisticsStatusType,
+      getCurrencySymbol,
+      hasMultiCurrency,
       startEditRemarks,
       cancelEditRemarks,
       saveRemarks,
+      startEditLogistics,
+      cancelEditLogistics,
+      saveLogistics,
       handleAction,
-      handleAddLogistics,
       handleClose
     }
   }
@@ -630,6 +739,10 @@ export default {
   color: #E6A23C;
 }
 
+.status-icon.cancelled {
+  color: #909399;
+}
+
 .timeline-content {
   flex: 1;
 }
@@ -650,6 +763,11 @@ export default {
   font-size: 16px;
   font-weight: bold;
   color: #F44336;
+}
+
+.payment-amount--empty {
+  color: #999;
+  font-weight: normal;
 }
 
 .timeline-meta {
@@ -677,6 +795,31 @@ export default {
   font-size: 20px;
   font-weight: bold;
   color: #F44336;
+}
+
+.original-currency {
+  font-size: 12px;
+  font-weight: normal;
+  color: #999;
+  margin-left: 4px;
+}
+
+.total-currency-hint {
+  font-size: 12px;
+  font-weight: normal;
+  color: #999;
+}
+
+.payment-original-currencies {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e0e0e0;
+  font-size: 12px;
+  color: #999;
+}
+
+.original-label {
+  color: #999;
 }
 
 /* 物流信息区 */
@@ -710,6 +853,14 @@ export default {
 }
 
 .remarks-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* 物流操作按钮 */
+.logistics-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;

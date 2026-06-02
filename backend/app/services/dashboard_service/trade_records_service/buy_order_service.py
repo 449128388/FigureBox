@@ -12,6 +12,15 @@ from app.models.figure import Figure
 from app.models.asset import OrderTransaction
 
 
+# 汇率配置：相对人民币的汇率
+EXCHANGE_RATES = {
+    'CNY': 1.0,    # 人民币
+    'JPY': 1/23,   # 日元：1人民币 = 23日元
+    'USD': 7.0,    # 美元：1美元 = 7人民币
+    'EUR': 8.0     # 欧元：1欧元 = 8人民币
+}
+
+
 class BuyOrderService:
     """
     买入订单服务类
@@ -199,6 +208,10 @@ class BuyOrderService:
         根据订单类型返回不同的支付明细格式：
         - 全款/现货：单条支付记录
         - 预定：定金+尾款时间线
+
+        币种处理：
+        - 每笔支付明细携带原始币种信息（currency）
+        - 同一币种的金额汇总到 total_by_currency
         """
         deposit = order.deposit or 0
         balance = order.balance or 0
@@ -215,43 +228,101 @@ class BuyOrderService:
         payment_items = []
         for tx in transactions:
             if tx.transaction_type in ["buy", "deposit", "balance"]:
-                payment_items.append({
-                    "type": cls._map_payment_type(tx.transaction_type),
-                    "amount": tx.total_amount or 0,
-                    "date": tx.transaction_date.strftime("%m-%d") if tx.transaction_date else "-",
-                    "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
-                    "method": tx.payment_method or "-",
-                    "status": "paid" if tx.direction == "out" else "pending",
-                    "transaction_no": f"TRX-{tx.id}"
-                })
+                # 如果订单有尾款（预定类型），但交易类型是"buy"，则根据订单实际金额拆分为定金+尾款
+                if tx.transaction_type == "buy" and balance > 0:
+                    # 添加定金记录
+                    payment_items.append({
+                        "type": "定金",
+                        "amount": deposit,
+                        "currency": order.deposit_currency or tx.currency or "CNY",
+                        "date": tx.transaction_date.strftime("%Y-%m-%d") if tx.transaction_date else "-",
+                        "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
+                        "method": tx.payment_method or "-",
+                        "status": "paid" if tx.direction == "out" else "pending",
+                        "transaction_no": tx.order_id or f"TRX-{tx.id}"
+                    })
+                    # 添加尾款记录
+                    payment_items.append({
+                        "type": "尾款",
+                        "amount": balance,
+                        "currency": order.balance_currency or tx.currency or "CNY",
+                        "date": tx.transaction_date.strftime("%Y-%m-%d") if tx.transaction_date else "-",
+                        "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
+                        "method": tx.payment_method or "-",
+                        "status": "paid" if tx.direction == "out" else "pending",
+                        "transaction_no": tx.order_id or f"TRX-{tx.id}"
+                    })
+                else:
+                    payment_items.append({
+                        "type": cls._map_payment_type(tx.transaction_type),
+                        "amount": tx.total_amount or 0,
+                        "currency": tx.currency or "CNY",
+                        "date": tx.transaction_date.strftime("%Y-%m-%d") if tx.transaction_date else "-",
+                        "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
+                        "method": tx.payment_method or "-",
+                        "status": "paid" if tx.direction == "out" else "pending",
+                        "transaction_no": tx.order_id or f"TRX-{tx.id}"
+                    })
 
-        # 如果没有交易记录，根据订单状态构建默认支付明细
-        if not payment_items:
-            if deposit > 0:
-                payment_items.append({
-                    "type": "定金",
-                    "amount": deposit,
-                    "date": order.created_at.strftime("%m-%d") if order.created_at else "-",
-                    "full_date": order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-",
-                    "method": "-",
-                    "status": "paid" if order.status in ["已支付", "已完成"] else "pending",
-                    "transaction_no": "-"
-                })
-            if balance > 0:
-                payment_items.append({
-                    "type": "尾款",
-                    "amount": balance,
-                    "date": order.due_date.strftime("%m-%d") if order.due_date else "-",
-                    "full_date": order.due_date.strftime("%Y-%m-%d") if order.due_date else "-",
-                    "method": "-",
-                    "status": "paid" if order.status == "已完成" else "pending",
-                    "transaction_no": "-"
-                })
+        # 确保定金和尾款条目都存在（已取消订单等场景）
+        existing_types = {item["type"] for item in payment_items}
+        if "定金" not in existing_types:
+            payment_items.append({
+                "type": "定金",
+                "amount": deposit,
+                "amount_display": "--" if deposit == 0 else None,
+                "currency": order.deposit_currency or "CNY",
+                "date": order.created_at.strftime("%Y-%m-%d") if order.created_at else "-",
+                "full_date": order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-",
+                "method": "-",
+                "status": "paid" if order.status in ["已支付", "已完成"] else "pending",
+                "transaction_no": "-"
+            })
+        if "尾款" not in existing_types:
+            payment_items.append({
+                "type": "尾款",
+                "amount": balance,
+                "amount_display": "--" if balance == 0 else None,
+                "currency": order.balance_currency or "CNY",
+                "date": order.due_date.strftime("%Y-%m-%d") if order.due_date else "-",
+                "full_date": order.due_date.strftime("%Y-%m-%d") if order.due_date else "-",
+                "method": "-",
+                "status": "paid" if order.status == "已完成" else "pending",
+                "transaction_no": "-"
+            })
+
+        # 已取消订单的状态修正：定金已支付，尾款已取消
+        if order.status == "已取消":
+            for item in payment_items:
+                if item["type"] == "定金":
+                    item["status"] = "paid"
+                elif item["type"] == "尾款":
+                    item["status"] = "cancelled"
+
+        # 固定排序：定金始终排在尾款前面
+        type_order = {"定金": 0, "全款": 1, "尾款": 2}
+        payment_items.sort(key=lambda x: type_order.get(x["type"], 99))
+
+        # 按币种汇总实付金额（只统计已支付的条目）
+        total_by_currency = {}
+        for item in payment_items:
+            if item["status"] != "paid":
+                continue
+            curr = item["currency"]
+            total_by_currency[curr] = total_by_currency.get(curr, 0) + item["amount"]
+
+        # 按汇率换算为人民币总金额
+        total_amount_cny = 0
+        for curr, amount in total_by_currency.items():
+            rate = EXCHANGE_RATES.get(curr, 1.0)
+            total_amount_cny += amount * rate
 
         order_type_info = cls._get_order_type(order)
         return {
             "payment_type": order_type_info["name"],
             "total_amount": total_amount,
+            "total_amount_cny": round(total_amount_cny, 2),
+            "total_by_currency": total_by_currency,
             "items": payment_items,
             "deposit": deposit,
             "balance": balance
@@ -330,6 +401,43 @@ class BuyOrderService:
         return {"success": True, "remarks": remarks}
 
     @classmethod
+    def update_logistics(cls, db: Session, user_id: int, order_id: int, tracking_number: str) -> Dict[str, Any]:
+        """
+        更新订单物流信息
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            order_id: 订单ID
+            tracking_number: 快递单号
+
+        Returns:
+            Dict: 更新结果
+        """
+        order = db.query(Order).filter(
+            Order.id == order_id,
+            Order.user_id == user_id,
+            Order.is_active == 1
+        ).first()
+
+        if not order:
+            return {"success": False, "error": "订单不存在"}
+
+        # 更新物流信息
+        order.tracking_number = tracking_number
+        order.logistics_company = cls._detect_logistics_company(tracking_number)
+        order.shipping_status = "已发货"
+        order.updated_at = datetime.now()
+        db.commit()
+
+        return {
+            "success": True,
+            "tracking_number": tracking_number,
+            "logistics_company": order.logistics_company,
+            "status": "已发货"
+        }
+
+    @classmethod
     def get_available_actions(cls, status: str) -> List[Dict[str, Any]]:
         """
         根据订单状态获取可用操作按钮
@@ -343,7 +451,7 @@ class BuyOrderService:
         actions_map = {
             "已完成": [
                 {"key": "edit_remarks", "label": "编辑备注", "type": "default"},
-                {"key": "close", "label": "关闭", "type": "primary"}
+                {"key": "close", "label": "关闭", "type": "default"}
             ],
             "已支付": [
                 {"key": "pay_balance", "label": "支付尾款", "type": "primary"},
@@ -352,7 +460,6 @@ class BuyOrderService:
                 {"key": "close", "label": "关闭", "type": "default"}
             ],
             "未支付": [
-                {"key": "confirm_stock", "label": "确认入库", "type": "primary"},
                 {"key": "edit_remarks", "label": "编辑备注", "type": "default"},
                 {"key": "close", "label": "关闭", "type": "default"}
             ],

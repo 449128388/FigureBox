@@ -1,6 +1,6 @@
 """
 收益曲线服务
-提供收益曲线数据计算，采用每日收益 = 当日总市值 - 当日总成本的计算方式
+提供收益曲线数据计算，采用浮动盈亏计算方式
 采用企业级服务层架构
 """
 from typing import Dict, Any, List
@@ -9,6 +9,7 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 
 from app.models.asset import AssetValueCache, AssetTransaction
+from app.models.holding_snapshot import HoldingSnapshotSummary
 from app.models.order import Order
 from app.models.figure import Figure
 
@@ -18,8 +19,9 @@ class ProfitCurveService:
     收益曲线服务类
 
     提供以下核心功能：
-    1. 计算每日收益：当日总市值 - 当日总成本
-    2. 生成近1月收益曲线数据
+    1. 计算每日收益：采用浮动盈亏计算方式
+       浮动盈亏 = Σ[(手办当前市场价 − 加权平均成本价) × 剩余库存数量]
+    2. 生成近1月收益曲线数据（基于实际持仓快照数据）
     3. 处理边界情况（空仓、全新用户等）
     """
 
@@ -30,15 +32,16 @@ class ProfitCurveService:
         cache_date: datetime.date
     ) -> float:
         """
-        计算指定日期的每日收益
+        计算指定日期的每日收益（浮动盈亏）
 
         计算公式：
-        每日收益 = 当日总市值 - 当日总成本
+        浮动盈亏 = Σ[(手办当前市场价 − 加权平均成本价) × 剩余库存数量]
 
-        当日总成本计算逻辑：
-        1. 查询截至该日期所有有效的买入交易
-        2. 计算累计投入成本（买入单价 × 数量）
-        3. 减去已卖出部分的成本
+        计算逻辑：
+        1. 查询截至该日期所有有效的买入交易（AssetTransaction）
+        2. 按手办ID分组计算加权平均成本
+        3. 获取手办当前市场价
+        4. 计算：(市场价 - 成本价) × 剩余库存
 
         Args:
             db: 数据库会话
@@ -48,37 +51,54 @@ class ProfitCurveService:
         Returns:
             float: 当日收益金额（正数表示盈利，负数表示亏损）
         """
-        # 获取当日总市值
-        market_value_record = db.query(AssetValueCache).filter(
-            AssetValueCache.user_id == user_id,
-            AssetValueCache.cache_date == cache_date
-        ).first()
-
-        if not market_value_record:
-            return 0.0
-
-        total_market_value = market_value_record.total_value or 0
-
-        # 计算截至该日期的总成本
-        # 查询截至该日期所有有效的买入订单
-        buy_orders = db.query(Order).filter(
-            Order.user_id == user_id,
-            Order.status.in_(["已完成", "已支付"]),
-            Order.is_active == True,
-            func.date(Order.created_at) <= cache_date
+        # 查询截至该日期所有有效的买入交易记录
+        # 使用交易日期判断，而不是订单创建日期
+        buy_transactions = db.query(
+            AssetTransaction.figure_id,
+            AssetTransaction.remaining_quantity,
+            AssetTransaction.price
+        ).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.transaction_type == "buy",
+            AssetTransaction.remaining_quantity > 0,
+            AssetTransaction.is_active == True,
+            func.date(AssetTransaction.transaction_date) <= cache_date
         ).all()
 
-        total_cost = 0.0
-        for order in buy_orders:
-            # 计算订单实际支付金额
-            deposit = order.deposit or 0
-            balance = order.balance or 0
-            total_cost += deposit + balance
+        if not buy_transactions:
+            return 0.0
 
-        # 每日收益 = 总市值 - 总成本
-        daily_profit = total_market_value - total_cost
+        # 按手办ID分组计算
+        figure_data = {}
+        for tx in buy_transactions:
+            fig_id = tx.figure_id
+            if fig_id not in figure_data:
+                figure_data[fig_id] = {
+                    "total_remaining_cost": 0.0,
+                    "total_remaining": 0
+                }
+            figure_data[fig_id]["total_remaining_cost"] += (tx.price or 0) * (tx.remaining_quantity or 0)
+            figure_data[fig_id]["total_remaining"] += tx.remaining_quantity or 0
 
-        return round(daily_profit, 2)
+        # 获取手办当前市场价
+        figure_ids = list(figure_data.keys())
+        figures = db.query(Figure).filter(Figure.id.in_(figure_ids)).all()
+        figure_prices = {fig.id: fig.market_price or fig.price or 0 for fig in figures}
+
+        # 计算浮动盈亏
+        floating_profit = 0.0
+        for fig_id, data in figure_data.items():
+            remaining_quantity = data["total_remaining"]
+            remaining_cost = data["total_remaining_cost"]
+            current_price = figure_prices.get(fig_id, 0)
+
+            if remaining_quantity > 0:
+                # 加权平均成本价
+                avg_cost_price = remaining_cost / remaining_quantity
+                # (市场价 - 成本价) × 数量
+                floating_profit += (current_price - avg_cost_price) * remaining_quantity
+
+        return round(floating_profit, 2)
 
     @staticmethod
     def get_profit_curve_data(
@@ -88,6 +108,7 @@ class ProfitCurveService:
     ) -> List[Dict[str, Any]]:
         """
         获取收益曲线数据（近N天）
+        仅基于实际持仓快照数据，没有快照数据时不生成完整日期序列
 
         Args:
             db: 数据库会话
@@ -97,32 +118,47 @@ class ProfitCurveService:
         Returns:
             List[Dict]: 收益曲线数据列表，每个元素包含date和profit
         """
-        # 查询近N天的市值缓存数据
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=days)
 
+        # 从持仓快照汇总表获取数据
+        snapshot_records = db.query(HoldingSnapshotSummary).filter(
+            HoldingSnapshotSummary.user_id == user_id,
+            HoldingSnapshotSummary.snapshot_date >= start_date,
+            HoldingSnapshotSummary.snapshot_date <= end_date
+        ).order_by(HoldingSnapshotSummary.snapshot_date.asc()).all()
+
+        # 如果有持仓快照数据，直接返回
+        if snapshot_records:
+            return [
+                {
+                    "date": s.snapshot_date.isoformat(),
+                    "profit": float(s.total_floating_pnl)
+                }
+                for s in snapshot_records
+            ]
+
+        # 如果没有持仓快照数据，尝试从市值缓存表获取实际数据
         cache_records = db.query(AssetValueCache).filter(
             AssetValueCache.user_id == user_id,
             AssetValueCache.cache_date >= start_date,
             AssetValueCache.cache_date <= end_date
         ).order_by(AssetValueCache.cache_date.asc()).all()
 
-        if not cache_records:
-            # 全新用户/无数据：返回空列表，前端显示y=0直线
-            return []
+        if cache_records:
+            # 返回实际市值缓存数据，不填充缺失日期
+            return [
+                {
+                    "date": record.cache_date.isoformat(),
+                    "profit": ProfitCurveService.calculate_daily_profit(
+                        db, user_id, record.cache_date
+                    )
+                }
+                for record in cache_records
+            ]
 
-        # 计算每天的收益
-        profit_data = []
-        for record in cache_records:
-            daily_profit = ProfitCurveService.calculate_daily_profit(
-                db, user_id, record.cache_date
-            )
-            profit_data.append({
-                "date": record.cache_date.isoformat(),
-                "profit": daily_profit
-            })
-
-        return profit_data
+        # 如果仍然没有数据，返回空列表（前端显示y=0直线）
+        return []
 
     @staticmethod
     def get_latest_profit(
@@ -139,7 +175,23 @@ class ProfitCurveService:
         Returns:
             Dict: 包含最新收益、总市值、总成本的信息
         """
-        # 获取最新市值记录
+        today = datetime.now().date()
+
+        # 首先尝试从持仓快照汇总表获取今日数据
+        snapshot = db.query(HoldingSnapshotSummary).filter(
+            HoldingSnapshotSummary.user_id == user_id,
+            HoldingSnapshotSummary.snapshot_date == today
+        ).first()
+
+        if snapshot:
+            return {
+                "profit": float(snapshot.total_floating_pnl),
+                "market_value": float(snapshot.total_market_value),
+                "has_data": True,
+                "date": snapshot.snapshot_date.isoformat()
+            }
+
+        # 如果没有今日快照，获取最新市值记录
         latest_record = db.query(AssetValueCache).filter(
             AssetValueCache.user_id == user_id
         ).order_by(AssetValueCache.cache_date.desc()).first()
@@ -148,7 +200,6 @@ class ProfitCurveService:
             return {
                 "profit": 0,
                 "market_value": 0,
-                "total_cost": 0,
                 "has_data": False
             }
 
@@ -157,19 +208,9 @@ class ProfitCurveService:
             db, user_id, latest_record.cache_date
         )
 
-        # 计算总成本
-        buy_orders = db.query(Order).filter(
-            Order.user_id == user_id,
-            Order.status.in_(["已完成", "已支付"]),
-            Order.is_active == True
-        ).all()
-
-        total_cost = sum((order.deposit or 0) + (order.balance or 0) for order in buy_orders)
-
         return {
             "profit": daily_profit,
             "market_value": latest_record.total_value or 0,
-            "total_cost": total_cost,
             "has_data": True,
             "date": latest_record.cache_date.isoformat()
         }

@@ -4,6 +4,7 @@
 """
 from .asset_cache_scheduler import AssetCacheScheduler, start_scheduler as start_asset_cache_scheduler, stop_scheduler as stop_asset_cache_scheduler
 from .daily_snapshot_scheduler import DailySnapshotScheduler, start_daily_snapshot_scheduler, stop_daily_snapshot_scheduler
+from .holding_snapshot_scheduler import HoldingSnapshotScheduler, start_holding_snapshot_scheduler, stop_holding_snapshot_scheduler
 
 
 class SchedulerManager:
@@ -14,12 +15,14 @@ class SchedulerManager:
         """启动所有定时任务"""
         start_asset_cache_scheduler()
         start_daily_snapshot_scheduler()
+        start_holding_snapshot_scheduler()
     
     @staticmethod
     def stop_scheduler():
         """停止所有定时任务"""
         stop_asset_cache_scheduler()
         stop_daily_snapshot_scheduler()
+        stop_holding_snapshot_scheduler()
 
 
 def start_scheduler():
@@ -33,9 +36,10 @@ def stop_scheduler():
 
 
 __all__ = [
-    'AssetCacheScheduler', 
+    'AssetCacheScheduler',
     'DailySnapshotScheduler',
+    'HoldingSnapshotScheduler',
     'SchedulerManager',
-    'start_scheduler', 
+    'start_scheduler',
     'stop_scheduler'
 ]

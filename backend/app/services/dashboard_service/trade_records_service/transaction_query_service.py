@@ -13,6 +13,15 @@ from app.models.sold_order import SoldOrder
 from app.models.order import Order
 
 
+# 汇率配置：相对人民币的汇率
+EXCHANGE_RATES = {
+    'CNY': 1.0,    # 人民币
+    'JPY': 1/23,   # 日元：1人民币 = 23日元
+    'USD': 7.0,    # 美元：1美元 = 7人民币
+    'EUR': 8.0     # 欧元：1欧元 = 8人民币
+}
+
+
 class TransactionQueryService:
     """
     交易流水查询服务类
@@ -247,10 +256,21 @@ class TransactionQueryService:
                 if figure:
                     figure_name = figure.name
 
-            # 计算总支出金额（定金 + 尾款）
+            # 计算总支出金额（定金 + 尾款，按汇率换算为人民币，只统计已支付部分）
             deposit = order.deposit or 0
             balance = order.balance or 0
-            total_amount = deposit + balance
+            deposit_currency = order.deposit_currency or "CNY"
+            balance_currency = order.balance_currency or "CNY"
+            deposit_rate = EXCHANGE_RATES.get(deposit_currency, 1.0)
+            balance_rate = EXCHANGE_RATES.get(balance_currency, 1.0)
+            # 根据订单状态确定已支付的金额：
+            # 已完成 → 定金+尾款均已支付
+            # 已支付 → 仅定金已支付
+            # 未支付 → 均未支付
+            # 已取消 → 仅定金已支付
+            paid_deposit = deposit * deposit_rate if order.status in ["已完成", "已支付", "已取消"] else 0
+            paid_balance = balance * balance_rate if order.status == "已完成" else 0
+            total_amount = round(paid_deposit + paid_balance, 2)
 
             # 查询该订单关联的费用明细（从 OrderTransaction 表）
             fee_transactions = db.query(OrderTransaction).filter(

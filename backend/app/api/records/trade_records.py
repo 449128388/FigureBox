@@ -223,3 +223,38 @@ async def update_buy_order_remarks(
         return {"error": result.get("error", "更新失败")}
 
     return result
+
+
+@router.put("/buy-order/{order_id}/logistics")
+async def update_buy_order_logistics(
+    request: Request,
+    response: Response,
+    order_id: int,
+    logistics_data: Dict[str, str],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    更新买入订单物流信息
+
+    Args:
+        order_id: 订单ID
+        logistics_data: {"tracking_number": "快递单号"}
+
+    Returns:
+        更新结果
+    """
+    user_id = current_user.id
+    tracking_number = logistics_data.get("tracking_number", "")
+
+    if not tracking_number:
+        response.status_code = 400
+        return {"error": "快递单号不能为空"}
+
+    result = BuyOrderService.update_logistics(db, user_id, order_id, tracking_number)
+
+    if not result.get("success"):
+        response.status_code = 400
+        return {"error": result.get("error", "更新失败")}
+
+    return result
