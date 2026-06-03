@@ -113,6 +113,7 @@
         @view-record="viewRecord"
         @delete-record="deleteRecord"
         @month-change="handleMonthChange"
+        @filter-change="handleTradeFilterChange"
       />
     </div>
 
@@ -332,13 +333,38 @@ export default {
       month: new Date().getMonth() + 1
     })
 
+    // 当前筛选参数
+    const tradeFilterParams = ref({
+      filterType: 'all',
+      timeType: 'last30days',
+      dateRange: [],
+      figureIds: [],
+      platforms: [],
+      statusList: [],
+      minAmount: null,
+      maxAmount: null,
+      keyword: ''
+    })
+
     // 获取交易数据
     const fetchTradeData = async () => {
       try {
         const { year, month } = selectedMonth.value
-        const res = await axios.get('/trade_records/dashboard', {
-          params: { year, month }
-        })
+        const params = {
+          year,
+          month,
+          filter_type: tradeFilterParams.value.filterType,
+          time_type: tradeFilterParams.value.timeType,
+          date_start: tradeFilterParams.value.dateRange?.[0] || null,
+          date_end: tradeFilterParams.value.dateRange?.[1] || null,
+          figure_ids: tradeFilterParams.value.figureIds?.join(',') || null,
+          platforms: tradeFilterParams.value.platforms?.join(',') || null,
+          status_list: tradeFilterParams.value.statusList?.join(',') || null,
+          min_amount: tradeFilterParams.value.minAmount,
+          max_amount: tradeFilterParams.value.maxAmount,
+          keyword: tradeFilterParams.value.keyword || null
+        }
+        const res = await axios.get('/trade_records/dashboard', { params })
         tradeData.value = res
       } catch (error) {
       }
@@ -347,6 +373,12 @@ export default {
     // 处理月份切换
     const handleMonthChange = (newMonth) => {
       selectedMonth.value = newMonth
+      fetchTradeData()
+    }
+
+    // 处理交易筛选变更
+    const handleTradeFilterChange = (filterParams) => {
+      tradeFilterParams.value = { ...filterParams }
       fetchTradeData()
     }
     
@@ -637,6 +669,7 @@ export default {
       logout,
       fetchDashboardData,
       handleMonthChange,
+      handleTradeFilterChange,
       billExportDialogVisible,
       billExportLoading,
       openBillExportDialog,

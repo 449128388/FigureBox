@@ -36,7 +36,9 @@ from app.services.dashboard_service.trade_records_service import (
     TransactionQueryService,
     TradeProfitAnalysisService,
     BillExportService,
-    BuyOrderService
+    BuyOrderService,
+    SellOrderService,
+    TradeFilterService
 )
 
 router = APIRouter()
@@ -49,6 +51,16 @@ async def get_trade_records(
     year: Optional[int] = Query(None, description="查询年份，默认为当前年份"),
     month: Optional[int] = Query(None, description="查询月份，默认为当前月份"),
     filter_type: Optional[str] = Query("all", description="筛选类型: all-全部, income-收入, expense-支出, fee-费用"),
+    # 高级筛选参数
+    time_type: Optional[str] = Query("last30days", description="时间类型: last7days/last30days/thisMonth/lastMonth/thisYear/custom"),
+    date_start: Optional[str] = Query(None, description="自定义开始日期 (YYYY-MM-DD)"),
+    date_end: Optional[str] = Query(None, description="自定义结束日期 (YYYY-MM-DD)"),
+    figure_ids: Optional[str] = Query(None, description="手办ID列表，逗号分隔"),
+    platforms: Optional[str] = Query(None, description="平台列表，逗号分隔"),
+    status_list: Optional[str] = Query(None, description="状态列表，逗号分隔"),
+    min_amount: Optional[float] = Query(None, description="最小金额"),
+    max_amount: Optional[float] = Query(None, description="最大金额"),
+    keyword: Optional[str] = Query(None, description="关键词搜索"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -58,6 +70,7 @@ async def get_trade_records(
     返回交易流水、月度统计、盈亏分析等数据
     支持按指定年月查询历史数据
     支持按类型筛选（全部/收入/支出/费用）
+    支持高级筛选（时间范围、手办、平台、状态、金额、关键词）
     """
     user_id = current_user.id
 
@@ -66,9 +79,7 @@ async def get_trade_records(
     query_month = month if month else date.today().month
 
     # 计算月份起止时间（自然月）
-    # 起始时间：当月1日 00:00:00
     month_start = date(query_year, query_month, 1)
-    # 结束时间：当月最后一日 23:59:59（用下月1日前一天表示）
     _, last_day = monthrange(query_year, query_month)
     month_end = date(query_year, query_month, last_day)
 
@@ -77,8 +88,35 @@ async def get_trade_records(
         db, user_id, month_start, month_end
     )
 
-    # 获取交易流水（支持筛选）
+    # 构建高级筛选参数
+    advanced_filters = {
+        "filterType": filter_type,
+        "timeType": time_type,
+        "dateRange": [date_start, date_end] if date_start and date_end else [],
+        "figureIds": [int(x) for x in figure_ids.split(",") if x] if figure_ids else [],
+        "platforms": platforms.split(",") if platforms else [],
+        "statusList": status_list.split(",") if status_list else [],
+        "minAmount": min_amount,
+        "maxAmount": max_amount,
+        "keyword": keyword
+    }
+
+    # 获取交易流水（支持基础筛选）
     transactions = TransactionQueryService.get_transactions(db, user_id, filter_type)
+
+    # 应用高级筛选
+    if any([
+        time_type != "last30days",
+        figure_ids,
+        platforms,
+        status_list,
+        min_amount is not None,
+        max_amount is not None,
+        keyword
+    ]):
+        transactions = TradeFilterService.apply_filters_to_transactions(
+            transactions, advanced_filters
+        )
 
     # 获取盈亏分析
     profit_analysis = TradeProfitAnalysisService.get_profit_analysis(
@@ -94,7 +132,8 @@ async def get_trade_records(
             "month": query_month
         },
         "filter": {
-            "type": filter_type
+            "type": filter_type,
+            "advanced": advanced_filters
         }
     }
 
@@ -252,6 +291,113 @@ async def update_buy_order_logistics(
         return {"error": "快递单号不能为空"}
 
     result = BuyOrderService.update_logistics(db, user_id, order_id, tracking_number)
+
+    if not result.get("success"):
+        response.status_code = 400
+        return {"error": result.get("error", "更新失败")}
+
+    return result
+
+
+@router.get("/sell-order/{sold_order_id}")
+async def get_sell_order_detail(
+    request: Request,
+    response: Response,
+    sold_order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取卖出订单详情
+
+    返回卖出订单的完整信息，包括：
+    - 头部信息（订单号）
+    - 手办信息
+    - 订单信息（平台、成交时间、状态等）
+    - 收款明细（卖出价、运费、手续费、实到账）
+    - 盈亏信息（成本、净利润、利润率）
+    - 物流信息
+    - 买家信息
+    - 备注
+
+    Args:
+        sold_order_id: 卖出订单ID
+
+    Returns:
+        订单详情数据
+    """
+    user_id = current_user.id
+
+    # 获取订单详情
+    order_detail = SellOrderService.get_order_detail(db, user_id, sold_order_id)
+
+    if "error" in order_detail:
+        response.status_code = 404
+        return {"error": order_detail["error"]}
+
+    return {
+        "order": order_detail
+    }
+
+
+@router.put("/sell-order/{sold_order_id}/remarks")
+async def update_sell_order_remarks(
+    request: Request,
+    response: Response,
+    sold_order_id: int,
+    remarks_data: Dict[str, str],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    更新卖出订单备注
+
+    Args:
+        sold_order_id: 卖出订单ID
+        remarks_data: {"remarks": "新备注内容"}
+
+    Returns:
+        更新结果
+    """
+    user_id = current_user.id
+    remarks = remarks_data.get("remarks", "")
+
+    result = SellOrderService.update_remarks(db, user_id, sold_order_id, remarks)
+
+    if not result.get("success"):
+        response.status_code = 400
+        return {"error": result.get("error", "更新失败")}
+
+    return result
+
+
+@router.put("/sell-order/{sold_order_id}/logistics")
+async def update_sell_order_logistics(
+    request: Request,
+    response: Response,
+    sold_order_id: int,
+    logistics_data: Dict[str, str],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    更新卖出订单物流信息
+
+    Args:
+        sold_order_id: 卖出订单ID
+        logistics_data: {"tracking_number": "快递单号"}
+
+    Returns:
+        更新结果
+    """
+    user_id = current_user.id
+    tracking_number = logistics_data.get("tracking_number", "")
+
+    if not tracking_number:
+        response.status_code = 400
+        return {"error": "快递单号不能为空"}
+
+    result = SellOrderService.update_logistics(db, user_id, sold_order_id, tracking_number)
 
     if not result.get("success"):
         response.status_code = 400

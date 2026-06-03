@@ -119,11 +119,10 @@ class TransactionQueryService:
         """
         records = []
 
-        # 查询所有已完成的卖出订单
+        # 查询所有未删除的卖出订单（不限定状态，由前端筛选处理）
         sold_orders = db.query(SoldOrder).filter(
             SoldOrder.user_id == user_id,
-            SoldOrder.is_active == 1,
-            SoldOrder.status == "已完成"
+            SoldOrder.is_active == 1
         ).order_by(SoldOrder.created_at.desc()).limit(50).all()
 
         for so in sold_orders:
@@ -150,6 +149,13 @@ class TransactionQueryService:
 
             # 构建费用明细列表（按时间正序排列）
             fee_details = []
+            # 首先添加卖出价（收入项）
+            fee_details.append({
+                "name": "卖出价",
+                "amount": gross_income,  # 正数表示收入
+                "color": "red",  # 红色表示收入
+                "sort_order": 0  # 排在最前面
+            })
             if shipping_fee > 0:
                 fee_details.append({
                     "name": "运费",
@@ -193,11 +199,11 @@ class TransactionQueryService:
 
                 # 交易信息
                 "platform": so.sell_platform or "",
-                "status": "✅ 成功",
+                "status": so.status or "待发货",
                 "buyer": "",  # 可扩展买家信息
 
                 # 操作按钮
-                "actions": ["查看订单", "物流信息", "评价"]
+                "actions": ["查看订单"]
             })
 
         return records

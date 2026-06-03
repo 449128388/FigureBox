@@ -51,6 +51,7 @@
       :tradeData="tradeData"
       :formatNumber="formatNumber"
       @handle-trade-action="handleTradeAction"
+      @filter-change="handleFilterChange"
     />
   </div>
 </template>
@@ -85,7 +86,7 @@ export default {
       })
     }
   },
-  emits: ['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog', 'view-record', 'delete-record', 'month-change'],
+  emits: ['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog', 'view-record', 'delete-record', 'month-change', 'filter-change'],
   setup(props, { emit }) {
     const formatNumber = (num) => {
       return num?.toLocaleString() || '0'
@@ -94,6 +95,11 @@ export default {
     const handleTradeAction = (action, record) => {
       // 处理交易操作
 
+    }
+
+    // 处理筛选变更
+    const handleFilterChange = (filterParams) => {
+      emit('filter-change', filterParams)
     }
 
     // 当前月份（与父组件同步）
@@ -117,6 +123,7 @@ export default {
     return {
       formatNumber,
       handleTradeAction,
+      handleFilterChange,
       displayTradeData,
       currentMonth,
       handleMonthChange

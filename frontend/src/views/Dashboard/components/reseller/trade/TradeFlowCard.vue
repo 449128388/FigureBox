@@ -96,8 +96,11 @@
                   class="fee-item"
                 >
                   <span class="fee-name">├─ {{ fee.name }}</span>
-                  <span class="fee-amount expense">
-                    {{ fee.amount >= 0 ? '+' : '' }}¥{{ formatNumber(fee.amount) }}
+                  <span
+                    class="fee-amount"
+                    :class="{ 'income': fee.color === 'red', 'expense': fee.color === 'green' }"
+                  >
+                    {{ fee.amount >= 0 ? '+' : '-' }}¥{{ formatNumber(Math.abs(fee.amount)) }}
                   </span>
                 </div>
               </div>
@@ -136,7 +139,7 @@
       <div class="card-actions">
         <template v-if="record.card_type === 'buy'">
           <el-button
-            type="primary"
+            class="ghost-btn"
             size="small"
             @click="handleViewOrder"
           >
@@ -147,6 +150,7 @@
           <el-button
             v-for="action in record.actions"
             :key="action"
+            :class="action === '查看订单' ? 'ghost-btn primary' : 'ghost-btn'"
             size="small"
             @click="handleAction(action)"
           >
@@ -159,10 +163,19 @@
     <!-- 买入订单抽屉 -->
     <BuyOrderDrawer
       v-if="record.card_type === 'buy'"
-      v-model:visible="drawerVisible"
+      v-model:visible="buyDrawerVisible"
       :order-id="record.id"
-      @close="handleDrawerClose"
-      @action="handleDrawerAction"
+      @close="handleBuyDrawerClose"
+      @action="handleBuyDrawerAction"
+    />
+
+    <!-- 卖出订单抽屉 -->
+    <SellOrderDrawer
+      v-if="record.card_type === 'sell'"
+      v-model:visible="sellDrawerVisible"
+      :sold-order-id="record.id"
+      @close="handleSellDrawerClose"
+      @refresh="handleSellDrawerRefresh"
     />
   </div>
 </template>
@@ -170,11 +183,13 @@
 <script>
 import { ref } from 'vue'
 import BuyOrderDrawer from './BuyOrderDrawer.vue'
+import SellOrderDrawer from './SellOrderDrawer.vue'
 
 export default {
   name: 'TradeFlowCard',
   components: {
-    BuyOrderDrawer
+    BuyOrderDrawer,
+    SellOrderDrawer
   },
   props: {
     record: {
@@ -185,7 +200,8 @@ export default {
   },
   emits: ['action', 'refresh'],
   setup(props, { emit }) {
-    const drawerVisible = ref(false)
+    const buyDrawerVisible = ref(false)
+    const sellDrawerVisible = ref(false)
 
     const formatNumber = (num) => {
       if (num === undefined || num === null) return '0'
@@ -193,31 +209,52 @@ export default {
     }
 
     const handleAction = (action) => {
-      emit('action', action, props.record)
+      if (action === '查看订单') {
+        handleViewOrder()
+      } else {
+        emit('action', action, props.record)
+      }
     }
 
     // 点击查看订单按钮
     const handleViewOrder = () => {
-      drawerVisible.value = true
+      if (props.record.card_type === 'buy') {
+        buyDrawerVisible.value = true
+      } else if (props.record.card_type === 'sell') {
+        sellDrawerVisible.value = true
+      }
     }
 
-    // 抽屉关闭
-    const handleDrawerClose = () => {
-      drawerVisible.value = false
+    // 买入抽屉关闭
+    const handleBuyDrawerClose = () => {
+      buyDrawerVisible.value = false
     }
 
-    // 抽屉操作
-    const handleDrawerAction = (actionKey, orderId) => {
+    // 买入抽屉操作
+    const handleBuyDrawerAction = (actionKey, orderId) => {
       emit('action', actionKey, { ...props.record, order_id: orderId })
     }
 
+    // 卖出抽屉关闭
+    const handleSellDrawerClose = () => {
+      sellDrawerVisible.value = false
+    }
+
+    // 卖出抽屉刷新
+    const handleSellDrawerRefresh = () => {
+      emit('refresh')
+    }
+
     return {
-      drawerVisible,
+      buyDrawerVisible,
+      sellDrawerVisible,
       formatNumber,
       handleAction,
       handleViewOrder,
-      handleDrawerClose,
-      handleDrawerAction
+      handleBuyDrawerClose,
+      handleBuyDrawerAction,
+      handleSellDrawerClose,
+      handleSellDrawerRefresh
     }
   }
 }
@@ -295,14 +332,20 @@ export default {
   font-size: 14px;
 }
 
+/* 【卖出】标签：浅红底深红字，与红色金额呼应 */
 .tag-sell {
-  background-color: #409EFF;
-  color: white;
+  background-color: #FFF2F0;
+  color: #CF1322;
+  border: 1px solid #FFCCC7;
+  border-radius: 4px;
 }
 
+/* 【买入】标签：浅绿底深绿字，与绿色金额呼应 */
 .tag-buy {
-  background-color: #E6A23C;
-  color: white;
+  background-color: #F6FFED;
+  color: #389E0D;
+  border: 1px solid #B7EB8F;
+  border-radius: 4px;
 }
 
 .figure-name {
@@ -408,6 +451,10 @@ export default {
   font-weight: bold;
 }
 
+.fee-amount.income {
+  color: #F44336; /* 红色 - 收入 */
+}
+
 .fee-amount.expense {
   color: #4CAF50; /* 绿色 - 支出 */
 }
@@ -447,6 +494,25 @@ export default {
   display: flex;
   gap: 10px;
   margin-top: 10px;
+}
+
+/* 线框按钮（Ghost Button）样式 */
+.ghost-btn {
+  background-color: #FFF !important;
+  border: 1px solid #D9D9D9 !important;
+  color: #595959 !important;
+  transition: all 0.3s ease;
+}
+
+.ghost-btn:hover {
+  border-color: #1890FF !important;
+  color: #1890FF !important;
+}
+
+/* 主操作按钮（查看订单）Hover 状态 */
+.ghost-btn.primary:hover {
+  border-color: #1890FF !important;
+  color: #1890FF !important;
 }
 
 /* 折叠面板样式覆盖 */
