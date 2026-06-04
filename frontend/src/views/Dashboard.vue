@@ -217,6 +217,17 @@
       :loading="billExportLoading"
       @export="handleBillExport"
     />
+
+    <!-- 创建买入订单抽屉 -->
+    <CreateBuyOrderDrawer
+      v-model="createBuyOrderDrawerVisible"
+    />
+
+    <!-- 创建卖出订单抽屉 -->
+    <CreateSellOrderDrawer
+      v-model="createSellOrderDrawerVisible"
+      @success="fetchDashboardData"
+    />
   </div>
 </template>
 
@@ -240,11 +251,17 @@ import AssetView from './Dashboard/components/reseller/AssetView.vue'
 import MarketView from './Dashboard/components/reseller/MarketView.vue'
 import TradeView from './Dashboard/components/reseller/TradeView.vue'
 import BillExportDialog from './Dashboard/components/reseller/trade/BillExportDialog.vue'
+import CreateBuyOrderDrawer from './Dashboard/components/reseller/trade/CreateBuyOrderDrawer.vue'
+import CreateSellOrderDrawer from './Dashboard/components/reseller/trade/CreateSellOrderDrawer.vue'
 
 // 导入收藏家模式 composable
 import { useCollectorData } from './Dashboard/composables/useCollectorData'
 // 导入账单导出 composable
 import { useBillExport } from './Dashboard/composables/useBillExport'
+// 导入创建买入订单 composable
+import { useCreateBuyOrder } from './Dashboard/composables/useCreateBuyOrder'
+// 导入创建卖出订单 composable
+import { useCreateSellOrder } from './Dashboard/composables/useCreateSellOrder'
 
 export default {
   name: 'Dashboard',
@@ -265,7 +282,9 @@ export default {
     AssetView,
     MarketView,
     TradeView,
-    BillExportDialog
+    BillExportDialog,
+    CreateBuyOrderDrawer,
+    CreateSellOrderDrawer
   },
   setup() {
     const router = useRouter()
@@ -278,6 +297,17 @@ export default {
 
     // 使用账单导出 composable
     const { dialogVisible: billExportDialogVisible, loading: billExportLoading, openDialog: openBillExportDialog, exportBill: handleBillExport } = useBillExport()
+
+    // 使用创建买入订单 composable
+    const { drawerVisible: createBuyOrderDrawerVisible, openDrawer: openCreateBuyOrderDrawer } = useCreateBuyOrder()
+
+    // 使用创建卖出订单 composable
+    const { drawerVisible: createSellOrderDrawerVisible, openDrawer: openCreateSellOrderDrawer } = useCreateSellOrder({
+      onSuccess: () => {
+        // 刷新资产和交易数据
+        fetchDashboardData()
+      }
+    })
 
     const activeView = ref('asset')
     const alertDialogVisible = ref(false)
@@ -346,13 +376,12 @@ export default {
       keyword: ''
     })
 
-    // 获取交易数据
+    // 获取交易数据（并行请求三个独立接口）
     const fetchTradeData = async () => {
       try {
         const { year, month } = selectedMonth.value
-        const params = {
-          year,
-          month,
+        const baseParams = { year, month }
+        const filterParams = {
           filter_type: tradeFilterParams.value.filterType,
           time_type: tradeFilterParams.value.timeType,
           date_start: tradeFilterParams.value.dateRange?.[0] || null,
@@ -364,22 +393,76 @@ export default {
           max_amount: tradeFilterParams.value.maxAmount,
           keyword: tradeFilterParams.value.keyword || null
         }
-        const res = await axios.get('/trade_records/dashboard', { params })
-        tradeData.value = res
+
+        // 并行请求三个独立接口
+        const [monthlyStatsRes, transactionsRes, profitAnalysisRes] = await Promise.all([
+          axios.get('/trade_records/monthly-stats', { params: baseParams }),
+          axios.get('/trade_records/transactions', { params: { ...baseParams, ...filterParams } }),
+          axios.get('/trade_records/profit-analysis', { params: baseParams })
+        ])
+
+        // 拼装页面数据
+        tradeData.value = {
+          monthly_stats: monthlyStatsRes.monthly_stats,
+          transactions: transactionsRes.transactions,
+          profit_analysis: profitAnalysisRes.profit_analysis,
+          query_month: monthlyStatsRes.query_month,
+          filter: transactionsRes.filter
+        }
       } catch (error) {
+        ElMessage.error('获取交易数据失败')
       }
     }
 
-    // 处理月份切换
-    const handleMonthChange = (newMonth) => {
+    // 处理月份切换（仅更新月度统计，不触发交易流水和利润分析接口）
+    const handleMonthChange = async (newMonth) => {
       selectedMonth.value = newMonth
-      fetchTradeData()
+      // 只获取月度统计数据
+      try {
+        const res = await axios.get('/trade_records/monthly-stats', {
+          params: { year: newMonth.year, month: newMonth.month }
+        })
+        // 只更新月度统计数据，保持其他数据不变
+        tradeData.value = {
+          ...tradeData.value,
+          monthly_stats: res.monthly_stats,
+          query_month: res.query_month
+        }
+      } catch (error) {
+        ElMessage.error('获取月度统计失败')
+      }
     }
 
-    // 处理交易筛选变更
-    const handleTradeFilterChange = (filterParams) => {
+    // 处理交易筛选变更（仅触发交易流水接口，不触发月度统计和利润分析接口）
+    const handleTradeFilterChange = async (filterParams) => {
       tradeFilterParams.value = { ...filterParams }
-      fetchTradeData()
+      // 只获取交易流水数据
+      try {
+        const { year, month } = selectedMonth.value
+        const params = {
+          year,
+          month,
+          filter_type: filterParams.filterType,
+          time_type: filterParams.timeType,
+          date_start: filterParams.dateRange?.[0] || null,
+          date_end: filterParams.dateRange?.[1] || null,
+          figure_ids: filterParams.figureIds?.join(',') || null,
+          platforms: filterParams.platforms?.join(',') || null,
+          status_list: filterParams.statusList?.join(',') || null,
+          min_amount: filterParams.minAmount,
+          max_amount: filterParams.maxAmount,
+          keyword: filterParams.keyword || null
+        }
+        const res = await axios.get('/trade_records/transactions', { params })
+        // 只更新交易流水数据，保持其他数据不变
+        tradeData.value = {
+          ...tradeData.value,
+          transactions: res.transactions,
+          filter: res.filter
+        }
+      } catch (error) {
+        ElMessage.error('获取交易流水失败')
+      }
     }
     
     // 获取行情数据
@@ -388,77 +471,7 @@ export default {
         const res = await axios.get('/market/dashboard')
         marketData.value = res
       } catch (error) {
-        // 生成模拟数据
-        marketData.value = {
-          index: {
-            value: 2847.35,
-            change: 45.20,
-            change_percentage: 1.61,
-            volume: 230000000,
-            up_count: 1230,
-            flat_count: 45,
-            down_count: 320,
-            limit_up: '初音、蕾姆、狂三',
-            limit_down: '无'
-          },
-          kline: {
-            macd: '金叉',
-            rsi: 68
-          },
-          sectors: [
-            {
-              name: '初音未来概念',
-              change: 8.5,
-              stocks: '初音韶华、赛车音、雪未来'
-            },
-            {
-              name: 'FGO系列',
-              change: 5.2,
-              stocks: '摩根、妖兰、提亚马特'
-            },
-            {
-              name: '碧蓝航线',
-              change: 3.1,
-              stocks: '信浓、柴郡、埃吉尔'
-            },
-            {
-              name: '原神系列',
-              change: -2.3,
-              stocks: '雷神、神子(高位回调)'
-            }
-          ],
-          watchlist: [
-            {
-              name: '初音韶华',
-              current_price: 2000,
-              change: 15,
-              target_price: 2500,
-              target_distance: '还差25%'
-            },
-            {
-              name: '蕾姆婚纱',
-              current_price: 1200,
-              change: -5,
-              target_price: 1500,
-              target_distance: '还需上涨30%'
-            },
-            {
-              name: '(观望中)',
-              current_price: 800,
-              change: 0,
-              target_price: 600,
-              target_distance: '等破发入手'
-            }
-          ],
-          research: {
-            rating: 'GSC 初音韶华 买入',
-            target_price: '¥2,800 (+40%)',
-            stop_loss: '¥1,600 (-20%)',
-            institution: 'Hpoi研究院',
-            date: '2026-04-01',
-            reason: '再版停产公告+海景房属性+即将出荷'
-          }
-        }
+        ElMessage.error('获取行情数据失败')
       }
     }
     
@@ -576,11 +589,11 @@ export default {
     
     // 交易操作
     const openBuyDialog = () => {
-      ElMessage.info('买入功能开发中')
+      openCreateBuyOrderDrawer()
     }
     
     const openSellDialog = () => {
-      ElMessage.info('卖出功能开发中')
+      openCreateSellOrderDrawer()
     }
     
     const openPaymentDialog = () => {
@@ -673,7 +686,9 @@ export default {
       billExportDialogVisible,
       billExportLoading,
       openBillExportDialog,
-      handleBillExport
+      handleBillExport,
+      createBuyOrderDrawerVisible,
+      createSellOrderDrawerVisible
     }
   }
 }
@@ -682,8 +697,7 @@ export default {
 <style scoped>
 .orders-container {
   margin-top: 20px;
-  width: 100%;
-  max-width: 1650px;
+  width: 1610px;
   margin-left: 50px;
   margin-right: 50px;
   padding: 20px;

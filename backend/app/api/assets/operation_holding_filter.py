@@ -20,7 +20,8 @@ API端点：
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 
 from app.models.database import get_db
 from app.models.order import Order
@@ -29,7 +30,20 @@ from app.models.user import User
 from app.api.users import get_current_user
 from app.services import HoldingAnalysisService
 from app.services.dashboard_service.assets_service.holding_filter_service import HoldingFilterService
+from app.services.dashboard_service.assets_service.holding_position_service import HoldingPositionService
 from .assets_common import AssetsCommonService
+
+
+class InventoryItem(BaseModel):
+    """库存手办列表项"""
+    id: int
+    name: str
+    quantity: int
+    cost_price: float
+    image_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 router = APIRouter()
 
@@ -87,3 +101,58 @@ async def filter_holdings(
         "filtered_count": len(filtered_holdings),
         "filter_options": HoldingFilterService.get_filter_options()
     }
+
+
+@router.get("/holdings", response_model=List[InventoryItem])
+async def get_inventory_holdings(
+    has_stock: Optional[bool] = Query(None, description="只返回有库存的手办"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取持仓手办列表（用于卖出选择）
+
+    返回有库存的手办列表，包含库存数量和成本价
+
+    参数:
+        has_stock: 为true时只返回库存数量>0的手办
+
+    返回:
+        手办列表，包含id、name、quantity、cost_price、image_url
+    """
+    # 获取所有手办
+    figures = db.query(Figure).filter(Figure.user_id == current_user.id).all()
+
+    result = []
+    for figure in figures:
+        # 获取库存数量
+        stock = HoldingPositionService.get_figure_inventory(
+            db, figure.id, current_user.id
+        )
+
+        # 如果要求有库存且库存为0，则跳过
+        if has_stock and stock <= 0:
+            continue
+
+        # 获取成本价
+        cost_price = HoldingPositionService.calculate_remaining_cost_price(
+            db, figure.id, current_user.id
+        )
+
+        # 获取图片URL
+        image_url = None
+        if figure.images and len(figure.images) > 0:
+            image_url = figure.images[0]
+
+        result.append(InventoryItem(
+            id=figure.id,
+            name=figure.name,
+            quantity=stock,
+            cost_price=cost_price,
+            image_url=image_url
+        ))
+
+    # 按库存数量降序排列
+    result.sort(key=lambda x: x.quantity, reverse=True)
+
+    return result

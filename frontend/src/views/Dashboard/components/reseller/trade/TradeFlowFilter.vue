@@ -201,8 +201,7 @@ export default {
     const filterTypes = [
       { label: '全部', value: 'all' },
       { label: '收入', value: 'income' },
-      { label: '支出', value: 'expense' },
-      { label: '费用', value: 'fee' }
+      { label: '支出', value: 'expense' }
     ]
 
     // 时间选项
@@ -230,10 +229,11 @@ export default {
     // 状态选项
     const statusOptions = [
       { label: '✅ 已完成', value: '已完成' },
-      { label: '🟠 待发货', value: '待发货' },
-      { label: '🟡 待入库', value: '待入库' },
-      { label: '🔴 已取消', value: '已取消' },
-      { label: '⚫ 已退款', value: '已退款' }
+      { label: '⏳ 待发货', value: '待发货' },
+      { label: '⏳ 已支付定金', value: '已支付' },
+      { label: '⏳ 未支付定金', value: '未支付' },
+      { label: '❌ 已取消', value: '已取消' },
+      { label: '↩️ 已退款', value: '已退款' }
     ]
 
     // 手办选项
@@ -281,10 +281,10 @@ export default {
       if (query.length < 1) return
       figureLoading.value = true
       try {
-        const response = await axios.get('/api/figures/search', {
+        const response = await axios.get('/figures/search', {
           params: { keyword: query }
         })
-        figureOptions.value = response.data || []
+        figureOptions.value = response || []
       } catch (error) {
         console.error('搜索手办失败:', error)
       } finally {

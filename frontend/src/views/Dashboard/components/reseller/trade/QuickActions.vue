@@ -3,100 +3,208 @@
 
   功能说明：
   - 提供交易相关的快速操作按钮
-  - 包含买入（新增预定）、卖出（标记转卖）、补款（支付尾款）、撤单（取消订单）
-  - 通过事件向父组件传递操作
+  - 采用低饱和填充卡片风格，图标+主副双行文字
+  - 与交易流水卡片、筛选标签风格一致
 
   组件依赖：
   - 无外部组件依赖
-  - 使用 Element Plus 按钮和图标组件
+  - 使用 Element Plus 图标组件
 
   维护提示：
   - 点击事件通过 $emit 传递给父组件
-  - 按钮类型和图标根据操作类型区分
+  - 按钮样式根据操作类型区分颜色
 -->
 <template>
   <div class="quick-actions">
-    <h4>快速操作</h4>
+    <h4 class="section-title">快速操作</h4>
     <div class="actions-grid">
-      <el-button type="primary" @click="$emit('open-buy-dialog')">
-        <el-icon><Plus /></el-icon> 买入
-        <div class="action-desc">新增预定</div>
-      </el-button>
-      <el-button type="success" @click="$emit('open-sell-dialog')">
-        <el-icon><Minus /></el-icon> 卖出
-        <div class="action-desc">标记转卖</div>
-      </el-button>
-      <el-button type="info" @click="$emit('open-payment-dialog')">
-        <el-icon><Money /></el-icon> 补款
-        <div class="action-desc">支付尾款</div>
-      </el-button>
-      <el-button type="danger" @click="$emit('open-cancel-dialog')">
-        <el-icon><Close /></el-icon> 撤单
-        <div class="action-desc">取消订单</div>
-      </el-button>
+      <!-- 买入·新增预定 -->
+      <div
+        class="action-card action-buy"
+        @click="$emit('open-buy-dialog')"
+      >
+        <div class="action-icon">
+          <el-icon><Plus /></el-icon>
+        </div>
+        <div class="action-main">买入</div>
+        <div class="action-sub">新增预定</div>
+      </div>
+
+      <!-- 卖出·标记转卖 -->
+      <div
+        class="action-card action-sell"
+        @click="$emit('open-sell-dialog')"
+      >
+        <div class="action-icon">
+          <el-icon><PriceTag /></el-icon>
+        </div>
+        <div class="action-main">卖出</div>
+        <div class="action-sub">标记转卖</div>
+      </div>
+
+      <!-- 补款·支付尾款 -->
+      <div
+        class="action-card action-payment"
+        @click="$emit('open-payment-dialog')"
+      >
+        <div class="action-icon">
+          <el-icon><Money /></el-icon>
+        </div>
+        <div class="action-main">补款</div>
+        <div class="action-sub">支付尾款</div>
+      </div>
+
+      <!-- 撤单·取消订单 -->
+      <div
+        class="action-card action-cancel"
+        @click="$emit('open-cancel-dialog')"
+      >
+        <div class="action-icon">
+          <el-icon><Delete /></el-icon>
+        </div>
+        <div class="action-main">撤单</div>
+        <div class="action-sub">取消订单</div>
+      </div>
     </div>
   </div>
 </template>
 
-<script>
-import { Plus, Minus, Money, Close } from '@element-plus/icons-vue'
+<script setup>
+import { Plus, PriceTag, Money, Delete } from '@element-plus/icons-vue'
 
-export default {
-  name: 'QuickActions',
-  components: {
-    Plus,
-    Minus,
-    Money,
-    Close
-  },
-  emits: ['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog']
-}
+defineEmits(['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog'])
 </script>
 
 <style scoped>
-/* 快速操作 */
+/* 快速操作区域 */
 .quick-actions {
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   background-color: white;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  padding: 16px 20px;
 }
 
-.quick-actions h4 {
-  margin-bottom: 15px;
+.section-title {
+  margin: 0 0 16px 0;
   color: #333;
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 600;
 }
 
+/* 操作按钮网格布局 */
 .actions-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 15px;
+  gap: 12px;
 }
 
-.actions-grid .el-button {
+/* 操作卡片基础样式 */
+.action-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 20px;
-  text-align: center;
-  height: auto;
+  justify-content: center;
+  padding: 16px 8px;
+  border-radius: 8px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 72px;
 }
 
-.actions-grid .el-button .el-icon {
-  font-size: 24px;
-  margin-bottom: 5px;
+/* 图标样式 */
+.action-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.action-desc {
+.action-icon .el-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* 主操作文字 */
+.action-main {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 副文案 */
+.action-sub {
   font-size: 12px;
-  margin-top: 5px;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+/* 买入·新增预定 - 极浅蓝 */
+.action-buy {
+  background-color: #E6F7FF;
+  border-color: #91D5FF;
+  color: #1890FF;
+}
+
+.action-buy .action-sub {
+  color: #1890FF;
   opacity: 0.8;
 }
 
+.action-buy:hover {
+  background-color: #BAE7FF;
+}
+
+/* 卖出·标记转卖 - 极浅红 */
+.action-sell {
+  background-color: #FFF2F0;
+  border-color: #FFCCC7;
+  color: #CF1322;
+}
+
+.action-sell .action-sub {
+  color: #CF1322;
+  opacity: 0.8;
+}
+
+.action-sell:hover {
+  background-color: #FFCCC7;
+}
+
+/* 补款·支付尾款 - 极浅橙 */
+.action-payment {
+  background-color: #FFF7E6;
+  border-color: #FFD591;
+  color: #FA8C16;
+}
+
+.action-payment .action-sub {
+  color: #FA8C16;
+  opacity: 0.8;
+}
+
+.action-payment:hover {
+  background-color: #FFE7BA;
+}
+
+/* 撤单·取消订单 - 浅灰 */
+.action-cancel {
+  background-color: #F5F5F5;
+  border-color: #D9D9D9;
+  color: #8C8C8C;
+}
+
+.action-cancel .action-sub {
+  color: #8C8C8C;
+  opacity: 0.8;
+}
+
+.action-cancel:hover {
+  background-color: #D9D9D9;
+}
+
+/* 响应式布局 */
 @media (max-width: 1200px) {
   .actions-grid {
     grid-template-columns: repeat(2, 1fr);

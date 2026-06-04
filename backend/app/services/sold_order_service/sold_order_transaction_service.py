@@ -208,6 +208,55 @@ class SoldOrderTransactionService:
         return transaction
 
     @staticmethod
+    def create_sell_transaction(
+        db: Session,
+        sold_order_id: int,
+        actual_amount: float,
+        platform: str,
+        current_user_id: int
+    ) -> OrderTransaction:
+        """
+        创建卖出交易的资金流入记录
+
+        用于从库存创建卖出订单时的资金流水记录
+
+        Args:
+            db: 数据库会话
+            sold_order_id: 卖出订单ID
+            actual_amount: 实际到账金额
+            platform: 卖出平台
+            current_user_id: 当前用户ID
+
+        Returns:
+            创建的 OrderTransaction 对象
+        """
+        now = datetime.now()
+        transaction = OrderTransaction(
+            user_id=current_user_id,
+            figure_id=None,  # 会在后续更新
+            order_id=None,
+            sold_order_id=sold_order_id,
+            transaction_type="sell",
+            direction="in",  # 资金流入
+            quantity=0,
+            unit_price=actual_amount,
+            total_amount=actual_amount,
+            currency="CNY",
+            platform=platform,
+            transaction_date=now,
+            created_at=now,
+            updated_at=now,
+            notes=f"卖出订单 #{sold_order_id} - 资金流入",
+            transaction_subtype="initial",
+            changed_field="sell_price"
+        )
+
+        db.add(transaction)
+        db.flush()
+
+        return transaction
+
+    @staticmethod
     def create_all_sold_order_transactions(
         db: Session,
         sold_order: SoldOrder,

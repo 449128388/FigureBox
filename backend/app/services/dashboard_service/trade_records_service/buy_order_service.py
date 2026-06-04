@@ -482,3 +482,180 @@ class BuyOrderService:
         }
 
         return actions_map.get(status, actions_map.get("未支付", []))
+
+    @classmethod
+    def create_buy_order(cls, db: Session, user_id: int, order_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        创建新的买入订单
+
+        支持四种业务类型：
+        - 预定：定金+尾款模式，创建后进入尾款到期提醒模块
+        - 全款预定：定金+尾款模式（一次性付清），创建后进入尾款到期提醒模块
+        - 现货：一次性付清，创建后立即触发入库
+        - 补仓：一次性付清，平台自动设置为"补仓"
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            order_data: 订单数据
+                - figure_id: 手办ID
+                - quantity: 数量
+                - unit_price: 单价
+                - platform: 购买平台
+                - order_type: 订单类型（预定/全款预定/现货/补仓）
+                - deposit: 定金（预定/全款预定时）
+                - balance: 尾款（预定/全款预定时）
+                - payment_due_date: 尾款到期日（预定/全款预定时）
+                - due_date: 出荷日期（预定/全款预定时）
+                - total_amount: 实付金额（现货/补仓时）
+                - tracking_number: 快递单号（可选）
+                - logistics_company: 物流公司（可选）
+                - remarks: 备注（可选）
+
+        Returns:
+            Dict: 创建结果
+        """
+        from app.models.order import Order
+        from app.models.asset import OrderTransaction
+        from datetime import datetime, date
+
+        try:
+            # 提取订单数据
+            figure_id = order_data.get('figure_id')
+            quantity = order_data.get('quantity', 1)
+            unit_price = order_data.get('unit_price', 0)
+            platform = order_data.get('platform', '')
+            order_type = order_data.get('order_type', '预定')
+            tracking_number = order_data.get('tracking_number', '')
+            logistics_company = order_data.get('logistics_company', '')
+            remarks = order_data.get('remarks', '')
+
+            # 验证必填字段
+            if not figure_id:
+                return {"success": False, "error": "请选择手办"}
+            if not platform:
+                return {"success": False, "error": "请选择购买平台"}
+            if unit_price <= 0:
+                return {"success": False, "error": "单价必须大于0"}
+
+            # 根据订单类型处理金额和状态
+            if order_type in ['预定', '全款预定']:
+                deposit = order_data.get('deposit', 0)
+                balance = order_data.get('balance', 0)
+                payment_due_date = order_data.get('payment_due_date')
+                due_date = order_data.get('due_date')
+
+                if deposit <= 0:
+                    return {"success": False, "error": "定金必须大于0"}
+                if due_date:
+                    due_date = datetime.strptime(due_date, '%Y-%m-%d').date()
+
+                # 创建订单
+                new_order = Order(
+                    user_id=user_id,
+                    figure_id=figure_id,
+                    deposit=deposit,
+                    deposit_currency='CNY',
+                    balance=balance,
+                    balance_currency='CNY',
+                    due_date=due_date,
+                    status='已支付' if order_type == '全款预定' else '未支付',
+                    shop_name=platform,
+                    tracking_number=tracking_number,
+                    logistics_company=logistics_company,
+                    remarks=remarks,
+                    is_active=1,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+            else:  # 现货/补仓
+                total_amount = order_data.get('total_amount', 0)
+                if total_amount <= 0:
+                    return {"success": False, "error": "实付金额必须大于0"}
+
+                # 补仓特殊处理：自动设置平台和备注
+                if order_type == '补仓':
+                    platform = '补仓'
+                    if not remarks:
+                        now = datetime.now()
+                        remarks = f"{now.strftime('%Y-%m-%d %H:%M')} 花费¥{total_amount} 补仓购入"
+
+                # 创建订单（现货/补仓一次性付清，deposit=总金额，balance=0）
+                new_order = Order(
+                    user_id=user_id,
+                    figure_id=figure_id,
+                    deposit=total_amount,
+                    deposit_currency='CNY',
+                    balance=0,
+                    balance_currency='CNY',
+                    due_date=None,
+                    status='已完成',  # 现货/补仓直接标记为已完成
+                    shop_name=platform,
+                    tracking_number=tracking_number,
+                    logistics_company=logistics_company,
+                    remarks=remarks,
+                    is_active=1,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+
+            # 保存订单
+            db.add(new_order)
+            db.flush()  # 获取订单ID
+
+            # 创建交易记录
+            if order_type in ['预定', '全款预定']:
+                # 预定类型：创建定金交易记录
+                deposit_tx = OrderTransaction(
+                    user_id=user_id,
+                    order_id=new_order.id,
+                    transaction_type='deposit',
+                    total_amount=deposit,
+                    currency='CNY',
+                    direction='out',
+                    transaction_date=datetime.now(),
+                    is_active=True,
+                    created_at=datetime.now()
+                )
+                db.add(deposit_tx)
+
+                # 如果是全款预定，同时创建尾款交易记录
+                if order_type == '全款预定' and balance > 0:
+                    balance_tx = OrderTransaction(
+                        user_id=user_id,
+                        order_id=new_order.id,
+                        transaction_type='balance',
+                        total_amount=balance,
+                        currency='CNY',
+                        direction='out',
+                        transaction_date=datetime.now(),
+                        is_active=True,
+                        created_at=datetime.now()
+                    )
+                    db.add(balance_tx)
+            else:
+                # 现货/补仓：创建一次性支付交易记录
+                buy_tx = OrderTransaction(
+                    user_id=user_id,
+                    order_id=new_order.id,
+                    transaction_type='buy',
+                    total_amount=total_amount,
+                    currency='CNY',
+                    direction='out',
+                    transaction_date=datetime.now(),
+                    is_active=True,
+                    created_at=datetime.now()
+                )
+                db.add(buy_tx)
+
+            db.commit()
+
+            return {
+                "success": True,
+                "order_id": new_order.id,
+                "message": "订单创建成功"
+            }
+
+        except Exception as e:
+            db.rollback()
+            return {"success": False, "error": f"创建订单失败: {str(e)}"}

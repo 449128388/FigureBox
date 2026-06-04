@@ -127,10 +127,12 @@ class TransactionQueryService:
 
         for so in sold_orders:
             figure_name = ""
+            figure_id = None
             if so.figure_id:
                 figure = db.query(Figure).filter(Figure.id == so.figure_id).first()
                 if figure:
                     figure_name = figure.name
+                    figure_id = figure.id
 
             # 计算各项金额
             gross_income = so.sell_price or 0  # 毛收入（卖出价格）
@@ -195,11 +197,17 @@ class TransactionQueryService:
                 # 商品信息
                 "title": f"【卖出】{figure_name}",
                 "figure_name": figure_name,
+                "figure_id": figure_id,
                 "quantity": so.quantity or 1,
 
                 # 交易信息
                 "platform": so.sell_platform or "",
-                "status": so.status or "待发货",
+                "status": {
+                    "已完成": "✅ 已完成",
+                    "待发货": "⏳ 待发货",
+                    "已取消": "❌ 已取消",
+                    "已退款": "↩️ 已退款"
+                }.get(so.status, so.status) or "⏳ 待发货",
                 "buyer": "",  # 可扩展买家信息
 
                 # 操作按钮
@@ -255,12 +263,14 @@ class TransactionQueryService:
             if not order:
                 continue
 
-            # 获取手办名称
+            # 获取手办名称和ID
             figure_name = ""
+            figure_id = None
             if order.figure_id:
                 figure = db.query(Figure).filter(Figure.id == order.figure_id).first()
                 if figure:
                     figure_name = figure.name
+                    figure_id = figure.id
 
             # 计算总支出金额（定金 + 尾款，按汇率换算为人民币，只统计已支付部分）
             deposit = order.deposit or 0
@@ -335,6 +345,7 @@ class TransactionQueryService:
                 # 商品信息
                 "title": f"【买入】{figure_name}",
                 "figure_name": figure_name,
+                "figure_id": figure_id,
                 "quantity": 1,  # 买入订单默认1体
 
                 # 交易信息

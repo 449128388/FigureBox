@@ -66,6 +66,25 @@ def get_figures_with_stock(
     )
 
 
+@router.get("/search", response_model=list[FigureListItem])
+def search_figures(
+    keyword: str = Query(None, description="搜索关键词"),
+    limit: int = Query(20, description="返回数量限制"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    搜索手办（用于交易流水筛选中的手办选择）
+    根据关键词模糊匹配手办名称
+    """
+    return FigureService.get_figures_list(
+        db=db,
+        skip=0,
+        limit=limit,
+        name=keyword
+    )
+
+
 @router.get("/download")
 def download_figures(db: Session = Depends(get_db)):
     """

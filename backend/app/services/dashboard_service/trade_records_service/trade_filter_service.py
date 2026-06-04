@@ -234,6 +234,17 @@ class TradeFilterService:
         """
         result = transactions
 
+        # 时间筛选
+        if filters.get('timeType') and filters['timeType'] != 'last30days':
+            start, end = cls.build_time_filter(
+                filters['timeType'],
+                filters.get('dateRange', [])
+            )
+            result = [
+                t for t in result
+                if t.get('date') and start <= datetime.strptime(t['date'][:10], '%Y-%m-%d').date() <= end
+            ]
+
         # 筛选类型过滤
         if filters.get('filterType') and filters['filterType'] != 'all':
             filter_type = filters['filterType']
@@ -252,15 +263,32 @@ class TradeFilterService:
         # 状态筛选
         if filters.get('statusList'):
             statuses = filters['statusList']
-            result = [t for t in result if t.get('status') in statuses]
+            # 状态映射（买入记录的状态带有表情符号前缀）
+            status_mapping = {
+                '已完成': ['已完成', '✅ 已完成'],
+                '待发货': ['待发货'],
+                '待入库': ['待入库'],
+                '已取消': ['已取消', '❌ 已取消'],
+                '已退款': ['已退款'],
+                '已支付': ['已支付', '⏳ 已支付定金'],
+                '未支付': ['未支付', '⏳ 未支付定金']
+            }
+            # 展开所有可能的状态值
+            all_matching_statuses = []
+            for s in statuses:
+                if s in status_mapping:
+                    all_matching_statuses.extend(status_mapping[s])
+                else:
+                    all_matching_statuses.append(s)
+            result = [t for t in result if t.get('status') in all_matching_statuses]
 
         # 金额范围筛选
         if filters.get('minAmount') is not None:
             min_amount = filters['minAmount']
-            result = [t for t in result if t.get('amount', 0) >= min_amount]
+            result = [t for t in result if abs(t.get('gross_amount', 0)) >= min_amount]
         if filters.get('maxAmount') is not None:
             max_amount = filters['maxAmount']
-            result = [t for t in result if t.get('amount', 0) <= max_amount]
+            result = [t for t in result if abs(t.get('gross_amount', 0)) <= max_amount]
 
         # 关键词搜索
         if filters.get('keyword'):
@@ -271,5 +299,10 @@ class TradeFilterService:
                 or keyword in str(t.get('figure_name', '')).lower()
                 or keyword in str(t.get('remarks', '')).lower()
             ]
+
+        # 手办筛选
+        if filters.get('figureIds'):
+            figure_ids = filters['figureIds']
+            result = [t for t in result if t.get('figure_id') in figure_ids]
 
         return result
