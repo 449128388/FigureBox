@@ -49,6 +49,7 @@ export function useSoldOrderManagement() {
     order_number: '',
     buyer_phone: '',
     tracking_number: '',
+    logistics_company: '',
     status: '待发货'
   })
 
@@ -211,6 +212,7 @@ export function useSoldOrderManagement() {
       order_number: '',
       buyer_phone: '',
       tracking_number: '',
+      logistics_company: '',
       status: '待发货'
     }
   }

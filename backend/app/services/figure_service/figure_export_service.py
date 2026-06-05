@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.figure import Figure
 from app.models.order import Order
+from app.models.sold_order import SoldOrder
 
 
 class FigureExportService:
@@ -36,37 +37,94 @@ class FigureExportService:
     def get_figure_orders(db: Session, figure_id: int) -> List[Dict[str, Any]]:
         """
         获取手办关联的尾款订单
-        
+
         Args:
             db: 数据库会话
             figure_id: 手办ID
-            
+
         Returns:
             订单数据字典列表
         """
         orders = db.query(Order).filter(Order.figure_id == figure_id).all()
         orders_data = []
-        
+
         for order in orders:
             order_dict = {
                 "id": order.id,
+                "user_id": order.user_id,
                 "figure_id": order.figure_id,
                 "deposit": order.deposit,
                 "deposit_currency": order.deposit_currency,
                 "balance": order.balance,
                 "balance_currency": order.balance_currency,
                 "due_date": order.due_date.isoformat() if order.due_date else None,
+                "order_type": order.order_type,
                 "status": order.status,
                 "shop_name": order.shop_name,
                 "shop_contact": order.shop_contact,
                 "tracking_number": order.tracking_number,
+                "logistics_company": order.logistics_company,
                 "order_number": order.order_number,
-                "remarks": order.remarks
+                "display_order_number": order.display_order_number,
+                "remarks": order.remarks,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+                "is_active": order.is_active,
+                "deleted_at": order.deleted_at.isoformat() if order.deleted_at else None
             }
             orders_data.append(order_dict)
-        
+
         return orders_data
-    
+
+    @staticmethod
+    def get_figure_sold_orders(db: Session, figure_id: int) -> List[Dict[str, Any]]:
+        """
+        获取手办关联的已出售订单
+
+        Args:
+            db: 数据库会话
+            figure_id: 手办ID
+
+        Returns:
+            已出售订单数据字典列表
+        """
+        sold_orders = db.query(SoldOrder).filter(SoldOrder.figure_id == figure_id).all()
+        sold_orders_data = []
+
+        for sold_order in sold_orders:
+            sold_order_dict = {
+                "id": sold_order.id,
+                "user_id": sold_order.user_id,
+                "figure_id": sold_order.figure_id,
+                "quantity": sold_order.quantity,
+                "sell_price": sold_order.sell_price,
+                "sell_price_currency": sold_order.sell_price_currency,
+                "cost_price": sold_order.cost_price,
+                "cost_price_currency": sold_order.cost_price_currency,
+                "shipping_fee": sold_order.shipping_fee,
+                "shipping_fee_currency": sold_order.shipping_fee_currency,
+                "platform_fee": sold_order.platform_fee,
+                "platform_fee_currency": sold_order.platform_fee_currency,
+                "net_profit": sold_order.net_profit,
+                "profit_rate": sold_order.profit_rate,
+                "sell_platform": sold_order.sell_platform,
+                "order_number": sold_order.order_number,
+                "buyer_phone": sold_order.buyer_phone,
+                "buyer_address": sold_order.buyer_address,
+                "tracking_number": sold_order.tracking_number,
+                "logistics_company": sold_order.logistics_company,
+                "shipping_date": sold_order.shipping_date.isoformat() if sold_order.shipping_date else None,
+                "status": sold_order.status,
+                "remark": sold_order.remark,
+                "created_at": sold_order.created_at.isoformat() if sold_order.created_at else None,
+                "updated_at": sold_order.updated_at.isoformat() if sold_order.updated_at else None,
+                "is_active": sold_order.is_active,
+                "deleted_at": sold_order.deleted_at.isoformat() if sold_order.deleted_at else None
+            }
+            sold_orders_data.append(sold_order_dict)
+
+        return sold_orders_data
+
     @staticmethod
     def serialize_tags(figure: Figure) -> List[Dict[str, Any]]:
         """
@@ -101,7 +159,10 @@ class FigureExportService:
         """
         # 获取关联订单
         orders_data = FigureExportService.get_figure_orders(db, figure.id)
-        
+
+        # 获取关联已出售订单
+        sold_orders_data = FigureExportService.get_figure_sold_orders(db, figure.id)
+
         # 序列化标签
         tags_data = FigureExportService.serialize_tags(figure)
         
@@ -129,7 +190,12 @@ class FigureExportService:
             "material": figure.material,
             "size": figure.size,
             "images": figure.images,
-            "orders": orders_data
+            "is_active": figure.is_active,
+            "deleted_at": figure.deleted_at.isoformat() if figure.deleted_at else None,
+            "created_at": figure.created_at.isoformat() if figure.created_at else None,
+            "updated_at": figure.updated_at.isoformat() if figure.updated_at else None,
+            "orders": orders_data,
+            "sold_orders": sold_orders_data
         }
     
     @classmethod

@@ -84,6 +84,7 @@ class SoldOrderQueryService:
                 buyer_phone=order.SoldOrder.buyer_phone,
                 buyer_address=order.SoldOrder.buyer_address,
                 tracking_number=order.SoldOrder.tracking_number,
+                logistics_company=order.SoldOrder.logistics_company,
                 shipping_date=order.SoldOrder.shipping_date,
                 status=order.SoldOrder.status,
                 remark=order.SoldOrder.remark,

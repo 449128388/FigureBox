@@ -42,6 +42,7 @@ export function useOrderManagement() {
   
   const newOrder = ref({
     figure_id: '',
+    order_type: '定金预定',
     deposit: 0,
     deposit_currency: 'CNY',
     balance: 0,
@@ -49,7 +50,9 @@ export function useOrderManagement() {
     due_date: '',
     status: '未支付',
     shop_name: '',
-    shop_contact: ''
+    shop_contact: '',
+    tracking_number: '',
+    logistics_company: ''
   })
 
   // 删除确认对话框状态
@@ -270,6 +273,7 @@ export function useOrderManagement() {
     // 重置表单数据
     newOrder.value = {
       figure_id: '',
+      order_type: '定金预定',
       deposit: 0,
       deposit_currency: 'CNY',
       balance: 0,
@@ -278,7 +282,8 @@ export function useOrderManagement() {
       status: '未支付',
       shop_name: '',
       shop_contact: '',
-      tracking_number: ''
+      tracking_number: '',
+      logistics_company: ''
     }
   }
   

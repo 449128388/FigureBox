@@ -156,6 +156,7 @@ class SoldOrderCrudService:
                 buyer_phone=order_data.buyer_phone,
                 buyer_address=order_data.buyer_address,
                 tracking_number=order_data.tracking_number,
+                logistics_company=order_data.logistics_company,
                 shipping_date=order_data.shipping_date,
                 status=order_data.status or "待发货",
                 remark=order_data.remark
@@ -163,6 +164,9 @@ class SoldOrderCrudService:
 
             db.add(new_order)
             db.flush()  # 获取订单ID，但不提交
+
+            # 设置 updated_at 等于 created_at
+            new_order.updated_at = new_order.created_at
 
             # 2. 尾款管理：创建卖出订单主记录和资金流水（3笔）
             SoldOrderTransactionService.create_all_sold_order_transactions(
@@ -242,6 +246,8 @@ class SoldOrderCrudService:
             order.buyer_address = order_data.buyer_address
         if order_data.tracking_number is not None:
             order.tracking_number = order_data.tracking_number
+        if order_data.logistics_company is not None:
+            order.logistics_company = order_data.logistics_company
         if order_data.shipping_date is not None:
             order.shipping_date = order_data.shipping_date
 
@@ -333,6 +339,9 @@ class SoldOrderCrudService:
 
             # 更新订单数量
             order.quantity = new_quantity
+
+        # 更新更新时间
+        order.updated_at = datetime.now()
 
         db.commit()
         db.refresh(order)

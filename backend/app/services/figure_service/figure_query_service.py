@@ -5,7 +5,7 @@
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 
 from app.models.figure import Figure
 from app.models.tag import figure_tag
@@ -98,9 +98,14 @@ class FigureQueryService:
         # 只查询激活状态的手办
         query = db.query(Figure).filter(Figure.is_active == True)
 
-        # 按名称搜索（模糊匹配）
+        # 按名称搜索（模糊匹配）- 同时匹配中文名称和日文名称
         if name:
-            query = query.filter(Figure.name.ilike(f"%{name}%"))
+            query = query.filter(
+                or_(
+                    Figure.name.ilike(f"%{name}%"),
+                    Figure.japanese_name.ilike(f"%{name}%")
+                )
+            )
 
         # 按入手形式过滤
         if purchase_type:

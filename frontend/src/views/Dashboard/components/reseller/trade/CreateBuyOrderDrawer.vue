@@ -127,15 +127,6 @@
                   </el-input>
                 </el-form-item>
               </div>
-              <el-form-item label="尾款到期日" prop="paymentDueDate">
-                <el-date-picker
-                  v-model="formData.paymentDueDate"
-                  type="date"
-                  placeholder="选择尾款到期日"
-                  style="width: 100%"
-                  value-format="YYYY-MM-DD"
-                />
-              </el-form-item>
               <el-form-item label="出荷日期" prop="dueDate">
                 <el-date-picker
                   v-model="formData.dueDate"
@@ -208,7 +199,7 @@
 import { ref, reactive, watch, computed } from 'vue'
 import { Close } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import axios from '@/axios'
 
 const props = defineProps({
   visible: {
@@ -253,7 +244,6 @@ const formData = reactive({
   orderType: '预定',
   deposit: '',
   balance: '',
-  paymentDueDate: '',
   dueDate: '',
   totalAmount: '',
   trackingNumber: '',
@@ -269,7 +259,6 @@ const formRules = {
   orderType: [{ required: true, message: '请选择订单类型', trigger: 'change' }],
   deposit: [{ required: true, message: '请输入定金', trigger: 'blur' }],
   balance: [{ required: true, message: '请输入尾款', trigger: 'blur' }],
-  paymentDueDate: [{ required: true, message: '请选择尾款到期日', trigger: 'change' }],
   dueDate: [{ required: true, message: '请选择出荷日期', trigger: 'change' }],
   totalAmount: [{ required: true, message: '请输入实付金额', trigger: 'blur' }]
 }
@@ -330,7 +319,6 @@ const resetForm = () => {
   formData.orderType = '预定'
   formData.deposit = ''
   formData.balance = ''
-  formData.paymentDueDate = ''
   formData.dueDate = ''
   formData.totalAmount = ''
   formData.trackingNumber = ''
@@ -361,7 +349,6 @@ const handleSubmit = async () => {
     if (formData.orderType === '预定' || formData.orderType === '全款预定') {
       payload.deposit = parseFloat(formData.deposit)
       payload.balance = parseFloat(formData.balance)
-      payload.payment_due_date = formData.paymentDueDate
       payload.due_date = formData.dueDate
     } else {
       payload.total_amount = parseFloat(formData.totalAmount)

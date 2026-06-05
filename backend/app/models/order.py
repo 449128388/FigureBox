@@ -38,6 +38,9 @@ class Order(Base):
     balance_currency = Column(String(10), default="CNY")  # 尾款币种：CNY/JPY/USD/EUR
     due_date = Column(Date, nullable=True)  # 尾款截止日期/预计出货日期
     
+    # 订单类型
+    order_type = Column(String(20), default="定金预定")  # 订单类型：定金预定、全款预定、现货、补仓
+
     # 订单状态
     status = Column(String(20), default="未支付")  # 订单状态：未支付、已支付、已取消、已完成
     
@@ -45,6 +48,7 @@ class Order(Base):
     shop_name = Column(String(100))  # 购买店铺名称（如：淘宝店铺、会员购等）
     shop_contact = Column(String(200))  # 店铺联系方式（客服、QQ群等）
     tracking_number = Column(String(100))  # 物流订单号/快递单号
+    logistics_company = Column(String(50))  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     order_number = Column(String(100))  # 订单编号（外部系统订单号，如淘宝订单号）
     display_order_number = Column(String(100))  # 展示订单编号（系统生成，格式：ORDER-YYYYMMDD-XXX）
     remarks = Column(String(500))  # 订单备注（用户自定义备注信息）

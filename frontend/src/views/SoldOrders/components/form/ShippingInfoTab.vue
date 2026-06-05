@@ -6,6 +6,18 @@
         <el-input v-model="order.tracking_number" placeholder="请输入快递单号" />
       </div>
       <div class="form-group">
+        <label>物流公司</label>
+        <el-select v-model="order.logistics_company" placeholder="请选择物流公司" style="width: 100%;" clearable>
+          <el-option value="顺丰" label="顺丰" />
+          <el-option value="圆通" label="圆通" />
+          <el-option value="中通" label="中通" />
+          <el-option value="申通" label="申通" />
+          <el-option value="韵达" label="韵达" />
+          <el-option value="EMS" label="EMS" />
+          <el-option value="其他" label="其他" />
+        </el-select>
+      </div>
+      <div class="form-group">
         <label>发货日期</label>
         <el-date-picker
           v-model="order.shipping_date"

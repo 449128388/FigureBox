@@ -9,7 +9,11 @@ from datetime import datetime
 
 from app.models.order import Order
 from app.models.figure import Figure
-from app.models.asset import OrderTransaction
+from app.models.asset import OrderTransaction, AssetTransaction
+from app.services.asset_transaction_service import AssetTransactionService
+from app.services.figure_service import FigureService
+from app.services.figure_service.figure_price_service import FigurePriceService
+from app.services.order_service.order_number_service import OrderNumberService
 
 
 # 汇率配置：相对人民币的汇率
@@ -134,56 +138,34 @@ class BuyOrderService:
     @classmethod
     def _get_order_type(cls, order: Order) -> Dict[str, str]:
         """
-        判断订单类型
+        获取订单类型
 
-        判断流程：
-        1. 如果尾款 > 0：订单类型 = "预定"（定金+尾款模式，分两笔支付）
-        2. 如果状态 == "已取消"：订单类型 = "已取消预定"（只付了定金，后续取消）
-        3. 尾款 == 0 且 未取消：
-           - 如果备注包含"补仓" 或 平台 == "补仓"：订单类型 = "补仓"
-           - 如果出荷日期存在且不为空：订单类型 = "全款预定"（一次性付清，有出荷日期）
-           - 其他：订单类型 = "现货"（无出荷日期，即买即发）
+        直接从订单的 order_type 字段获取，并映射对应的颜色
 
         订单类型颜色映射：
-        - 预定: 蓝色 #1890FF
+        - 定金预定: 蓝色 #1890FF
         - 全款预定: 紫色 #722ED1
         - 现货: 青色 #13C2C2
         - 补仓: 橙色 #FA8C16
-        - 已取消预定: 灰色 #8C8C8C
+        - 已取消: 灰色 #8C8C8C
         """
-        balance = order.balance or 0
-
         # 订单类型颜色映射
         type_colors = {
-            "预定": "#1890FF",      # 蓝色
+            "定金预定": "#1890FF",  # 蓝色
             "全款预定": "#722ED1",  # 紫色
             "现货": "#13C2C2",      # 青色
             "补仓": "#FA8C16",      # 橙色
-            "已取消预定": "#8C8C8C" # 灰色
+            "已取消": "#8C8C8C"     # 灰色
         }
 
-        # 1. 尾款 > 0：预定（定金+尾款模式）
-        if balance > 0:
-            return {"name": "预定", "color": type_colors["预定"]}
+        # 直接使用数据库中的 order_type 字段
+        order_type = order.order_type or "定金预定"
 
-        # 2. 状态 == "已取消"：已取消预定
+        # 如果订单已取消，显示为已取消
         if order.status == "已取消":
-            return {"name": "已取消预定", "color": type_colors["已取消预定"]}
+            return {"name": "已取消", "color": type_colors["已取消"]}
 
-        # 3. 尾款 == 0 且 未取消
-        remarks = order.remarks or ""
-        shop_name = order.shop_name or ""
-
-        # 备注包含"补仓" 或 平台 == "补仓"
-        if "补仓" in remarks or shop_name == "补仓":
-            return {"name": "补仓", "color": type_colors["补仓"]}
-
-        # 出荷日期存在且不为空
-        if order.due_date:
-            return {"name": "全款预定", "color": type_colors["全款预定"]}
-
-        # 无出荷日期，即买即发
-        return {"name": "现货", "color": type_colors["现货"]}
+        return {"name": order_type, "color": type_colors.get(order_type, "#1890FF")}
 
     @classmethod
     def _format_status(cls, status: str) -> Dict[str, Any]:
@@ -350,9 +332,17 @@ class BuyOrderService:
         """获取物流信息"""
         has_tracking = bool(order.tracking_number)
 
+        # 优先使用数据库中的物流公司字段，如果为空则根据单号识别
+        if order.logistics_company:
+            logistics_company = order.logistics_company
+        elif has_tracking:
+            logistics_company = cls._detect_logistics_company(order.tracking_number)
+        else:
+            logistics_company = ""
+
         return {
             "tracking_number": order.tracking_number or "",
-            "logistics_company": cls._detect_logistics_company(order.tracking_number) if has_tracking else "",
+            "logistics_company": logistics_company,
             "status": "已签收" if order.status == "已完成" else ("运输中" if has_tracking else "待发货"),
             "delivery_time": "",  # 可从物流接口获取
             "has_tracking": has_tracking
@@ -505,7 +495,6 @@ class BuyOrderService:
                 - order_type: 订单类型（预定/全款预定/现货/补仓）
                 - deposit: 定金（预定/全款预定时）
                 - balance: 尾款（预定/全款预定时）
-                - payment_due_date: 尾款到期日（预定/全款预定时）
                 - due_date: 出荷日期（预定/全款预定时）
                 - total_amount: 实付金额（现货/补仓时）
                 - tracking_number: 快递单号（可选）
@@ -542,13 +531,15 @@ class BuyOrderService:
             if order_type in ['预定', '全款预定']:
                 deposit = order_data.get('deposit', 0)
                 balance = order_data.get('balance', 0)
-                payment_due_date = order_data.get('payment_due_date')
                 due_date = order_data.get('due_date')
 
                 if deposit <= 0:
                     return {"success": False, "error": "定金必须大于0"}
                 if due_date:
                     due_date = datetime.strptime(due_date, '%Y-%m-%d').date()
+
+                # 映射订单类型：预定->定金预定，全款预定->全款预定
+                db_order_type = '全款预定' if order_type == '全款预定' else '定金预定'
 
                 # 创建订单
                 new_order = Order(
@@ -560,6 +551,7 @@ class BuyOrderService:
                     balance_currency='CNY',
                     due_date=due_date,
                     status='已支付' if order_type == '全款预定' else '未支付',
+                    order_type=db_order_type,  # 设置订单类型
                     shop_name=platform,
                     tracking_number=tracking_number,
                     logistics_company=logistics_company,
@@ -581,6 +573,8 @@ class BuyOrderService:
                         remarks = f"{now.strftime('%Y-%m-%d %H:%M')} 花费¥{total_amount} 补仓购入"
 
                 # 创建订单（现货/补仓一次性付清，deposit=总金额，balance=0）
+                # 映射订单类型：现货->现货，补仓->补仓
+                db_order_type = '现货' if order_type == '现货' else '补仓'
                 new_order = Order(
                     user_id=user_id,
                     figure_id=figure_id,
@@ -590,6 +584,7 @@ class BuyOrderService:
                     balance_currency='CNY',
                     due_date=None,
                     status='已完成',  # 现货/补仓直接标记为已完成
+                    order_type=db_order_type,  # 设置订单类型
                     shop_name=platform,
                     tracking_number=tracking_number,
                     logistics_company=logistics_company,
@@ -602,6 +597,9 @@ class BuyOrderService:
             # 保存订单
             db.add(new_order)
             db.flush()  # 获取订单ID
+
+            # 生成展示订单编号
+            OrderNumberService.update_order_display_number(db, new_order)
 
             # 创建交易记录
             if order_type in ['预定', '全款预定']:
@@ -647,6 +645,34 @@ class BuyOrderService:
                     created_at=datetime.now()
                 )
                 db.add(buy_tx)
+
+            # 对于已完成的订单（现货/补仓），创建资产交易记录和更新手办平均价格
+            if new_order.status == '已完成':
+                try:
+                    # 计算订单总金额
+                    total_price = FigurePriceService.calculate_order_amount_cny(
+                        deposit=new_order.deposit,
+                        deposit_currency=new_order.deposit_currency,
+                        balance=new_order.balance,
+                        balance_currency=new_order.balance_currency
+                    )
+
+                    # 1. 创建资产交易记录（库存账）
+                    AssetTransactionService.create_transaction_from_figure(
+                        db=db,
+                        user_id=user_id,
+                        figure_id=figure_id,
+                        price=total_price,
+                        quantity=1,
+                        order_id=new_order.id
+                    )
+
+                    # 2. 更新手办平均入手价格
+                    FigureService.update_figure_average_purchase_price(db, figure_id)
+
+                except Exception as e:
+                    # 如果创建交易记录失败，不影响订单创建
+                    print(f"创建资产交易记录失败: {e}")
 
             db.commit()
 

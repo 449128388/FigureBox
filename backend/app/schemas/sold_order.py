@@ -19,6 +19,7 @@ class SoldOrderBase(BaseModel):
     buyer_phone: str
     buyer_address: str | None = None
     tracking_number: str | None = None
+    logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     shipping_date: datetime | None = None
     status: str
     remark: str | None = None
@@ -120,6 +121,7 @@ class SoldOrderUpdate(BaseModel):
     buyer_phone: str | None = None
     buyer_address: str | None = None
     tracking_number: str | None = None
+    logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     shipping_date: datetime | None = None
     status: str | None = None
     remark: str | None = None
@@ -129,6 +131,7 @@ class SoldOrder(SoldOrderBase):
     user_id: int
     net_profit: float | None = None
     profit_rate: float | None = None
+    logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     figure: Figure
 
     class Config:
@@ -139,6 +142,7 @@ class SoldOrderListItem(SoldOrderBase):
     user_id: int
     net_profit: float | None = None
     profit_rate: float | None = None
+    logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     figure_name: str
     figure_image: str | None = None
 

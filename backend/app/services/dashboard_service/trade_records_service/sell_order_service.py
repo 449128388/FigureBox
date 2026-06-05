@@ -224,8 +224,13 @@ class SellOrderService:
         """获取物流信息"""
         has_tracking = bool(sold_order.tracking_number)
 
-        # 根据快递单号识别物流公司
-        logistics_company = cls._detect_logistics_company(sold_order.tracking_number)
+        # 优先使用数据库中的物流公司字段，如果为空再根据单号识别
+        if sold_order.logistics_company:
+            logistics_company = sold_order.logistics_company
+        elif sold_order.tracking_number:
+            logistics_company = cls._detect_logistics_company(sold_order.tracking_number)
+        else:
+            logistics_company = ""
 
         return {
             "tracking_number": sold_order.tracking_number or "",

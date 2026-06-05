@@ -104,12 +104,16 @@ class OrderQueryService:
             balance=order.balance,
             balance_currency=order.balance_currency,
             due_date=order.due_date,
+            order_type=order.order_type,
             status=order.status,
             shop_name=order.shop_name,
             shop_contact=order.shop_contact,
             tracking_number=order.tracking_number,
+            logistics_company=order.logistics_company,
             order_number=order.order_number,
-            remarks=order.remarks
+            remarks=order.remarks,
+            created_at=order.created_at,
+            updated_at=order.updated_at
         ) for order in orders]
 
     @staticmethod

@@ -54,6 +54,7 @@ class SoldOrder(Base):
     buyer_phone = Column(String(20))  # 买家手机号（脱敏显示）
     buyer_address = Column(String(500))  # 买家地址
     tracking_number = Column(String(100))  # 快递单号
+    logistics_company = Column(String(50))  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     shipping_date = Column(Date)  # 发货日期
     
     # 订单状态
@@ -66,6 +67,7 @@ class SoldOrder(Base):
     is_active = Column(Integer, default=1)  # 是否激活：1=正常，0=已删除
     deleted_at = Column(DateTime, nullable=True)  # 删除时间（软删除标记）
     created_at = Column(DateTime(timezone=True), server_default=func.now())  # 创建时间
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())  # 更新时间
 
     # 关系
     user = relationship("User")  # 关联用户对象

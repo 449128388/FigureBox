@@ -210,7 +210,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { Close, Picture } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import axios from '@/axios'
 
 const props = defineProps({
   visible: {

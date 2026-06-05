@@ -77,6 +77,15 @@
             <div v-if="dueDateError" class="error-message">{{ dueDateError }}</div>
           </div>
           <div class="form-group">
+            <label>订单类型</label>
+            <el-select v-model="newOrder.order_type" placeholder="请选择订单类型" style="width: 100%;">
+              <el-option value="定金预定" label="定金预定" />
+              <el-option value="全款预定" label="全款预定" />
+              <el-option value="现货" label="现货" />
+              <el-option value="补仓" label="补仓" />
+            </el-select>
+          </div>
+          <div class="form-group">
             <label>尾款状态</label>
             <el-select v-model="newOrder.status" placeholder="请选择尾款状态" style="width: 100%;">
               <el-option value="未支付" label="未支付" />
@@ -96,6 +105,18 @@
           <div class="form-group" v-if="isEditing || newOrder.status === '已支付' || newOrder.status === '已完成'">
             <label>物流订单</label>
             <el-input v-model="newOrder.tracking_number" placeholder="请输入物流订单号" style="width: 100%;"></el-input>
+          </div>
+          <div class="form-group" v-if="isEditing || newOrder.status === '已支付' || newOrder.status === '已完成'">
+            <label>物流公司</label>
+            <el-select v-model="newOrder.logistics_company" placeholder="请选择物流公司" style="width: 100%;" clearable>
+              <el-option value="顺丰" label="顺丰" />
+              <el-option value="圆通" label="圆通" />
+              <el-option value="中通" label="中通" />
+              <el-option value="申通" label="申通" />
+              <el-option value="韵达" label="韵达" />
+              <el-option value="EMS" label="EMS" />
+              <el-option value="其他" label="其他" />
+            </el-select>
           </div>
           <div class="form-group">
             <label>订单编号</label>
