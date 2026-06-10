@@ -14,6 +14,7 @@ trade_records_service 模块 - 交易记录服务层
 - bill_export_service: 账单导出服务
 - buy_order_service: 买入订单服务
 - sell_order_service: 卖出订单服务
+- pay_balance_service: 补款服务
 
 创建时间: 2026-05-18
 作者: FigureBox Team
@@ -27,6 +28,7 @@ from .bill_export_service import BillExportService
 from .buy_order_service import BuyOrderService
 from .sell_order_service import SellOrderService
 from .trade_filter_service import TradeFilterService
+from .pay_balance_service import PayBalanceService
 
 __all__ = [
     "TradeRecordsService",
@@ -36,5 +38,6 @@ __all__ = [
     "BillExportService",
     "BuyOrderService",
     "SellOrderService",
-    "TradeFilterService"
+    "TradeFilterService",
+    "PayBalanceService"
 ]

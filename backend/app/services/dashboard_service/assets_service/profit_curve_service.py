@@ -121,16 +121,18 @@ class ProfitCurveService:
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=days)
 
-        # 从持仓快照汇总表获取数据
+        # 从持仓快照汇总表获取数据（排除今日，因为今日需要动态计算）
         snapshot_records = db.query(HoldingSnapshotSummary).filter(
             HoldingSnapshotSummary.user_id == user_id,
             HoldingSnapshotSummary.snapshot_date >= start_date,
-            HoldingSnapshotSummary.snapshot_date <= end_date
+            HoldingSnapshotSummary.snapshot_date < end_date  # 不包含今日
         ).order_by(HoldingSnapshotSummary.snapshot_date.asc()).all()
 
-        # 如果有持仓快照数据，直接返回
+        result = []
+
+        # 添加历史快照数据
         if snapshot_records:
-            return [
+            result = [
                 {
                     "date": s.snapshot_date.isoformat(),
                     "profit": float(s.total_floating_pnl)
@@ -138,27 +140,14 @@ class ProfitCurveService:
                 for s in snapshot_records
             ]
 
-        # 如果没有持仓快照数据，尝试从市值缓存表获取实际数据
-        cache_records = db.query(AssetValueCache).filter(
-            AssetValueCache.user_id == user_id,
-            AssetValueCache.cache_date >= start_date,
-            AssetValueCache.cache_date <= end_date
-        ).order_by(AssetValueCache.cache_date.asc()).all()
+        # 动态计算今日收益（无论是否有历史数据，都添加今日数据）
+        today_profit = ProfitCurveService.calculate_daily_profit(db, user_id, end_date)
+        result.append({
+            "date": end_date.isoformat(),
+            "profit": today_profit
+        })
 
-        if cache_records:
-            # 返回实际市值缓存数据，不填充缺失日期
-            return [
-                {
-                    "date": record.cache_date.isoformat(),
-                    "profit": ProfitCurveService.calculate_daily_profit(
-                        db, user_id, record.cache_date
-                    )
-                }
-                for record in cache_records
-            ]
-
-        # 如果仍然没有数据，返回空列表（前端显示y=0直线）
-        return []
+        return result
 
     @staticmethod
     def get_latest_profit(

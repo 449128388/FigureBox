@@ -38,7 +38,8 @@ from app.services.dashboard_service.trade_records_service import (
     BillExportService,
     BuyOrderService,
     SellOrderService,
-    TradeFilterService
+    TradeFilterService,
+    PayBalanceService
 )
 
 router = APIRouter()
@@ -590,7 +591,6 @@ async def create_buy_order(
     请求参数：
     - figure_id: 手办ID（必填）
     - quantity: 数量（必填，默认1）
-    - unit_price: 单价（必填）
     - platform: 购买平台（必填）
     - order_type: 订单类型（必填：预定/全款预定/现货/补仓）
     - deposit: 定金（预定/全款预定时必填）
@@ -613,5 +613,107 @@ async def create_buy_order(
     if not result.get("success"):
         response.status_code = 400
         return {"error": result.get("error", "创建订单失败")}
+
+    return result
+
+
+@router.get("/pending-balance-orders")
+async def get_pending_balance_orders(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取待补款订单列表
+
+    返回当前用户需要支付尾款的订单列表
+    过滤条件：
+    - 订单状态为"已支付"（已付定金，待付尾款）
+    - 尾款金额 > 0
+    - 尾款到期日 <= 今天 + 7天
+
+    排序规则：
+    - 逾期订单置顶（标红）
+    - 按到期日升序排列
+
+    Returns:
+        待补款订单列表，包含订单ID、手办信息、尾款金额、到期日等
+    """
+    user_id = current_user.id
+
+    # 调用服务获取待补款订单列表
+    orders = PayBalanceService.get_pending_balance_orders(db, user_id)
+
+    return {
+        "orders": orders,
+        "total": len(orders)
+    }
+
+
+@router.get("/pending-balance-orders/{order_id}")
+async def get_pending_balance_order_detail(
+    request: Request,
+    response: Response,
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取待补款订单详情
+
+    Args:
+        order_id: 订单ID
+
+    Returns:
+        订单支付详情，包含尾款金额、到期日等
+    """
+    user_id = current_user.id
+
+    # 调用服务获取订单详情
+    result = PayBalanceService.get_order_payment_detail(db, user_id, order_id)
+
+    if "error" in result:
+        response.status_code = 404
+        return {"error": result["error"]}
+
+    return result
+
+
+@router.post("/pay-balance/{order_id}")
+async def pay_balance(
+    request: Request,
+    response: Response,
+    order_id: int,
+    payment_data: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    支付尾款
+
+    业务流程：
+    1. 验证订单状态（必须为"已支付"）
+    2. 创建尾款交易记录
+    3. 更新订单状态为"已完成"
+    4. 创建资产交易记录（入库）
+    5. 更新手办平均入手价格
+
+    请求参数：
+    - payment_method: 支付方式（选填，默认"支付宝"）
+    - payment_date: 支付时间（选填，默认当前时间，格式：YYYY-MM-DD HH:MM）
+    - amount: 本次支付金额（选填，默认为剩余尾款）
+
+    Returns:
+        支付结果，包含订单ID、支付金额等
+    """
+    user_id = current_user.id
+
+    # 调用服务支付尾款
+    result = PayBalanceService.pay_balance(db, user_id, order_id, payment_data)
+
+    if not result.get("success"):
+        response.status_code = 400
+        return {"error": result.get("error", "支付尾款失败")}
 
     return result

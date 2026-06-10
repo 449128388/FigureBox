@@ -80,16 +80,9 @@
               </el-select>
             </el-form-item>
 
-            <div class="form-row">
-              <el-form-item label="数量" prop="quantity" class="form-item-half">
-                <el-input-number v-model="formData.quantity" :min="1" :max="99" style="width: 100%" />
-              </el-form-item>
-              <el-form-item label="单价" prop="unitPrice" class="form-item-half">
-                <el-input v-model="formData.unitPrice" placeholder="0.00">
-                  <template #prefix>¥</template>
-                </el-input>
-              </el-form-item>
-            </div>
+            <el-form-item label="数量" prop="quantity">
+              <el-input-number v-model="formData.quantity" :min="1" :max="99" style="width: 100%" />
+            </el-form-item>
           </div>
 
           <!-- 订单类型 -->
@@ -240,7 +233,6 @@ const orderTypes = [
 const formData = reactive({
   figureId: null,
   quantity: 1,
-  unitPrice: '',
   orderType: '预定',
   deposit: '',
   balance: '',
@@ -255,7 +247,6 @@ const formData = reactive({
 const formRules = {
   figureId: [{ required: true, message: '请选择手办', trigger: 'change' }],
   quantity: [{ required: true, message: '请输入数量', trigger: 'blur' }],
-  unitPrice: [{ required: true, message: '请输入单价', trigger: 'blur' }],
   orderType: [{ required: true, message: '请选择订单类型', trigger: 'change' }],
   deposit: [{ required: true, message: '请输入定金', trigger: 'blur' }],
   balance: [{ required: true, message: '请输入尾款', trigger: 'blur' }],
@@ -298,7 +289,7 @@ const selectOrderType = (type) => {
       hour: '2-digit',
       minute: '2-digit'
     }).replace(/\//g, '-')
-    const amount = formData.totalAmount || formData.unitPrice || '0'
+    const amount = formData.totalAmount || '0'
     formData.remarks = `${dateStr} 花费¥${amount} 补仓购入`
   } else {
     formData.remarks = ''
@@ -315,7 +306,6 @@ const handleClose = () => {
 const resetForm = () => {
   formData.figureId = null
   formData.quantity = 1
-  formData.unitPrice = ''
   formData.orderType = '预定'
   formData.deposit = ''
   formData.balance = ''
@@ -338,7 +328,6 @@ const handleSubmit = async () => {
     const payload = {
       figure_id: formData.figureId,
       quantity: formData.quantity,
-      unit_price: parseFloat(formData.unitPrice),
       order_type: formData.orderType,
       tracking_number: formData.trackingNumber,
       logistics_company: formData.logisticsCompany,
@@ -366,8 +355,8 @@ const handleSubmit = async () => {
   }
 }
 
-// 监听单价变化，更新补仓备注
-watch(() => formData.unitPrice, (newVal) => {
+// 监听实付金额变化，更新补仓备注
+watch(() => formData.totalAmount, (newVal) => {
   if (formData.orderType === '补仓' && newVal) {
     const now = new Date()
     const dateStr = now.toLocaleString('zh-CN', {

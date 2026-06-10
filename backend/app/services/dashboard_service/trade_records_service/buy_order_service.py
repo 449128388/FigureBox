@@ -490,7 +490,6 @@ class BuyOrderService:
             order_data: 订单数据
                 - figure_id: 手办ID
                 - quantity: 数量
-                - unit_price: 单价
                 - platform: 购买平台
                 - order_type: 订单类型（预定/全款预定/现货/补仓）
                 - deposit: 定金（预定/全款预定时）
@@ -512,7 +511,6 @@ class BuyOrderService:
             # 提取订单数据
             figure_id = order_data.get('figure_id')
             quantity = order_data.get('quantity', 1)
-            unit_price = order_data.get('unit_price', 0)
             platform = order_data.get('platform', '')
             order_type = order_data.get('order_type', '预定')
             tracking_number = order_data.get('tracking_number', '')
@@ -522,10 +520,10 @@ class BuyOrderService:
             # 验证必填字段
             if not figure_id:
                 return {"success": False, "error": "请选择手办"}
-            if not platform:
-                return {"success": False, "error": "请选择购买平台"}
-            if unit_price <= 0:
-                return {"success": False, "error": "单价必须大于0"}
+
+            # 验证数量
+            if quantity <= 0:
+                return {"success": False, "error": "数量必须大于0"}
 
             # 根据订单类型处理金额和状态
             if order_type in ['预定', '全款预定']:

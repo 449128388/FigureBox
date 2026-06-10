@@ -228,6 +228,19 @@
       v-model="createSellOrderDrawerVisible"
       @success="fetchDashboardData"
     />
+
+    <!-- 补款订单列表弹窗 -->
+    <PayBalanceOrderListDialog
+      v-model="payBalanceOrderListVisible"
+      @select-order="selectPayBalanceOrder"
+    />
+
+    <!-- 补款确认抽屉 -->
+    <PayBalanceConfirmDrawer
+      v-model="payBalanceConfirmVisible"
+      :order="selectedPayBalanceOrder"
+      @success="handlePayBalanceSuccess"
+    />
   </div>
 </template>
 
@@ -253,6 +266,8 @@ import TradeView from './Dashboard/components/reseller/TradeView.vue'
 import BillExportDialog from './Dashboard/components/reseller/trade/BillExportDialog.vue'
 import CreateBuyOrderDrawer from './Dashboard/components/reseller/trade/CreateBuyOrderDrawer.vue'
 import CreateSellOrderDrawer from './Dashboard/components/reseller/trade/CreateSellOrderDrawer.vue'
+import PayBalanceOrderListDialog from './Dashboard/components/reseller/trade/PayBalanceOrderListDialog.vue'
+import PayBalanceConfirmDrawer from './Dashboard/components/reseller/trade/PayBalanceConfirmDrawer.vue'
 
 // 导入收藏家模式 composable
 import { useCollectorData } from './Dashboard/composables/useCollectorData'
@@ -262,6 +277,8 @@ import { useBillExport } from './Dashboard/composables/useBillExport'
 import { useCreateBuyOrder } from './Dashboard/composables/useCreateBuyOrder'
 // 导入创建卖出订单 composable
 import { useCreateSellOrder } from './Dashboard/composables/useCreateSellOrder'
+// 导入补款 composable
+import { usePayBalance } from './Dashboard/composables/usePayBalance'
 
 export default {
   name: 'Dashboard',
@@ -275,17 +292,19 @@ export default {
     // 收藏家模式组件
     CollectorHeader,
     CollectorOverview,
-    ValuableCollections,
-    TagCloud,
-    ActivityFeed,
-    // 倒狗模式组件
-    AssetView,
-    MarketView,
-    TradeView,
-    BillExportDialog,
-    CreateBuyOrderDrawer,
-    CreateSellOrderDrawer
-  },
+      ValuableCollections,
+      TagCloud,
+      ActivityFeed,
+      // 倒狗模式组件
+      AssetView,
+      MarketView,
+      TradeView,
+      BillExportDialog,
+      CreateBuyOrderDrawer,
+      CreateSellOrderDrawer,
+      PayBalanceOrderListDialog,
+      PayBalanceConfirmDrawer
+    },
   setup() {
     const router = useRouter()
     const userStore = useUserStore()
@@ -306,6 +325,22 @@ export default {
       onSuccess: () => {
         // 刷新资产和交易数据
         fetchDashboardData()
+      }
+    })
+
+    // 使用补款 composable
+    const {
+      payBalanceOrderListVisible,
+      payBalanceConfirmVisible,
+      selectedPayBalanceOrder,
+      openPayBalanceOrderList,
+      selectPayBalanceOrder,
+      closePayBalanceConfirm
+    } = usePayBalance({
+      onSuccess: () => {
+        // 刷新资产和交易数据
+        fetchDashboardData()
+        fetchTradeData()
       }
     })
 
@@ -591,13 +626,20 @@ export default {
     const openBuyDialog = () => {
       openCreateBuyOrderDrawer()
     }
-    
+
     const openSellDialog = () => {
       openCreateSellOrderDrawer()
     }
-    
+
     const openPaymentDialog = () => {
-      ElMessage.info('补款功能开发中')
+      openPayBalanceOrderList()
+    }
+
+    // 补款成功处理
+    const handlePayBalanceSuccess = () => {
+      // 刷新资产和交易数据
+      fetchDashboardData()
+      fetchTradeData()
     }
     
     const openCancelDialog = () => {
