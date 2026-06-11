@@ -8,6 +8,7 @@ from app.schemas.sold_order import SoldOrder as SoldOrderSchema, SoldOrderCreate
 from app.api.users import get_current_user
 from app.models.user import User
 from app.services.sold_order_service import SoldOrderService
+from app.services.sold_order_service.sold_order_crud_service import SoldOrderCrudService
 from app.services.sold_order_service.quick_sell_service import QuickSellService
 from app.services.dashboard_service.assets_service.holding_position_service import HoldingPositionService
 from pydantic import BaseModel, field_validator
@@ -305,12 +306,12 @@ def create_sell_order_from_inventory(
     """
     从库存创建卖出订单
 
-    完整的卖出订单创建流程：
+    完整的卖出订单创建流程（由 SoldOrderCrudService.create_sold_order 内部自动完成）：
     1. 验证库存是否充足
     2. 创建已出售订单记录
-    3. 扣减库存（更新 AssetTransaction 的 remaining_quantity）
-    4. 创建资金流入记录
-    5. 更新手办状态和资产看板数据
+    3. 创建交易流水记录（资金账）
+    4. 扣减库存（更新 AssetTransaction 的 remaining_quantity）
+    5. 更新手办状态（重新计算 figure.quantity）
 
     Args:
         figure_id: 手办ID
@@ -331,9 +332,6 @@ def create_sell_order_from_inventory(
     Raises:
         HTTPException: 库存不足或创建失败
     """
-    from app.services.sold_order_service.sold_order_inventory_service import SoldOrderInventoryService
-    from app.services.sold_order_service.sold_order_transaction_service import SoldOrderTransactionService
-
     try:
         # 1. 验证库存是否充足
         stock = HoldingPositionService.get_figure_inventory(
@@ -376,20 +374,9 @@ def create_sell_order_from_inventory(
             sell_date=now.date()
         )
 
-        # 3. 创建卖出订单
+        # 3. 创建卖出订单（内部自动处理：交易记录、库存扣减、手办状态更新）
         sold_order = SoldOrderCrudService.create_sold_order(
             db, order_data, current_user
-        )
-
-        # 4. 扣减库存
-        SoldOrderInventoryService.deduct_inventory_on_sell(
-            db, request.figure_id, request.quantity, current_user.id
-        )
-
-        # 5. 创建资金流入记录
-        actual_amount = total_sell_price - request.shipping_fee - request.platform_fee
-        SoldOrderTransactionService.create_sell_transaction(
-            db, sold_order.id, actual_amount, request.sell_platform, current_user.id
         )
 
         return sold_order

@@ -5,6 +5,7 @@
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.models.order import Order
 from app.models.figure import Figure
@@ -44,7 +45,6 @@ class OrderCrudService:
             HTTPException: 手办不存在或订单数量超过限制时抛出
         """
         from fastapi import HTTPException, status
-        from sqlalchemy import func
 
         # 检查手办是否存在
         db_figure = db.query(Figure).filter(Figure.id == order_data.figure_id).first()
@@ -151,6 +151,18 @@ class OrderCrudService:
 
                 # 更新手办的平均入手价格
                 FigureService.update_figure_average_purchase_price(db, order_data.figure_id)
+
+                # 更新手办持有数量（从库存账重新计算）
+                current_inventory = db.query(func.sum(AssetTransaction.remaining_quantity)).filter(
+                    AssetTransaction.user_id == current_user.id,
+                    AssetTransaction.figure_id == order_data.figure_id,
+                    AssetTransaction.transaction_type == "buy",
+                    AssetTransaction.is_active == True
+                ).scalar() or 0
+
+                figure = db.query(Figure).filter(Figure.id == order_data.figure_id).first()
+                if figure:
+                    figure.quantity = int(current_inventory)
 
             db.commit()
         except Exception as e:

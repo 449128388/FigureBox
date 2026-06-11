@@ -5,6 +5,7 @@
 """
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime, date, timedelta
 
 from app.models.order import Order
@@ -210,6 +211,18 @@ class PayBalanceService:
 
                 # 4. 更新手办平均入手价格
                 FigureService.update_figure_average_purchase_price(db, order.figure_id)
+
+                # 5. 更新手办持有数量（从库存账重新计算）
+                current_inventory = db.query(func.sum(AssetTransaction.remaining_quantity)).filter(
+                    AssetTransaction.user_id == user_id,
+                    AssetTransaction.figure_id == order.figure_id,
+                    AssetTransaction.transaction_type == "buy",
+                    AssetTransaction.is_active == True
+                ).scalar() or 0
+
+                figure = db.query(Figure).filter(Figure.id == order.figure_id).first()
+                if figure:
+                    figure.quantity = int(current_inventory)
 
             except Exception as e:
                 print(f"创建资产交易记录失败: {e}")

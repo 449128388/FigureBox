@@ -220,12 +220,13 @@
 
     <!-- 创建买入订单抽屉 -->
     <CreateBuyOrderDrawer
-      v-model="createBuyOrderDrawerVisible"
+      v-model:visible="createBuyOrderDrawerVisible"
+      @success="fetchDashboardData"
     />
 
     <!-- 创建卖出订单抽屉 -->
     <CreateSellOrderDrawer
-      v-model="createSellOrderDrawerVisible"
+      v-model:visible="createSellOrderDrawerVisible"
       @success="fetchDashboardData"
     />
 
@@ -240,6 +241,19 @@
       v-model="payBalanceConfirmVisible"
       :order="selectedPayBalanceOrder"
       @success="handlePayBalanceSuccess"
+    />
+
+    <!-- 撤单订单列表弹窗 -->
+    <CancelOrderListDialog
+      v-model="cancelOrderListVisible"
+      @select-order="selectCancelOrder"
+    />
+
+    <!-- 撤单确认弹窗 -->
+    <CancelOrderConfirmDialog
+      v-model="cancelOrderConfirmVisible"
+      :order="selectedCancelOrder"
+      @success="handleCancelSuccess"
     />
   </div>
 </template>
@@ -268,6 +282,8 @@ import CreateBuyOrderDrawer from './Dashboard/components/reseller/trade/CreateBu
 import CreateSellOrderDrawer from './Dashboard/components/reseller/trade/CreateSellOrderDrawer.vue'
 import PayBalanceOrderListDialog from './Dashboard/components/reseller/trade/PayBalanceOrderListDialog.vue'
 import PayBalanceConfirmDrawer from './Dashboard/components/reseller/trade/PayBalanceConfirmDrawer.vue'
+import CancelOrderListDialog from './Dashboard/components/reseller/trade/CancelOrderListDialog.vue'
+import CancelOrderConfirmDialog from './Dashboard/components/reseller/trade/CancelOrderConfirmDialog.vue'
 
 // 导入收藏家模式 composable
 import { useCollectorData } from './Dashboard/composables/useCollectorData'
@@ -279,6 +295,8 @@ import { useCreateBuyOrder } from './Dashboard/composables/useCreateBuyOrder'
 import { useCreateSellOrder } from './Dashboard/composables/useCreateSellOrder'
 // 导入补款 composable
 import { usePayBalance } from './Dashboard/composables/usePayBalance'
+// 导入撤单 composable
+import { useCancelOrder } from './Dashboard/composables/useCancelOrder'
 
 export default {
   name: 'Dashboard',
@@ -303,7 +321,9 @@ export default {
       CreateBuyOrderDrawer,
       CreateSellOrderDrawer,
       PayBalanceOrderListDialog,
-      PayBalanceConfirmDrawer
+      PayBalanceConfirmDrawer,
+      CancelOrderListDialog,
+      CancelOrderConfirmDialog
     },
   setup() {
     const router = useRouter()
@@ -337,6 +357,22 @@ export default {
       selectPayBalanceOrder,
       closePayBalanceConfirm
     } = usePayBalance({
+      onSuccess: () => {
+        // 刷新资产和交易数据
+        fetchDashboardData()
+        fetchTradeData()
+      }
+    })
+
+    // 使用撤单 composable
+    const {
+      cancelOrderListVisible,
+      cancelOrderConfirmVisible,
+      selectedCancelOrder,
+      openCancelOrderList,
+      selectCancelOrder,
+      closeCancelOrderConfirm
+    } = useCancelOrder({
       onSuccess: () => {
         // 刷新资产和交易数据
         fetchDashboardData()
@@ -643,7 +679,14 @@ export default {
     }
     
     const openCancelDialog = () => {
-      ElMessage.info('撤单功能开发中')
+      openCancelOrderList()
+    }
+
+    // 撤单成功处理
+    const handleCancelSuccess = () => {
+      // 刷新资产和交易数据
+      fetchDashboardData()
+      fetchTradeData()
     }
     
     const viewRecord = (record) => {
@@ -730,7 +773,15 @@ export default {
       openBillExportDialog,
       handleBillExport,
       createBuyOrderDrawerVisible,
-      createSellOrderDrawerVisible
+      createSellOrderDrawerVisible,
+      payBalanceOrderListVisible,
+      payBalanceConfirmVisible,
+      selectedPayBalanceOrder,
+      handlePayBalanceSuccess,
+      cancelOrderListVisible,
+      cancelOrderConfirmVisible,
+      selectedCancelOrder,
+      handleCancelSuccess
     }
   }
 }

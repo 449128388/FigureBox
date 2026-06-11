@@ -5,6 +5,7 @@
 """
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime
 
 from app.models.order import Order
@@ -604,8 +605,10 @@ class BuyOrderService:
                 # 预定类型：创建定金交易记录
                 deposit_tx = OrderTransaction(
                     user_id=user_id,
+                    figure_id=figure_id,
                     order_id=new_order.id,
                     transaction_type='deposit',
+                    unit_price=deposit,
                     total_amount=deposit,
                     currency='CNY',
                     direction='out',
@@ -619,8 +622,10 @@ class BuyOrderService:
                 if order_type == '全款预定' and balance > 0:
                     balance_tx = OrderTransaction(
                         user_id=user_id,
+                        figure_id=figure_id,
                         order_id=new_order.id,
                         transaction_type='balance',
+                        unit_price=balance,
                         total_amount=balance,
                         currency='CNY',
                         direction='out',
@@ -633,8 +638,10 @@ class BuyOrderService:
                 # 现货/补仓：创建一次性支付交易记录
                 buy_tx = OrderTransaction(
                     user_id=user_id,
+                    figure_id=figure_id,
                     order_id=new_order.id,
                     transaction_type='buy',
+                    unit_price=total_amount,
                     total_amount=total_amount,
                     currency='CNY',
                     direction='out',
@@ -667,6 +674,18 @@ class BuyOrderService:
 
                     # 2. 更新手办平均入手价格
                     FigureService.update_figure_average_purchase_price(db, figure_id)
+
+                    # 3. 更新手办持有数量（从库存账重新计算）
+                    current_inventory = db.query(func.sum(AssetTransaction.remaining_quantity)).filter(
+                        AssetTransaction.user_id == user_id,
+                        AssetTransaction.figure_id == figure_id,
+                        AssetTransaction.transaction_type == "buy",
+                        AssetTransaction.is_active == True
+                    ).scalar() or 0
+
+                    figure = db.query(Figure).filter(Figure.id == figure_id).first()
+                    if figure:
+                        figure.quantity = int(current_inventory)
 
                 except Exception as e:
                     # 如果创建交易记录失败，不影响订单创建

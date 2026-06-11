@@ -29,6 +29,7 @@ from .buy_order_service import BuyOrderService
 from .sell_order_service import SellOrderService
 from .trade_filter_service import TradeFilterService
 from .pay_balance_service import PayBalanceService
+from .cancel_order_service import CancelOrderService
 
 __all__ = [
     "TradeRecordsService",
@@ -39,5 +40,6 @@ __all__ = [
     "BuyOrderService",
     "SellOrderService",
     "TradeFilterService",
-    "PayBalanceService"
+    "PayBalanceService",
+    "CancelOrderService"
 ]

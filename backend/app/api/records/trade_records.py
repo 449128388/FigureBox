@@ -39,7 +39,8 @@ from app.services.dashboard_service.trade_records_service import (
     BuyOrderService,
     SellOrderService,
     TradeFilterService,
-    PayBalanceService
+    PayBalanceService,
+    CancelOrderService
 )
 
 router = APIRouter()
@@ -676,6 +677,101 @@ async def get_pending_balance_order_detail(
     if "error" in result:
         response.status_code = 404
         return {"error": result["error"]}
+
+    return result
+
+
+@router.get("/cancelable-orders")
+async def get_cancelable_orders(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取可取消订单列表
+
+    返回当前用户可取消的订单列表：
+    - 状态为'待付尾款'、'已付定金'、'待发货'的订单
+    - 包含订单基本信息、已支付金额、是否已入库等
+
+    Returns:
+        可取消订单列表
+    """
+    user_id = current_user.id
+    orders = CancelOrderService.get_cancelable_orders(db, user_id)
+    return {"orders": orders, "total": len(orders)}
+
+
+@router.get("/cancelable-orders/{order_id}")
+async def get_order_cancel_detail(
+    request: Request,
+    response: Response,
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取订单取消详情
+
+    用于撤单确认弹窗展示：
+    - 订单基本信息
+    - 已支付金额
+    - 是否已入库
+    - 退款选项
+
+    Args:
+        order_id: 订单ID
+
+    Returns:
+        订单取消详情
+    """
+    user_id = current_user.id
+    result = CancelOrderService.get_order_cancel_detail(db, user_id, order_id)
+
+    if "error" in result:
+        response.status_code = 404
+        return {"error": result["error"]}
+
+    return result
+
+
+@router.post("/cancel-order/{order_id}")
+async def cancel_order(
+    request: Request,
+    response: Response,
+    order_id: int,
+    cancel_data: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    取消订单
+
+    业务流程：
+    1. 验证订单状态（必须为可取消状态）
+    2. 如果已入库，回滚库存
+    3. 如果需要退款，创建退款交易记录
+    4. 更新订单状态为"已取消"
+    5. 创建订单状态变更记录
+
+    请求参数：
+    - refund: 是否退款（bool，默认true）
+    - refund_amount: 退款金额（选填，默认为已支付金额）
+    - refund_method: 退款方式（选填，默认"原路退回"）
+    - reason: 取消原因（选填）
+
+    Returns:
+        取消结果，包含退款金额、库存回滚状态等
+    """
+    user_id = current_user.id
+
+    # 调用服务取消订单
+    result = CancelOrderService.cancel_order(db, user_id, order_id, cancel_data)
+
+    if not result.get("success"):
+        response.status_code = 400
+        return {"error": result.get("error", "取消订单失败")}
 
     return result
 
