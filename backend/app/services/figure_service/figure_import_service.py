@@ -194,21 +194,15 @@ class FigureImportService:
             # 生成展示订单编号（格式：ORDER-YYYYMMDD-XXX）
             OrderNumberService.update_order_display_number(db, order)
 
-            # 创建资产交易记录（库存账）和资金流水记录（资金账）
-            # 【修复】只记录订单状态为"已完成"的数据，因为"已完成"说明已经拿到货物了
-            if order.status == "已完成":
+            # 创建资金流水记录（资金账）和/或资产交易记录（库存账）
+            # 根据订单状态决定记录类型：
+            # - "已完成"：同时记录资金流水+资产交易（已拿到货物，有完整资金流动）
+            # - "已支付"：只记录资金流水（有资金流出但未到货）
+            # - "已取消"：只记录资金流水（已支付过定金/全款，订单已取消）
+            # - "未支付"：不记录任何数据（无资金流动）
+            if order.status in ("已完成", "已支付", "已取消"):
                 try:
-                    # 1. 创建资产交易记录（库存账）- 每个订单对应1体手办
-                    order_quantity = order_data.get('quantity', 1)
-                    AssetTransactionService.create_buy_transaction_from_order(
-                        db=db,
-                        user_id=user_id,
-                        figure_id=figure.id,
-                        order=order,
-                        quantity=order_quantity
-                    )
-
-                    # 2. 创建资金流水记录（资金账）
+                    # 资金流水记录（资金账）- 所有已产生资金流动的状态都记录
                     purchase_date = FigureImportService.parse_date(order_data.get('purchase_date'))
                     OrderTransactionService.create_transaction_from_order(
                         db=db,
@@ -218,6 +212,17 @@ class FigureImportService:
                         transaction_date=purchase_date,
                         notes=f"订单导入 - {figure.name}"
                     )
+
+                    # 资产交易记录（库存账）- 只有"已完成"才记录（代表已入库）
+                    if order.status == "已完成":
+                        order_quantity = order_data.get('quantity', 1)
+                        AssetTransactionService.create_buy_transaction_from_order(
+                            db=db,
+                            user_id=user_id,
+                            figure_id=figure.id,
+                            order=order,
+                            quantity=order_quantity
+                        )
                 except Exception as e:
                     print(f"导入订单时创建交易记录失败: {e}")
                     import traceback
@@ -225,9 +230,13 @@ class FigureImportService:
             
             imported_count += 1
         
-        # 更新手办数量为实际导入的订单数，与asset_transactions保持一致
+        # 更新手办数量为实际入库数量（仅统计"已完成"订单，与asset_transactions保持一致）
         if imported_count > 0:
-            figure.quantity = imported_count
+            completed_count = sum(1 for o in db.query(Order).filter(
+                Order.figure_id == figure.id,
+                Order.status == "已完成"
+            ).all())
+            figure.quantity = completed_count
             db.flush()
 
         return imported_count

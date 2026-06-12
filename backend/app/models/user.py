@@ -20,13 +20,13 @@ class User(Base):
     __tablename__ = "users"
 
     # 主键
-    id = Column(Integer, primary_key=True, index=True)  # 用户唯一标识ID
+    id = Column(Integer, primary_key=True, index=True, comment="用户唯一标识ID")
     
     # 登录凭证
-    username = Column(String(50), unique=True, index=True, nullable=False)  # 用户名（登录账号，唯一）
-    email = Column(String(100), unique=True, index=True, nullable=False)  # 邮箱地址（唯一，可用于登录）
-    password_hash = Column(String(255), nullable=False)  # 密码哈希值（使用安全算法加密，不存明文）
+    username = Column(String(50), unique=True, index=True, nullable=False, comment="用户名（登录账号，唯一）")
+    email = Column(String(100), unique=True, index=True, nullable=False, comment="邮箱地址（唯一，可用于登录）")
+    password_hash = Column(String(255), nullable=False, comment="密码哈希值（使用安全算法加密，不存明文）")
     
     # 用户状态
-    is_active = Column(Boolean, default=True)  # 账号是否激活（True=正常，False=禁用）
-    is_admin = Column(Boolean, default=False)  # 是否为管理员（True=管理员，False=普通用户）
+    is_active = Column(Boolean, default=True, comment="账号是否激活（True=正常，False=禁用）")
+    is_admin = Column(Boolean, default=False, comment="是否为管理员（True=管理员，False=普通用户）")

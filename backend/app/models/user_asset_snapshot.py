@@ -28,19 +28,19 @@ class UserAssetSnapshot(Base):
     __tablename__ = "user_asset_snapshots"
 
     # 主键
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, comment="快照记录唯一标识ID")
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="关联用户ID")
 
     # 快照数据
-    snapshot_date = Column(Date, nullable=False, index=True)
-    total_asset = Column(Numeric(15, 2), nullable=False, default=0)
-    total_cost = Column(Numeric(15, 2), nullable=False, default=0)
-    hpi_index = Column(Numeric(10, 4), nullable=True)
+    snapshot_date = Column(Date, nullable=False, index=True, comment="快照日期")
+    total_asset = Column(Numeric(15, 2), nullable=False, default=0, comment="当日总资产")
+    total_cost = Column(Numeric(15, 2), nullable=False, default=0, comment="当日总成本")
+    hpi_index = Column(Numeric(10, 4), nullable=True, comment="当日塑料手办指数（可选）")
 
     # 时间戳
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="记录创建时间")
 
     # 关系
     user = relationship("User")

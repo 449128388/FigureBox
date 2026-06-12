@@ -25,41 +25,41 @@ class Order(Base):
     __tablename__ = "orders"
 
     # 主键
-    id = Column(Integer, primary_key=True, index=True)  # 订单唯一标识ID
+    id = Column(Integer, primary_key=True, index=True, comment="订单唯一标识ID")
     
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID（订单所属用户）
-    figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID（订单对应的手办）
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="关联用户ID（订单所属用户）")
+    figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, comment="关联手办ID（订单对应的手办）")
     
     # 付款信息（支持定金+尾款模式）
-    deposit = Column(Float, nullable=False)  # 定金金额（预付款）
-    deposit_currency = Column(String(10), default="CNY")  # 定金币种：CNY/JPY/USD/EUR
-    balance = Column(Float, nullable=False)  # 尾款金额（剩余款项）
-    balance_currency = Column(String(10), default="CNY")  # 尾款币种：CNY/JPY/USD/EUR
-    due_date = Column(Date, nullable=True)  # 尾款截止日期/预计出货日期
+    deposit = Column(Float, nullable=False, comment="定金金额（预付款）")
+    deposit_currency = Column(String(10), default="CNY", comment="定金币种：CNY/JPY/USD/EUR")
+    balance = Column(Float, nullable=False, comment="尾款金额（剩余款项）")
+    balance_currency = Column(String(10), default="CNY", comment="尾款币种：CNY/JPY/USD/EUR")
+    due_date = Column(Date, nullable=True, comment="尾款截止日期/预计出货日期")
     
     # 订单类型
-    order_type = Column(String(20), default="定金预定")  # 订单类型：定金预定、全款预定、现货、补仓
+    order_type = Column(String(20), default="定金预定", comment="订单类型：定金预定、全款预定、现货、补仓")
 
     # 订单状态
-    status = Column(String(20), default="未支付")  # 订单状态：未支付、已支付、已取消、已完成
+    status = Column(String(20), default="未支付", comment="订单状态：未支付、已支付、已取消、已完成")
     
     # 店铺信息
-    shop_name = Column(String(100))  # 购买店铺名称（如：淘宝店铺、会员购等）
-    shop_contact = Column(String(200))  # 店铺联系方式（客服、QQ群等）
-    tracking_number = Column(String(100))  # 物流订单号/快递单号
-    logistics_company = Column(String(50))  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
-    order_number = Column(String(100))  # 订单编号（外部系统订单号，如淘宝订单号）
-    display_order_number = Column(String(100))  # 展示订单编号（系统生成，格式：ORDER-YYYYMMDD-XXX）
-    remarks = Column(String(500))  # 订单备注（用户自定义备注信息）
+    shop_name = Column(String(100), comment="购买店铺名称（如：淘宝店铺、会员购等）")
+    shop_contact = Column(String(200), comment="店铺联系方式（客服、QQ群等）")
+    tracking_number = Column(String(100), comment="物流订单号/快递单号")
+    logistics_company = Column(String(50), comment="物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他")
+    order_number = Column(String(100), comment="订单编号（外部系统订单号，如淘宝订单号）")
+    display_order_number = Column(String(100), comment="展示订单编号（系统生成，格式：ORDER-YYYYMMDD-XXX）")
+    remarks = Column(String(500), comment="订单备注（用户自定义备注信息）")
 
     # 时间戳
-    created_at = Column(DateTime, nullable=True)  # 创建时间（订单创建时间）
-    updated_at = Column(DateTime, nullable=True)  # 更新时间（订单最后修改时间）
+    created_at = Column(DateTime, nullable=True, comment="创建时间（订单创建时间）")
+    updated_at = Column(DateTime, nullable=True, comment="更新时间（订单最后修改时间）")
 
     # 软删除标记
-    is_active = Column(Integer, default=1)  # 是否激活：1=正常，0=已删除
-    deleted_at = Column(DateTime, nullable=True)  # 删除时间（软删除标记）
+    is_active = Column(Integer, default=1, comment="是否激活：1=正常，0=已删除")
+    deleted_at = Column(DateTime, nullable=True, comment="删除时间（软删除标记）")
 
     # 关系
     user = relationship("User")  # 关联用户对象

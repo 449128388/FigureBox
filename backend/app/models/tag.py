@@ -10,8 +10,8 @@ from app.models.database import Base
 figure_tag = Table(
     'figure_tag',
     Base.metadata,
-    Column('figure_id', Integer, ForeignKey('figures.id'), primary_key=True),  # 手办ID（外键关联figures表）
-    Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True)  # 标签ID（外键关联tags表）
+    Column('figure_id', Integer, ForeignKey('figures.id'), primary_key=True, comment='手办ID（外键关联figures表）'),
+    Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True, comment='标签ID（外键关联tags表）')
 )
 
 
@@ -36,10 +36,10 @@ class Tag(Base):
     __tablename__ = "tags"
 
     # 主键
-    id = Column(Integer, primary_key=True, index=True)  # 标签唯一标识ID
+    id = Column(Integer, primary_key=True, index=True, comment="标签唯一标识ID")
     
     # 标签信息
-    name = Column(String(50), unique=True, nullable=False, index=True)  # 标签名称（唯一，如：GSC、火影忍者、预定中）
+    name = Column(String(50), unique=True, nullable=False, index=True, comment="标签名称（唯一，如：GSC、火影忍者、预定中）")
     
     # 关联的手办（多对多关系）
     figures = relationship("Figure", secondary=figure_tag, back_populates="tags")

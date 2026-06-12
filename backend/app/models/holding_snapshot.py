@@ -34,33 +34,33 @@ class HoldingSnapshot(Base):
     __tablename__ = "holding_snapshots"
 
     # 主键
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, comment="快照记录唯一标识ID")
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="关联用户ID")
+    figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, index=True, comment="关联手办ID")
 
     # 快照日期
-    snapshot_date = Column(Date, nullable=False, index=True)
+    snapshot_date = Column(Date, nullable=False, index=True, comment="快照日期")
 
     # 持仓数据
-    quantity = Column(Integer, nullable=False, default=0)  # 当日收盘持仓数量
-    avg_cost = Column(Numeric(12, 2), nullable=False, default=0)  # 加权平均成本（单价）
-    total_cost = Column(Numeric(14, 2), nullable=False, default=0)  # 总成本
+    quantity = Column(Integer, nullable=False, default=0, comment="当日收盘持仓数量")
+    avg_cost = Column(Numeric(12, 2), nullable=False, default=0, comment="加权平均成本（单价）")
+    total_cost = Column(Numeric(14, 2), nullable=False, default=0, comment="总成本")
 
     # 市值数据
-    market_price = Column(Numeric(12, 2), nullable=False, default=0)  # 当日市场价
-    market_value = Column(Numeric(14, 2), nullable=False, default=0)  # 总市值
+    market_price = Column(Numeric(12, 2), nullable=False, default=0, comment="当日市场价")
+    market_value = Column(Numeric(14, 2), nullable=False, default=0, comment="总市值")
 
     # 盈亏数据
-    floating_pnl = Column(Numeric(14, 2), nullable=False, default=0)  # 浮动盈亏
-    floating_pnl_rate = Column(Numeric(8, 4), nullable=False, default=0)  # 浮动盈亏率
+    floating_pnl = Column(Numeric(14, 2), nullable=False, default=0, comment="浮动盈亏")
+    floating_pnl_rate = Column(Numeric(8, 4), nullable=False, default=0, comment="浮动盈亏率")
 
     # 持仓天数
-    days_held = Column(Integer, nullable=False, default=0)  # 累计持仓天数
+    days_held = Column(Integer, nullable=False, default=0, comment="累计持仓天数")
 
     # 时间戳
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="快照生成时间")
 
     # 关系
     user = relationship("User")  # 关联用户对象
@@ -96,26 +96,26 @@ class HoldingSnapshotSummary(Base):
     __tablename__ = "holding_snapshot_summaries"
 
     # 主键
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, comment="汇总记录唯一标识ID")
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="关联用户ID")
 
     # 快照日期
-    snapshot_date = Column(Date, nullable=False, index=True)
+    snapshot_date = Column(Date, nullable=False, index=True, comment="快照日期")
 
     # 汇总数据
-    total_market_value = Column(Numeric(16, 2), nullable=False, default=0)  # 当日总市值
-    total_cost = Column(Numeric(16, 2), nullable=False, default=0)  # 当日总成本
-    total_floating_pnl = Column(Numeric(16, 2), nullable=False, default=0)  # 当日总浮动盈亏
-    total_floating_pnl_rate = Column(Numeric(8, 4), nullable=False, default=0)  # 当日总浮动盈亏率
+    total_market_value = Column(Numeric(16, 2), nullable=False, default=0, comment="当日总市值")
+    total_cost = Column(Numeric(16, 2), nullable=False, default=0, comment="当日总成本")
+    total_floating_pnl = Column(Numeric(16, 2), nullable=False, default=0, comment="当日总浮动盈亏")
+    total_floating_pnl_rate = Column(Numeric(8, 4), nullable=False, default=0, comment="当日总浮动盈亏率")
 
     # 持仓统计
-    holding_count = Column(Integer, nullable=False, default=0)  # 持仓手办种数
-    total_quantity = Column(Integer, nullable=False, default=0)  # 持仓总件数
+    holding_count = Column(Integer, nullable=False, default=0, comment="持仓手办种数")
+    total_quantity = Column(Integer, nullable=False, default=0, comment="持仓总件数")
 
     # 时间戳
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="快照生成时间")
 
     # 关系
     user = relationship("User")  # 关联用户对象
