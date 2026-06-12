@@ -80,32 +80,19 @@ class OrderCrudService:
         # 生成展示订单编号（格式：ORDER-YYYYMMDD-XXX）
         OrderNumberService.update_order_display_number(db, db_order)
 
-        # 创建资产交易记录（库存账）和资金流水记录
-        # 【修复】只记录订单状态为"已完成"的数据，因为"已完成"说明已经拿到货物了
+        # 创建资金流水记录（order_transactions）和/或资产交易记录（asset_transactions）
+        # 根据订单状态决定记录类型：
+        # - "已完成"：同时记录资金流水+资产交易（已拿到货物，有完整资金流动）
+        # - "已支付"：只记录资金流水（有资金流出但未到货）
+        # - "已取消"：只记录资金流水（已支付过定金/尾款，订单已取消）
+        # - "未支付"：不记录任何数据（无资金流动）
         try:
-            if db_order.status == "已完成":
-                # 已完成订单：创建完整的交易记录（库存账和资金账）
-                # 计算订单总金额（考虑币种转换）
-                total_price = FigurePriceService.calculate_order_amount_cny(
-                    deposit=db_order.deposit,
-                    deposit_currency=db_order.deposit_currency,
-                    balance=db_order.balance,
-                    balance_currency=db_order.balance_currency
-                )
+            from app.models.asset import OrderTransaction
+            now = datetime.now()
 
-                # 1. 创建资产交易记录（库存账）- 每个订单创建一条独立的库存记录
-                AssetTransactionService.create_transaction_from_figure(
-                    db=db,
-                    user_id=current_user.id,
-                    figure_id=order_data.figure_id,
-                    price=total_price,
-                    quantity=1,
-                    order_id=db_order.id
-                )
-
-                # 2. 创建定金资金流水记录（独立记录，便于追踪变更）
-                from app.models.asset import OrderTransaction
-                now = datetime.now()
+            if db_order.status in ("已完成", "已支付", "已取消"):
+                # 资金流水记录（资金账）- 所有已产生资金流动的状态都记录
+                # 创建定金资金流水记录（独立记录，便于追踪变更）
                 if db_order.deposit and db_order.deposit > 0:
                     deposit_txn = OrderTransaction(
                         user_id=current_user.id,
@@ -127,7 +114,7 @@ class OrderCrudService:
                     )
                     db.add(deposit_txn)
 
-                # 3. 创建尾款资金流水记录（独立记录，便于追踪变更）
+                # 创建尾款资金流水记录（独立记录，便于追踪变更）
                 if db_order.balance and db_order.balance > 0:
                     balance_txn = OrderTransaction(
                         user_id=current_user.id,
@@ -148,6 +135,24 @@ class OrderCrudService:
                         changed_field="balance"
                     )
                     db.add(balance_txn)
+
+            if db_order.status == "已完成":
+                # 已完成订单：额外创建资产交易记录（库存账）- 代表已入库
+                total_price = FigurePriceService.calculate_order_amount_cny(
+                    deposit=db_order.deposit,
+                    deposit_currency=db_order.deposit_currency,
+                    balance=db_order.balance,
+                    balance_currency=db_order.balance_currency
+                )
+
+                AssetTransactionService.create_transaction_from_figure(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=order_data.figure_id,
+                    price=total_price,
+                    quantity=1,
+                    order_id=db_order.id
+                )
 
                 # 更新手办的平均入手价格
                 FigureService.update_figure_average_purchase_price(db, order_data.figure_id)
@@ -237,6 +242,99 @@ class OrderCrudService:
             )
         except Exception as e:
             print(f"记录资金变更失败: {e}")
+
+        # 创建资金流水记录（order_transactions）和/或资产交易记录（asset_transactions）
+        # 处理编辑时首次创建初始记录的场景（例如从"未支付"改为"已支付"/"已取消"/"已完成"）
+        # 根据订单状态决定记录类型：
+        # - "已完成"：同时记录资金流水+资产交易（已拿到货物，有完整资金流动）
+        # - "已支付"：只记录资金流水（有资金流出但未到货）
+        # - "已取消"：只记录资金流水（已支付过定金/尾款，订单已取消）
+        # - "未支付"：不记录任何数据（无资金流动）
+        try:
+            if db_order.status in ("已完成", "已支付", "已取消"):
+                from app.models.asset import OrderTransaction as OrderTransactionModel
+                # 检查是否已有初始资金流水记录
+                existing_txn = db.query(OrderTransactionModel).filter(
+                    OrderTransactionModel.order_id == db_order.id,
+                    OrderTransactionModel.is_active == True
+                ).first()
+
+                if not existing_txn:
+                    now = datetime.now()
+                    # 创建定金资金流水记录
+                    if db_order.deposit and db_order.deposit > 0:
+                        deposit_txn = OrderTransactionModel(
+                            user_id=current_user.id,
+                            figure_id=db_order.figure_id,
+                            order_id=db_order.id,
+                            transaction_type="deposit",
+                            direction="out",
+                            quantity=1,
+                            unit_price=db_order.deposit,
+                            total_amount=db_order.deposit,
+                            currency=db_order.deposit_currency or "CNY",
+                            platform=db_order.shop_name,
+                            transaction_date=now,
+                            created_at=now,
+                            updated_at=now,
+                            notes=f"订单 #{db_order.id} 定金",
+                            transaction_subtype="initial",
+                            changed_field="deposit"
+                        )
+                        db.add(deposit_txn)
+
+                    # 创建尾款资金流水记录
+                    if db_order.balance and db_order.balance > 0:
+                        balance_txn = OrderTransactionModel(
+                            user_id=current_user.id,
+                            figure_id=db_order.figure_id,
+                            order_id=db_order.id,
+                            transaction_type="balance",
+                            direction="out",
+                            quantity=1,
+                            unit_price=db_order.balance,
+                            total_amount=db_order.balance,
+                            currency=db_order.balance_currency or "CNY",
+                            platform=db_order.shop_name,
+                            transaction_date=now,
+                            created_at=now,
+                            updated_at=now,
+                            notes=f"订单 #{db_order.id} 尾款",
+                            transaction_subtype="initial",
+                            changed_field="balance"
+                        )
+                        db.add(balance_txn)
+
+                    db.commit()
+
+            # 编辑时由"未支付"改为"已完成"：额外创建资产交易记录（库存账）
+            if db_order.status == "已完成":
+                existing_asset = db.query(AssetTransaction).filter(
+                    AssetTransaction.order_id == db_order.id,
+                    AssetTransaction.is_active == True,
+                    AssetTransaction.transaction_type == "buy"
+                ).first()
+
+                if not existing_asset:
+                    total_price = FigurePriceService.calculate_order_amount_cny(
+                        deposit=db_order.deposit,
+                        deposit_currency=db_order.deposit_currency,
+                        balance=db_order.balance,
+                        balance_currency=db_order.balance_currency
+                    )
+
+                    AssetTransactionService.create_transaction_from_figure(
+                        db=db,
+                        user_id=current_user.id,
+                        figure_id=db_order.figure_id,
+                        price=total_price,
+                        quantity=1,
+                        order_id=db_order.id
+                    )
+
+                    db.commit()
+        except Exception as e:
+            print(f"创建初始交易记录失败: {e}")
 
         # 创建库存账调整记录（quantity=0）用于补差额
         try:

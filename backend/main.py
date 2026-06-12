@@ -4,6 +4,7 @@ from fastapi import Request
 from app.api import auth, figures, orders, users, assets, asset_transactions, sold_orders, market, collector, records
 from app.models.database import engine, Base
 from app.utils.jwt import verify_token, create_access_token
+from app.utils.exception_handlers import register_exception_handlers
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import logging
@@ -20,6 +21,9 @@ start_scheduler()
 
 # 增加请求体大小限制到 300MB
 app = FastAPI()
+
+# 注册自定义异常处理器（隐藏 Pydantic 底层错误详情，只返回业务错误信息）
+register_exception_handlers(app)
 
 # 配置 CORS（必须在 TokenRefreshMiddleware 之前添加）
 app.add_middleware(

@@ -49,8 +49,7 @@ class AssetsCommonService:
         )
         
         if user_id is not None:
-            # 注意：Order模型可能没有user_id字段，需要根据实际情况调整
-            pass
+            query = query.filter(Order.user_id == user_id)
         
         return query.all()
 

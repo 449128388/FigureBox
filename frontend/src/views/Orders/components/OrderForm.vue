@@ -102,11 +102,11 @@
             <label>店铺联系方式</label>
             <el-input v-model="newOrder.shop_contact" placeholder="请输入店铺联系方式" style="width: 100%;"></el-input>
           </div>
-          <div class="form-group" v-if="isEditing || newOrder.status === '已支付' || newOrder.status === '已完成'">
+          <div class="form-group" v-if="newOrder.status !== '未支付' && newOrder.status !== '已取消'">
             <label>物流订单</label>
             <el-input v-model="newOrder.tracking_number" placeholder="请输入物流订单号" style="width: 100%;"></el-input>
           </div>
-          <div class="form-group" v-if="isEditing || newOrder.status === '已支付' || newOrder.status === '已完成'">
+          <div class="form-group" v-if="newOrder.status !== '未支付' && newOrder.status !== '已取消'">
             <label>物流公司</label>
             <el-select v-model="newOrder.logistics_company" placeholder="请选择物流公司" style="width: 100%;" clearable>
               <el-option value="顺丰" label="顺丰" />

@@ -121,7 +121,10 @@ async def get_inventory_holdings(
         手办列表，包含id、name、quantity、cost_price、image_url
     """
     # 获取所有手办
-    figures = db.query(Figure).filter(Figure.user_id == current_user.id).all()
+    # Figure 模型没有 user_id 字段，需要通过订单关联获取用户的手办
+    valid_orders = AssetsCommonService.get_valid_orders(db, current_user.id)
+    figure_ids = AssetsCommonService.get_figure_ids_with_valid_orders(valid_orders)
+    figures = db.query(Figure).filter(Figure.id.in_(figure_ids)).all() if figure_ids else []
 
     result = []
     for figure in figures:

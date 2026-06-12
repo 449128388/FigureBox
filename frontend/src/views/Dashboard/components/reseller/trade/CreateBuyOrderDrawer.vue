@@ -256,11 +256,13 @@ const formRules = {
 
 // 搜索手办
 const searchFigures = async (query) => {
-  if (query.length < 1) return
   figureLoading.value = true
   try {
     const response = await axios.get('/figures/search', {
-      params: { keyword: query }
+      params: { 
+        keyword: query,
+        filter_by_order_limit: true  // 只显示订单数量不超过库存的手办
+      }
     })
     figureOptions.value = response || []
   } catch (error) {

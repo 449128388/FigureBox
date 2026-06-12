@@ -12,6 +12,7 @@ from app.models.sold_order import SoldOrder
 from app.models.user import User
 from app.schemas.sold_order import SoldOrderCreate, SoldOrderUpdate
 from .currency_service import CurrencyService
+from .sold_order_number_service import SoldOrderNumberService
 from app.services.sold_order_service.sold_order_transaction_service import SoldOrderTransactionService
 from app.services.sold_order_service.sold_order_inventory_service import SoldOrderInventoryService
 from app.services.sold_order_service.sold_order_figure_service import SoldOrderFigureService
@@ -137,6 +138,7 @@ class SoldOrderCrudService:
             )
 
             # 1. 创建已出售订单记录
+            now = datetime.now()
             new_order = SoldOrder(
                 user_id=current_user.id,
                 figure_id=order_data.figure_id,
@@ -159,14 +161,16 @@ class SoldOrderCrudService:
                 logistics_company=order_data.logistics_company,
                 shipping_date=order_data.shipping_date,
                 status=order_data.status or "待发货",
-                remark=order_data.remark
+                remark=order_data.remark,
+                created_at=now,
+                updated_at=now
             )
 
             db.add(new_order)
             db.flush()  # 获取订单ID，但不提交
 
-            # 设置 updated_at 等于 created_at
-            new_order.updated_at = new_order.created_at
+            # 生成展示订单编号
+            SoldOrderNumberService.update_display_number(db, new_order)
 
             # 2. 尾款管理：创建卖出订单主记录和资金流水（3笔）
             SoldOrderTransactionService.create_all_sold_order_transactions(

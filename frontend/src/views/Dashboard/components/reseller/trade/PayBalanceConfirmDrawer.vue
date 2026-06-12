@@ -143,7 +143,7 @@ import { ElMessage } from 'element-plus'
 import axios from '@/axios'
 
 const props = defineProps({
-  visible: {
+  modelValue: {
     type: Boolean,
     default: false
   },
@@ -153,12 +153,12 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:visible', 'success', 'close'])
+const emit = defineEmits(['update:modelValue', 'success', 'close'])
 
 // 抽屉可见性
 const drawerVisible = computed({
-  get: () => props.visible,
-  set: (val) => emit('update:visible', val)
+  get: () => props.modelValue,
+  set: (val) => emit('update:modelValue', val)
 })
 
 // 订单数据

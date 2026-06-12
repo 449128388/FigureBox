@@ -59,12 +59,13 @@
                 filterable
                 placeholder="请选择库存手办"
                 style="width: 100%"
+                popper-class="inventory-figure-dropdown"
                 @change="handleFigureChange"
               >
                 <el-option
                   v-for="item in inventoryOptions"
                   :key="item.id"
-                  :label="item.name"
+                  :label="`${item.name} (库存: ${item.quantity}体)`"
                   :value="item.id"
                 >
                   <div class="figure-option">
@@ -80,7 +81,6 @@
                     <div class="figure-info">
                       <div class="figure-name">{{ item.name }}</div>
                       <div class="figure-stock">库存: {{ item.quantity }}体</div>
-                      <div class="figure-cost">成本价: ¥{{ formatPrice(item.cost_price) }}/体</div>
                     </div>
                   </div>
                 </el-option>
@@ -117,18 +117,19 @@
                 style="width: 100%"
                 @change="handlePlatformChange"
               >
+                <el-option label="闲鱼（个人卖家）" value="闲鱼（个人卖家）" />
                 <el-option label="闲鱼（鱼小铺）" value="闲鱼（鱼小铺）" />
-                <el-option label="闲鱼（普通）" value="闲鱼（普通）" />
-                <el-option label="B站会员购" value="B站会员购" />
                 <el-option label="淘宝" value="淘宝" />
-                <el-option label="京东" value="京东" />
-                <el-option label="微信" value="微信" />
+                <el-option label="转转" value="转转" />
+                <el-option label="微信群" value="微信群" />
+                <el-option label="QQ群" value="QQ群" />
+                <el-option label="快速卖出" value="快速卖出" />
                 <el-option label="其他" value="其他" />
               </el-select>
             </el-form-item>
 
             <el-form-item label="卖出单价" prop="sellPrice">
-              <el-input v-model="formData.sellPrice" placeholder="0.00" @input="calculateProfit">
+              <el-input v-model="formData.sellPrice" placeholder="0.00" @input="handlePriceChange">
                 <template #prefix>¥</template>
               </el-input>
             </el-form-item>
@@ -287,34 +288,62 @@ const fetchInventory = async () => {
 // 处理手办选择变化
 const handleFigureChange = (figureId) => {
   formData.quantity = 1
-  calculateProfit()
+  // 选择手办后重新计算手续费（使用当前选中的平台）
+  handlePlatformChange(formData.sellPlatform)
+}
+
+// 处理价格变化（重新计算手续费）
+const handlePriceChange = () => {
+  // 修改卖出单价后重新计算手续费（使用当前选中的平台）
+  handlePlatformChange(formData.sellPlatform)
 }
 
 // 处理平台变化（自动计算手续费）
 const handlePlatformChange = async (platform) => {
-  if (!formData.sellPrice || !formData.quantity) return
-
-  // 根据平台类型计算手续费
-  const totalSellPrice = parseFloat(formData.sellPrice || 0) * formData.quantity
-  let feeRate = 0
+  const sellPrice = parseFloat(formData.sellPrice || 0)
+  if (!platform || !formData.quantity || sellPrice <= 0) {
+    formData.platformFee = '0'
+    calculateProfit()
+    return
+  }
 
   if (platform === '闲鱼（鱼小铺）') {
-    // 获取当月闲鱼订单统计
+    // 鱼小铺固定费率 1.6%，上不封顶
+    const fee = sellPrice * formData.quantity * 0.016
+    formData.platformFee = fee.toFixed(2)
+    calculateProfit()
+    return
+  }
+
+  if (platform === '闲鱼（个人卖家）') {
+    // 个人卖家：基础费率 0.6%，单笔最高 60 元封顶
+    // 当月订单>10笔且成交额>1万元后，超出部分加收 1%
+    const totalSellPrice = sellPrice * formData.quantity
+    const baseRate = 0.006
+    const baseFee = totalSellPrice * baseRate
+    let totalFee = Math.min(baseFee, 60)
+
     try {
       const stats = await axios.get('/sold_orders/xianyu-monthly-stats/')
-      const totalAmount = stats.total_amount || 0
-      // 当月成交额超过10000元，按1%收取；否则按0.6%收取
-      feeRate = totalAmount + totalSellPrice > 10000 ? 0.01 : 0.006
-    } catch (error) {
-      // 默认按0.6%计算
-      feeRate = 0.006
-    }
-  } else if (platform === '闲鱼（普通）') {
-    feeRate = 0.006 // 普通闲鱼固定0.6%
-  }
-  // 其他平台暂不支持自动计算手续费
+      const monthlyOrderCount = stats.order_count || 0
+      const monthlyAmount = stats.total_amount || 0
+      const exceedsThreshold = monthlyOrderCount > 10 && monthlyAmount > 10000
 
-  formData.platformFee = (totalSellPrice * feeRate).toFixed(2)
+      if (exceedsThreshold) {
+        const extraRate = 0.01
+        totalFee = totalSellPrice * (baseRate + extraRate)
+      }
+    } catch (error) {
+      // 获取统计失败，使用基础费率（已封顶60元）
+    }
+
+    formData.platformFee = (Math.round(totalFee * 100) / 100).toFixed(2)
+    calculateProfit()
+    return
+  }
+
+  // 其他平台：手续费为0
+  formData.platformFee = '0'
   calculateProfit()
 }
 
@@ -388,7 +417,7 @@ const handleSubmit = async () => {
       remarks: formData.remarks
     }
 
-    await axios.post('/sold_orders/create-from-inventory', payload)
+    await axios.post('/sold-orders/create-from-inventory', payload)
     ElMessage.success('卖出订单创建成功')
     emit('success')
     handleClose()
@@ -489,7 +518,24 @@ watch(() => formData.quantity, calculateProfit)
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 0;
+  padding: 12px 8px;
+  min-height: 64px;
+  box-sizing: border-box;
+}
+
+/* 只针对标记转卖-选择库存手办的下拉菜单 */
+:global(.inventory-figure-dropdown .el-select-dropdown__item) {
+  display: flex;
+  align-items: center;
+  min-height: 80px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+:global(.inventory-figure-dropdown .el-select-dropdown__item span) {
+  display: flex;
+  align-items: center;
+  width: 100%;
 }
 
 .figure-thumb {
@@ -571,11 +617,11 @@ watch(() => formData.quantity, calculateProfit)
 }
 
 .result-value.profit.positive {
-  color: #67c23a;
+  color: #f56c6c;
 }
 
 .result-value.profit.negative {
-  color: #f56c6c;
+  color: #67c23a;
 }
 
 .empty-option {

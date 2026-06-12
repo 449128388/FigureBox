@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.models.asset import OrderTransaction
 from app.models.sold_order import SoldOrder
+from app.models.order import Order
 from app.models.figure import Figure
 
 
@@ -105,18 +106,43 @@ class BillExportService:
                 figure = db.query(Figure).filter(Figure.id == ot.figure_id).first()
 
             transaction_type_map = {
-                "BUY": "买入",
-                "SELL": "卖出",
-                "REFUND": "退款",
-                "DEPOSIT": "定金",
-                "FINAL": "尾款",
-                "FEE": "手续费"
+                "buy": "买入",
+                "sell": "卖出",
+                "refund": "退款",
+                "deposit": "定金",
+                "balance": "尾款",
+                "fee": "手续费",
+                "cancel": "已取消"
             }
+
+            # 获取订单编号：优先使用 display_order_number，其次使用 order_id/sold_order_id
+            order_id = ""
+            if ot.order_id:
+                order = db.query(Order).filter(Order.id == ot.order_id).first()
+                if order and order.display_order_number:
+                    order_id = order.display_order_number
+                else:
+                    order_id = f"ORD-{ot.order_id:06d}"
+            elif ot.sold_order_id:
+                sold_order = db.query(SoldOrder).filter(SoldOrder.id == ot.sold_order_id).first()
+                if sold_order and sold_order.display_order_number:
+                    order_id = sold_order.display_order_number
+                else:
+                    order_id = f"SLD-{ot.sold_order_id:06d}"
+
+            # 获取成本价和盈亏：对于 sell/fee 类型，从关联的 SoldOrder 获取
+            cost_price = None
+            profit = None
+            if ot.sold_order_id:
+                sold_order = db.query(SoldOrder).filter(SoldOrder.id == ot.sold_order_id).first()
+                if sold_order:
+                    cost_price = sold_order.cost_price
+                    profit = sold_order.net_profit
 
             records.append({
                 "transaction_date": ot.transaction_date,
                 "transaction_type": transaction_type_map.get(ot.transaction_type, ot.transaction_type),
-                "order_id": f"ORD-{ot.order_id:06d}" if ot.order_id else "",
+                "order_id": order_id,
                 "figure_name": figure.name if figure else "",
                 "manufacturer": figure.manufacturer if figure else "",
                 "original_art": figure.original_art if figure else "",
@@ -124,8 +150,8 @@ class BillExportService:
                 "quantity": ot.quantity or 1,
                 "unit_price": ot.unit_price,
                 "total_amount": ot.total_amount,
-                "cost_price": None,
-                "profit": None,
+                "cost_price": cost_price,
+                "profit": profit,
                 "platform": ot.platform or "",
                 "notes": ot.notes or ""
             })
@@ -154,7 +180,7 @@ class BillExportService:
             records.append({
                 "transaction_date": so.created_at,
                 "transaction_type": "卖出",
-                "order_id": f"SLD-{so.id:06d}",
+                "order_id": so.display_order_number or f"SLD-{so.id:06d}",
                 "figure_name": figure.name if figure else "",
                 "manufacturer": figure.manufacturer if figure else "",
                 "original_art": figure.original_art if figure else "",
@@ -192,7 +218,7 @@ class BillExportService:
             "数量",
             "单价",
             "成交金额",
-            "成本价（卖出时）",
+            "成本价",
             "盈亏（卖出时）",
             "卖出平台",
             "备注"

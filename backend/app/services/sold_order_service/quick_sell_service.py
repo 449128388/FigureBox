@@ -6,12 +6,12 @@
 """
 from typing import Dict, Any
 from sqlalchemy.orm import Session
-from datetime import datetime
 
 from app.models.sold_order import SoldOrder
 from app.models.user import User
 from app.schemas.sold_order import SoldOrderCreate
-from .sold_order_crud_service import SoldOrderCrudService
+from app.services.sold_order_service.sold_order_crud_service import SoldOrderCrudService
+from app.services.sold_order_service.sold_order_number_service import SoldOrderNumberService
 
 
 class QuickSellService:
@@ -31,17 +31,6 @@ class QuickSellService:
 
     所有操作在事务中执行，确保数据一致性
     """
-
-    @staticmethod
-    def _generate_order_number() -> str:
-        """
-        生成快速卖出订单编号
-        格式：QS + 年月日时分秒 + 3位随机数
-        """
-        from random import randint
-        now = datetime.now()
-        random_suffix = randint(100, 999)
-        return f"QS{now.strftime('%Y%m%d%H%M%S')}{random_suffix}"
 
     @staticmethod
     def create_quick_sell_order(
@@ -97,7 +86,7 @@ class QuickSellService:
             shipping_fee_currency='CNY',
             platform_fee_currency='CNY',
             sell_platform='快速卖出',  # 默认平台
-            order_number=QuickSellService._generate_order_number(),
+            order_number=SoldOrderNumberService.generate_order_number(),
             buyer_phone='13800000000',  # 占位符，后续可在订单详情中修改
             buyer_address=None,
             tracking_number=None,

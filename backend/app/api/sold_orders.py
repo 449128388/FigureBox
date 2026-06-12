@@ -10,8 +10,10 @@ from app.models.user import User
 from app.services.sold_order_service import SoldOrderService
 from app.services.sold_order_service.sold_order_crud_service import SoldOrderCrudService
 from app.services.sold_order_service.quick_sell_service import QuickSellService
+from app.services.sold_order_service.sold_order_number_service import SoldOrderNumberService
 from app.services.dashboard_service.assets_service.holding_position_service import HoldingPositionService
 from pydantic import BaseModel, field_validator
+import re
 
 router = APIRouter()
 
@@ -70,6 +72,16 @@ class CreateFromInventoryRequest(BaseModel):
     def validate_sell_price(cls, v):
         if v <= 0:
             raise ValueError('卖出价格必须大于0')
+        return v
+
+    @field_validator('buyer_phone')
+    @classmethod
+    def validate_buyer_phone(cls, v):
+        if v == '' or v is None:
+            raise ValueError('请输入买家手机号')
+        pattern = r'^(1[3-9]\d{9})$'
+        if not re.match(pattern, v):
+            raise ValueError('手机号格式不正确，请输入11位有效手机号')
         return v
 
 
@@ -344,12 +356,7 @@ def create_sell_order_from_inventory(
             )
 
         # 2. 构建订单数据
-        from datetime import datetime
-        from random import randint
-
-        now = datetime.now()
-        random_suffix = randint(100, 999)
-        order_number = f"SELL{now.strftime('%Y%m%d%H%M%S')}{random_suffix}"
+        order_number = SoldOrderNumberService.generate_order_number()
 
         total_sell_price = request.sell_price * request.quantity
         total_cost_price = request.cost_price * request.quantity

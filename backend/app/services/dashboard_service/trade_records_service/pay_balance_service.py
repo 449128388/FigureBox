@@ -33,9 +33,9 @@ class PayBalanceService:
         获取待补款订单列表
 
         过滤条件：
-        - 订单状态为"已支付"（已付定金，待付尾款）
+        - 订单状态为"未支付"（待付尾款）
         - 尾款金额 > 0
-        - 尾款到期日 <= 今天 + 7天
+        - 展示全部需要支付尾款的数据，不限制时间范围
 
         排序规则：
         - 逾期订单置顶（标红）
@@ -48,17 +48,14 @@ class PayBalanceService:
         Returns:
             List[Dict]: 待补款订单列表
         """
-        # 计算截止日期（今天 + 7天）
         today = date.today()
-        deadline = today + timedelta(days=7)
 
         # 查询待补款订单
         orders = db.query(Order).filter(
             Order.user_id == user_id,
             Order.is_active == 1,
-            Order.status == '已支付',  # 已付定金，待付尾款
-            Order.balance > 0,  # 有尾款需要支付
-            Order.due_date <= deadline  # 到期日在7天内
+            Order.status == '未支付',  # 待支付尾款
+            Order.balance > 0  # 有尾款需要支付
         ).order_by(Order.due_date.asc()).all()
 
         result = []
@@ -109,7 +106,7 @@ class PayBalanceService:
         支付尾款
 
         业务流程：
-        1. 验证订单状态（必须为"已支付"）
+        1. 验证订单状态（必须为"未支付"）
         2. 创建尾款交易记录
         3. 更新订单状态为"已完成"
         4. 创建资产交易记录（入库）
@@ -138,7 +135,7 @@ class PayBalanceService:
             if not order:
                 return {"success": False, "error": "订单不存在"}
 
-            if order.status != "已支付":
+            if order.status != "未支付":
                 return {"success": False, "error": f"订单状态为{order.status}，无法支付尾款"}
 
             if order.balance <= 0:

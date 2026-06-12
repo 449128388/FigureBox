@@ -167,18 +167,21 @@ class FigureQueryService:
         purchase_date_end: Optional[str] = None,
         tag_id: Optional[int] = None,
         tag_ids: Optional[List[int]] = None,
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
+        filter_by_order_limit: bool = False  # 新增：是否按订单数量限制过滤
     ) -> List[FigureListItem]:
         """
         获取手办列表（使用精简响应模型）
 
         Args:
             user_id: 用户ID（可选，用于获取真实库存数量）
+            filter_by_order_limit: 是否过滤订单数量超过库存的手办
 
         Returns:
             List[FigureListItem]: 手办列表项
         """
         from app.models.order import Order
+        from sqlalchemy import func
 
         query = FigureQueryService.build_figure_list_query(
             db, name, purchase_type, purchase_date_start,
@@ -187,6 +190,27 @@ class FigureQueryService:
 
         if query is None:
             return []
+
+        # 如果需要按订单数量限制过滤（买入新增预定场景）
+        # 只显示：未软删除订单数量 <= 手办 quantity 的手办
+        if filter_by_order_limit and user_id:
+            # 子查询：统计每个手办的未软删除订单数量
+            order_count_subquery = db.query(
+                Order.figure_id,
+                func.count(Order.id).label('order_count')
+            ).filter(
+                Order.is_active == 1,
+                Order.user_id == user_id
+            ).group_by(Order.figure_id).subquery()
+
+            # 只保留订单数量 <= quantity 的手办
+            query = query.outerjoin(
+                order_count_subquery,
+                Figure.id == order_count_subquery.c.figure_id
+            ).filter(
+                (order_count_subquery.c.order_count == None) |  # 没有订单
+                (order_count_subquery.c.order_count <= Figure.quantity)  # 订单数量 <= 库存
+            )
 
         # 预加载订单数据
         query = query.options(selectinload(Figure.orders))

@@ -132,18 +132,18 @@ import { ElMessage } from 'element-plus'
 import axios from '@/axios'
 
 const props = defineProps({
-  visible: {
+  modelValue: {
     type: Boolean,
     default: false
   }
 })
 
-const emit = defineEmits(['update:visible', 'select-order', 'close'])
+const emit = defineEmits(['update:modelValue', 'select-order', 'close'])
 
 // 弹窗可见性
 const dialogVisible = computed({
-  get: () => props.visible,
-  set: (val) => emit('update:visible', val)
+  get: () => props.modelValue,
+  set: (val) => emit('update:modelValue', val)
 })
 
 // 加载状态
@@ -185,7 +185,7 @@ const handleClose = () => {
 }
 
 // 监听弹窗显示，加载数据
-watch(() => props.visible, (newVal) => {
+watch(() => props.modelValue, (newVal) => {
   if (newVal) {
     fetchPendingOrders()
   }

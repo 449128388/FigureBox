@@ -80,6 +80,8 @@ class IndexService:
             return True
         if cache.request_count >= cls.DAILY_REQUEST_LIMIT:
             return False
+        if cache.updated_at is None:
+            return True
         return (datetime.now() - cache.updated_at).total_seconds() > cls.CACHE_DURATION_HOURS * 3600
     
     @classmethod
@@ -112,7 +114,8 @@ class IndexService:
             db.add(StockIndexCache(
                 index_code=data["index_code"], index_name=data["index_name"],
                 current_value=data["current_value"], change_value=data["change_value"],
-                change_percentage=data["change_percentage"], request_count=1, request_date=today
+                change_percentage=data["change_percentage"], updated_at=now,
+                request_count=1, request_date=today
             ))
         db.commit()
     

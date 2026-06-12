@@ -57,7 +57,7 @@
       <!-- 撤单·取消订单 -->
       <div
         class="action-card action-cancel"
-        @click="$emit('open-cancel-dialog')"
+        @click="handleCancelClick"
       >
         <div class="action-icon">
           <el-icon><Delete /></el-icon>
@@ -71,8 +71,13 @@
 
 <script setup>
 import { Plus, PriceTag, Money, Delete } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
-defineEmits(['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog', 'open-cancel-dialog'])
+defineEmits(['open-buy-dialog', 'open-sell-dialog', 'open-payment-dialog'])
+
+const handleCancelClick = () => {
+  ElMessage.info('功能正在开发中')
+}
 </script>
 
 <style scoped>

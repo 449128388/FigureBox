@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
 from app.models.database import Base
+from datetime import datetime
 
 class SoldOrder(Base):
     """
@@ -51,6 +52,7 @@ class SoldOrder(Base):
     # 卖出平台信息
     sell_platform = Column(String(50), comment="卖出平台：闲鱼、淘宝、转转等")
     order_number = Column(String(100), comment="订单编号（平台订单号）")
+    display_order_number = Column(String(100), comment="展示订单编号（系统生成，格式：SALE-YYYYMMDD-XXX）")
     buyer_phone = Column(String(20), comment="买家手机号（脱敏显示）")
     buyer_address = Column(String(500), comment="买家地址")
     tracking_number = Column(String(100), comment="快递单号")
@@ -66,8 +68,8 @@ class SoldOrder(Base):
     # 软删除标记
     is_active = Column(Integer, default=1, comment="是否激活：1=正常，0=已删除")
     deleted_at = Column(DateTime, nullable=True, comment="删除时间（软删除标记）")
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="创建时间")
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="更新时间")
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now(), comment="创建时间")
+    updated_at = Column(DateTime(timezone=True), default=datetime.now, onupdate=func.now(), comment="更新时间")
 
     # 关系
     user = relationship("User")  # 关联用户对象

@@ -19,6 +19,7 @@ from app.services.order_service.order_number_service import OrderNumberService
 from app.services.sold_order_service.sold_order_transaction_service import SoldOrderTransactionService
 from app.services.sold_order_service.sold_order_inventory_service import SoldOrderInventoryService
 from app.services.sold_order_service.sold_order_figure_service import SoldOrderFigureService
+from app.services.sold_order_service.sold_order_number_service import SoldOrderNumberService
 
 
 class FigureImportService:
@@ -291,6 +292,9 @@ class FigureImportService:
 
             # 设置 updated_at 等于 created_at（与创建时保持一致）
             sold_order.updated_at = sold_order.created_at
+
+            # 生成展示订单编号
+            SoldOrderNumberService.update_display_number(db, sold_order)
 
             # 创建卖出订单相关记录
             # 只处理非"退款/纠纷"状态的订单

@@ -34,6 +34,7 @@
  */
 
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 
 export function useQuickActions() {
   // 买入对话框可见性
@@ -42,8 +43,6 @@ export function useQuickActions() {
   const sellDialogVisible = ref(false)
   // 补款对话框可见性（原逻辑，保留兼容）
   const paymentDialogVisible = ref(false)
-  // 撤单对话框可见性
-  const cancelDialogVisible = ref(false)
 
   // 补款订单列表弹窗可见性
   const payBalanceOrderListVisible = ref(false)
@@ -95,20 +94,6 @@ export function useQuickActions() {
   }
 
   /**
-   * 打开撤单对话框
-   */
-  const openCancelDialog = () => {
-    cancelDialogVisible.value = true
-  }
-
-  /**
-   * 关闭撤单对话框
-   */
-  const closeCancelDialog = () => {
-    cancelDialogVisible.value = false
-  }
-
-  /**
    * 打开补款订单列表弹窗
    */
   const openPayBalanceOrderList = () => {
@@ -152,7 +137,6 @@ export function useQuickActions() {
     buyDialogVisible.value = false
     sellDialogVisible.value = false
     paymentDialogVisible.value = false
-    cancelDialogVisible.value = false
     payBalanceOrderListVisible.value = false
     payBalanceConfirmVisible.value = false
     selectedPayBalanceOrder.value = null
@@ -163,7 +147,6 @@ export function useQuickActions() {
     buyDialogVisible,
     sellDialogVisible,
     paymentDialogVisible,
-    cancelDialogVisible,
     payBalanceOrderListVisible,
     payBalanceConfirmVisible,
     selectedPayBalanceOrder,
@@ -174,8 +157,6 @@ export function useQuickActions() {
     closeSellDialog,
     openPaymentDialog,
     closePaymentDialog,
-    openCancelDialog,
-    closeCancelDialog,
     openPayBalanceOrderList,
     closePayBalanceOrderList,
     openPayBalanceConfirm,

@@ -70,18 +70,25 @@ def get_figures_with_stock(
 def search_figures(
     keyword: str = Query(None, description="搜索关键词"),
     limit: int = Query(20, description="返回数量限制"),
+    filter_by_order_limit: bool = Query(False, description="是否过滤订单数量超过库存的手办（买入新增预定场景）"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     搜索手办（用于交易流水筛选中的手办选择）
     根据关键词模糊匹配手办名称
+    
+    Args:
+        filter_by_order_limit: 当为true时，只显示未软删除订单数量 <= 手办quantity的手办
+                              用于买入新增预定场景，避免重复购买超过持有数量的手办
     """
     return FigureService.get_figures_list(
         db=db,
         skip=0,
         limit=limit,
-        name=keyword
+        name=keyword,
+        user_id=current_user.id,
+        filter_by_order_limit=filter_by_order_limit
     )
 
 

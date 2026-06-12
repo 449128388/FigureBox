@@ -3,7 +3,7 @@
 提供日涨跌计算、历史回溯、快照管理等功能
 采用企业级服务层架构
 """
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -275,7 +275,8 @@ class DailyChangeService:
             snapshot_date=snapshot_date,
             total_asset=total_asset,
             total_cost=total_cost,
-            hpi_index=hpi_index
+            hpi_index=hpi_index,
+            created_at=datetime.now()
         )
         db.add(snapshot)
         db.commit()
