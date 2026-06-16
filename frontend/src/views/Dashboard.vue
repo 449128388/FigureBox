@@ -20,19 +20,29 @@
 <template>
   <div class="orders-container">
     <div class="header">
-      <h2>资产看板</h2>
-      <div class="header-actions">
-        <div class="action-buttons">
-          <el-button 
-            :type="currentMode === 'reseller' ? 'success' : 'info'"
-            @click="toggleMode"
+      <div class="header-left">
+        <h2>资产看板</h2>
+        <div class="mode-toggle">
+          <button 
+            class="mode-btn" 
+            :class="{ active: currentMode === 'collector' }"
+            @click="setMode('collector')"
           >
-            {{ currentMode === 'reseller' ? '收藏家模式' : '倒狗模式' }}
-          </el-button>
+            🏛️ 收藏家模式
+          </button>
+          <button 
+            class="mode-btn" 
+            :class="{ active: currentMode === 'reseller' }"
+            @click="setMode('reseller')"
+          >
+            📈 倒狗模式
+          </button>
         </div>
+      </div>
+      <div class="header-actions">
         <div class="user-info">
-          <span v-if="userStore.isAuthenticated">当前用户：</span>
-          <span v-if="userStore.isAuthenticated" class="username" @click="$router.push('/profile')" style="cursor: pointer; color: #2196F3; text-decoration: underline;">{{ userStore.currentUser?.username }}</span>
+          <span v-if="userStore.isAuthenticated">当前用户: </span>
+          <span v-if="userStore.isAuthenticated" class="username" @click="$router.push('/profile')" style="cursor: pointer; color: #666;">{{ userStore.currentUser?.username }}</span>
           <button v-if="userStore.isAuthenticated" class="btn btn-logout" @click="logout">退出</button>
         </div>
       </div>
@@ -536,11 +546,13 @@ export default {
       await fetchTradeData()
     }
     
-    // 切换模式
-    const toggleMode = () => {
-      currentMode.value = currentMode.value === 'reseller' ? 'collector' : 'reseller'
-      if (currentMode.value === 'collector') {
+    // 设置模式
+    const setMode = (mode) => {
+      currentMode.value = mode
+      if (mode === 'collector') {
         fetchCollectorData()
+      } else if (mode === 'reseller') {
+        fetchDashboardData()
       }
     }
     
@@ -695,7 +707,7 @@ export default {
       refreshTradeData,
       openAlertSettings,
       createAlert,
-      toggleMode,
+      setMode,
       showAnnualLimitDialog,
       saveAnnualLimit,
       exportBill,
@@ -755,11 +767,47 @@ export default {
   border-bottom: 2px solid #e0e0e0;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .header h2 {
   margin: 0;
   color: #333;
   font-size: 24px;
   font-weight: 600;
+}
+
+/* 模式切换按钮 */
+.mode-toggle {
+  display: inline-flex;
+  background: #f5f5f5;
+  border-radius: 20px;
+  padding: 3px;
+  border: 1px solid #e0e0e0;
+}
+
+.mode-btn {
+  padding: 5px 14px;
+  border-radius: 17px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #666;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mode-btn.active {
+  background: #C49A6C;
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(196, 154, 108, 0.3);
 }
 
 .header-actions {
@@ -787,11 +835,9 @@ export default {
 .user-info {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px 15px;
-  background-color: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  gap: 12px;
+  font-size: 13px;
+  color: #999;
 }
 
 .username {
@@ -816,14 +862,19 @@ export default {
 }
 
 .btn-logout {
-  background-color: #f44336;
-  color: white;
-  padding: 8px 16px;
-  font-size: 14px;
+  background-color: #fff;
+  color: #666;
+  padding: 5px 14px;
+  font-size: 13px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .btn-logout:hover {
-  background-color: #da190b;
+  border-color: #f44336;
+  color: #f44336;
 }
 
 /* 倒狗模式操作栏 */

@@ -1,9 +1,9 @@
 <template>
   <el-dialog
+    v-model="dialogVisible"
     title="确认删除"
-    :visible="show"
     width="400px"
-    :before-close="handleClose"
+    @close="handleClose"
   >
     <div v-if="order" class="delete-content">
       <p class="delete-warning">确定要删除这条已出售订单吗？</p>
@@ -16,13 +16,15 @@
     </div>
 
     <template #footer>
-      <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button type="danger" @click="$emit('confirm')">确认删除</el-button>
+      <el-button @click="handleCancel">取消</el-button>
+      <el-button type="danger" @click="handleConfirm">确认删除</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script>
+import { computed } from 'vue'
+
 export default {
   name: 'SoldOrderDeleteConfirmDialog',
   props: {
@@ -35,7 +37,27 @@ export default {
       default: null
     }
   },
-  emits: ['confirm', 'cancel'],
+  emits: ['confirm', 'cancel', 'update:show'],
+  setup(props, { emit }) {
+    const dialogVisible = computed({
+      get: () => props.show,
+      set: (val) => emit('update:show', val)
+    })
+
+    const handleCancel = () => {
+      emit('cancel')
+    }
+
+    const handleConfirm = () => {
+      emit('confirm')
+    }
+
+    return {
+      dialogVisible,
+      handleCancel,
+      handleConfirm
+    }
+  },
   methods: {
     formatNumber(num) {
       return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

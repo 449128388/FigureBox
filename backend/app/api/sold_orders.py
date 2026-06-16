@@ -14,6 +14,7 @@ from app.services.sold_order_service.sold_order_number_service import SoldOrderN
 from app.services.dashboard_service.assets_service.holding_position_service import HoldingPositionService
 from pydantic import BaseModel, field_validator
 import re
+from datetime import datetime
 
 router = APIRouter()
 
@@ -378,7 +379,7 @@ def create_sell_order_from_inventory(
             buyer_address=request.buyer_address,
             remarks=request.remarks,
             status='已完成',
-            sell_date=now.date()
+            sell_date=datetime.now().date()
         )
 
         # 3. 创建卖出订单（内部自动处理：交易记录、库存扣减、手办状态更新）

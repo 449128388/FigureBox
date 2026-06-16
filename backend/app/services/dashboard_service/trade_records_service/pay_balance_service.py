@@ -162,18 +162,50 @@ class PayBalanceService:
             if payment_amount > order.balance:
                 return {"success": False, "error": f"支付金额不能超过尾款金额{order.balance}"}
 
-            # 1. 创建尾款交易记录
+            # 1. 创建交易记录：定金记录 + 尾款记录
+            # 计算订单总金额（定金 + 尾款）
+            total_order_amount = (order.deposit or 0) + (order.balance or 0)
+            
+            # 1.1 创建定金交易记录（如果有定金）
+            if order.deposit and order.deposit > 0:
+                deposit_tx = OrderTransaction(
+                    user_id=user_id,
+                    figure_id=order.figure_id,
+                    order_id=order.id,
+                    transaction_type='buy',
+                    total_amount=order.deposit,
+                    unit_price=total_order_amount,
+                    currency=order.deposit_currency or 'CNY',
+                    direction='out',
+                    payment_method=payment_method,
+                    transaction_date=order.created_at or datetime.now(),
+                    transaction_subtype='initial',
+                    notes=f'订单 #{order.id} 定金',
+                    changed_field='deposit',
+                    is_active=True,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.add(deposit_tx)
+            
+            # 1.2 创建尾款交易记录
             balance_tx = OrderTransaction(
                 user_id=user_id,
+                figure_id=order.figure_id,
                 order_id=order.id,
-                transaction_type='balance',
-                total_amount=payment_amount,
+                transaction_type='buy',
+                total_amount=order.balance,
+                unit_price=total_order_amount,
                 currency=order.balance_currency or 'CNY',
                 direction='out',
                 payment_method=payment_method,
                 transaction_date=payment_date,
+                transaction_subtype='initial',
+                notes=f'订单 #{order.id} 尾款',
+                changed_field='balance',
                 is_active=True,
-                created_at=datetime.now()
+                created_at=datetime.now(),
+                updated_at=datetime.now()
             )
             db.add(balance_tx)
 
@@ -181,19 +213,13 @@ class PayBalanceService:
             order.status = '已完成'
             order.updated_at = datetime.now()
 
-            # 如果部分支付，更新尾款金额
-            if payment_amount < order.balance:
-                order.balance = order.balance - payment_amount
-            else:
-                order.balance = 0
-
             # 3. 创建资产交易记录（入库）
             try:
                 # 计算订单总金额
                 total_price = FigurePriceService.calculate_order_amount_cny(
                     deposit=order.deposit,
                     deposit_currency=order.deposit_currency,
-                    balance=order.balance + payment_amount,  # 加上本次支付的尾款
+                    balance=order.balance,  # 使用原始尾款金额计算
                     balance_currency=order.balance_currency
                 )
 

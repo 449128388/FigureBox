@@ -46,7 +46,7 @@
           <div class="info-row">
             <span class="info-label">尾款金额</span>
             <span class="info-value highlight">
-              ¥{{ orderData?.balance || 0 }}
+              {{ orderData?.balance || 0 }} {{ getCurrencySymbol(orderData?.balance_currency) }}
             </span>
           </div>
           <div v-if="orderData?.is_overdue" class="info-row">
@@ -70,11 +70,11 @@
               placeholder="请输入支付金额"
               :disabled="isFullPayment"
             >
-              <template #prefix>¥</template>
+              <template #prefix>{{ getCurrencySymbol(orderData?.balance_currency) }}</template>
             </el-input>
             <div class="form-tip">
               <el-checkbox v-model="isFullPayment" size="small">
-                全额支付 ¥{{ orderData?.balance || 0 }}
+                全额支付 {{ orderData?.balance || 0 }} {{ getCurrencySymbol(orderData?.balance_currency) }}
               </el-checkbox>
             </div>
           </el-form-item>
@@ -116,7 +116,7 @@
           </div>
           <div v-if="!isFullPayment && remainingAmount > 0" class="tip-content warning">
             <el-icon><Warning /></el-icon>
-            <span>本次支付后，剩余尾款 ¥{{ remainingAmount }} 将在订单中保留</span>
+            <span>本次支付后，剩余尾款 {{ remainingAmount }} {{ getCurrencySymbol(orderData?.balance_currency) }} 将在订单中保留</span>
           </div>
         </div>
       </div>
@@ -129,7 +129,7 @@
           :loading="submitLoading"
           @click="handleSubmit"
         >
-          确认支付 ¥{{ actualPaymentAmount }}
+          确认支付 {{ actualPaymentAmount }} {{ getCurrencySymbol(orderData?.balance_currency) }}
         </el-button>
       </div>
     </div>
@@ -226,6 +226,17 @@ const formRules = {
   ]
 }
 
+// 获取币种符号
+const getCurrencySymbol = (currency) => {
+  switch(currency) {
+    case 'CNY': return '元'
+    case 'JPY': return '日元'
+    case 'USD': return '美元'
+    case 'EUR': return '欧元'
+    default: return '元'
+  }
+}
+
 // 初始化表单数据
 const initFormData = () => {
   if (orderData.value) {
@@ -293,7 +304,7 @@ watch(isFullPayment, (newVal) => {
 })
 
 // 监听抽屉显示，初始化数据
-watch(() => props.visible, (newVal) => {
+watch(() => props.modelValue, (newVal) => {
   if (newVal) {
     initFormData()
   }

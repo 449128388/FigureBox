@@ -268,6 +268,9 @@ class TransactionCreateService:
             return None
 
         now = datetime.now()
+        # 使用订单的创建时间作为交易记录的创建和更新时间，保持与实际业务发生时间一致
+        order_created_at = order.created_at if order.created_at else now
+        order_updated_at = order.updated_at if order.updated_at else now
         transaction = OrderTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -279,9 +282,9 @@ class TransactionCreateService:
             total_amount=total_amount,
             currency="CNY",
             platform=order.shop_name,
-            transaction_date=transaction_date or now,
-            created_at=now,
-            updated_at=now,
+            transaction_date=transaction_date or order_created_at,
+            created_at=order_created_at,
+            updated_at=order_updated_at,
             notes=notes or f"订单支付 - {order.shop_name or '未知店铺'}",
             transaction_subtype="initial",  # 标记为初始交易
             changed_field="total"  # 表示整单金额

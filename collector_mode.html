@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资产看板 - 收藏家模式</title>
+<style>
+  :root {
+    --bg: #F7F5F2;
+    --card-bg: #FFFFFF;
+    --text-primary: #1F1F1F;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border: #EBE8E4;
+    --accent: #C49A6C; /* 暖金色 */
+    --accent-light: #FDF6EE;
+    --accent-border: #E8D5C0;
+    --blue: #4A90E2;
+    --green: #7EB8A2;
+    --orange: #E6A23C;
+    --red: #D66A6A;
+    --radius: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-hover: 0 4px 16px rgba(0,0,0,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  /* Header */
+  .header {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header-title { font-size: 18px; font-weight: 600; }
+  .mode-toggle {
+    display: inline-flex;
+    background: var(--bg);
+    border-radius: 20px;
+    padding: 3px;
+    border: 1px solid var(--border);
+  }
+  .mode-btn {
+    padding: 5px 14px;
+    border-radius: 17px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+  }
+  .mode-btn.active {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(196,154,108,0.3);
+  }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .user-id { font-size: 13px; color: var(--text-tertiary); }
+  .btn-exit {
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .btn-exit:hover { border-color: var(--red); color: var(--red); }
+
+  /* Container */
+  .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+  /* Profile Hero */
+  .profile-hero {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .profile-left { display: flex; align-items: center; gap: 16px; }
+  .avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, #E8D5C0, #C49A6C);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; color: #fff;
+  }
+  .profile-title { font-size: 20px; font-weight: 600; }
+  .profile-sub { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+  .profile-actions { display: flex; gap: 10px; }
+  .btn-ghost {
+    padding: 6px 14px; border: 1px solid var(--border); background: #fff;
+    border-radius: 6px; font-size: 13px; color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Summary Cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    box-shadow: var(--shadow);
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .summary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+  .summary-icon {
+    width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .icon-total { background: #E8F4F8; }
+  .icon-value { background: #FDF6EE; }
+  .icon-sold { background: #F0F5E8; }
+  .summary-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+  .summary-value { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+  .summary-unit { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 2px; }
+  .summary-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+
+  /* Section Title */
+  .section-title {
+    font-size: 15px; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+  }
+  .section-title::before {
+    content: ""; display: inline-block; width: 4px; height: 16px;
+    background: var(--accent); border-radius: 2px;
+  }
+
+  /* Collection Cabinet */
+  .cabinet-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .cabinet-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+  }
+  .cabinet-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+  .cabinet-img-wrap {
+    height: 140px; background: #F0EEEB;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .cabinet-img {
+    width: 80px; height: 80px; background: #E0DCD7; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; color: #B0ABA5;
+  }
+  .cabinet-badge {
+    position: absolute; top: 10px; right: 10px;
+    padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .badge-star { background: #E8F4F8; color: var(--blue); }
+  .badge-new { background: #F0F5E8; color: var(--green); }
+  .badge-fix { background: #FDF6EE; color: var(--orange); }
+  .badge-out { background: #F5F5F5; color: var(--text-tertiary); }
+  .badge-more { background: var(--bg); color: var(--text-secondary); font-size: 20px; }
+  .cabinet-info { padding: 14px; text-align: center; }
+  .cabinet-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .cabinet-meta { font-size: 12px; color: var(--text-tertiary); }
+  .cabinet-more {
+    background: var(--card-bg); border: 2px dashed var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; min-height: 220px; border-radius: var(--radius); cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .cabinet-more:hover { border-color: var(--accent); }
+  .more-num { font-size: 28px; font-weight: 700; color: var(--text-secondary); }
+  .more-label { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
+
+  /* Tag Cloud */
+  .tag-cloud {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+  .tag-group { margin-bottom: 14px; }
+  .tag-group:last-child { margin-bottom: 0; }
+  .tag-group-title { font-size: 12px; color: var(--text-tertiary); margin-bottom: 8px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag {
+    padding: 5px 12px; border-radius: 14px; font-size: 13px;
+    background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .tag:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .tag.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+
+  /* Timeline */
+  .timeline {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .timeline-item {
+    display: flex; gap: 14px; padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .timeline-item:last-child { border-bottom: none; }
+  .timeline-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+    margin-top: 6px; flex-shrink: 0; box-shadow: 0 0 0 3px var(--accent-light);
+  }
+  .timeline-content { flex: 1; }
+  .timeline-date { font-size: 12px; color: var(--text-tertiary); margin-bottom: 4px; }
+  .timeline-text { font-size: 14px; color: var(--text-primary); line-height: 1.6; }
+  .timeline-actions { margin-top: 8px; display: flex; gap: 8px; }
+  .btn-tiny {
+    padding: 4px 10px; border: 1px solid var(--border); background: #fff;
+    border-radius: 4px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
+  }
+  .btn-tiny:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Quick Actions */
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .qa-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 14px;
+    cursor: pointer; transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+  .qa-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-hover); }
+  .qa-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .qa-in { background: #E8F4F8; }
+  .qa-out { background: #FDF6EE; }
+  .qa-title { font-size: 15px; font-weight: 600; }
+  .qa-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+  @media (max-width: 768px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .cabinet-grid { grid-template-columns: repeat(2, 1fr); }
+    .container { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-title">资产看板</div>
+    <div class="mode-toggle">
+      <button class="mode-btn active">🏛️ 收藏家模式</button>
+      <button class="mode-btn">📈 倒狗模式</button>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="user-id">当前用户: 4491283888</span>
+    <button class="btn-exit">退出</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Profile Hero -->
+  <div class="profile-hero">
+    <div class="profile-left">
+      <div class="avatar">🧸</div>
+      <div>
+        <div class="profile-title">我的塑料资产</div>
+        <div class="profile-sub">藏品陈列室 · 以热爱为尺，不以涨跌为度</div>
+      </div>
+    </div>
+    <div class="profile-actions">
+      <button class="btn-ghost">📤 分享海报</button>
+      <button class="btn-ghost">🔒 隐私设置</button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-icon icon-total">🧸</div>
+      <div class="summary-label">藏品总数</div>
+      <div>
+        <span class="summary-value">86</span>
+        <span class="summary-unit">体</span>
+      </div>
+      <div class="summary-meta">覆盖 12 个角色 / 8 个 IP</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon icon-value">🆕</div>
+      <div class="summary-label">本月新入柜</div>
+      <div>
+        <span class="summary-value">+3</span>
+        <span class="summary-unit">体</span>
+      </div>
+      <div class="summary-meta">初音韶华 / 蕾姆婚纱 / 桐宫美月</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-icon icon-sold">📤</div>
+      <div class="summary-label">已出藏品</div>
+      <div>
+        <span class="summary-value">8</span>
+        <span class="summary-unit">体</span>
+      </div>
+      <div class="summary-meta">陪伴时长 1,024 天</div>
+    </div>
+  </div>
+
+  <!-- Collection Cabinet -->
+  <div class="section-title">我的收藏柜</div>
+  <div class="cabinet-grid">
+    <div class="cabinet-card">
+      <div class="cabinet-img-wrap">
+        <div class="cabinet-img">🖼️</div>
+        <span class="cabinet-badge badge-star">镇柜之宝</span>
+      </div>
+      <div class="cabinet-info">
+        <div class="cabinet-name">海景房专区</div>
+        <div class="cabinet-meta">3 体 · 入柜 180+ 天</div>
+      </div>
+    </div>
+    <div class="cabinet-card">
+      <div class="cabinet-img-wrap">
+        <div class="cabinet-img">✨</div>
+        <span class="cabinet-badge badge-new">新欢</span>
+      </div>
+      <div class="cabinet-info">
+        <div class="cabinet-name">最近入柜</div>
+        <div class="cabinet-meta">5 体 · 30 天内新成员</div>
+      </div>
+    </div>
+    <div class="cabinet-card">
+      <div class="cabinet-img-wrap">
+        <div class="cabinet-img">🔧</div>
+        <span class="cabinet-badge badge-fix">待修复</span>
+      </div>
+      <div class="cabinet-info">
+        <div class="cabinet-name">修复工坊</div>
+        <div class="cabinet-meta">5 体 · 补件/补色中</div>
+      </div>
+    </div>
+    <div class="cabinet-card">
+      <div class="cabinet-img-wrap">
+        <div class="cabinet-img">📦</div>
+        <span class="cabinet-badge badge-out">已出坑</span>
+      </div>
+      <div class="cabinet-info">
+        <div class="cabinet-name">已出藏品</div>
+        <div class="cabinet-meta">8 体 · 找到新主人</div>
+      </div>
+    </div>
+    <div class="cabinet-card cabinet-more">
+      <div class="more-num">+15</div>
+      <div class="more-label">更多藏品</div>
+    </div>
+  </div>
+
+  <!-- Tag Cloud -->
+  <div class="tag-cloud">
+    <div class="tag-group">
+      <div class="tag-group-title">按 IP</div>
+      <div class="tags">
+        <span class="tag active">#初音未来(5)</span>
+        <span class="tag">#蕾姆(3)</span>
+        <span class="tag">#Fate(8)</span>
+        <span class="tag">#原神(4)</span>
+        <span class="tag">#东方Project(2)</span>
+      </div>
+    </div>
+    <div class="tag-group">
+      <div class="tag-group-title">按厂商</div>
+      <div class="tags">
+        <span class="tag">#GSC(12)</span>
+        <span class="tag">#ALTER(4)</span>
+        <span class="tag">#MaxFactory(6)</span>
+        <span class="tag">#Native(2)</span>
+      </div>
+    </div>
+    <div class="tag-group">
+      <div class="tag-group-title">按状态</div>
+      <div class="tags">
+        <span class="tag">#现货在柜(45)</span>
+        <span class="tag">#预定中(12)</span>
+        <span class="tag">#补款待入库(3)</span>
+        <span class="tag">#镇柜之宝(3)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="section-title">收藏历程</div>
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-content">
+        <div class="timeline-date">2026-03-15</div>
+        <div class="timeline-text">
+          🎉 入柜 <strong>初音韶华</strong> 已满 180 天，陪伴你的第 180 天
+        </div>
+        <div class="timeline-actions">
+          <button class="btn-tiny">生成分享卡片</button>
+          <button class="btn-tiny">查看详情</button>
+        </div>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-content">
+        <div class="timeline-date">2026-02-20</div>
+        <div class="timeline-text">
+          👏 <strong>蕾姆婚纱</strong> 已入柜，欢迎新成员加入收藏室
+        </div>
+        <div class="timeline-actions">
+          <button class="btn-tiny">查看详情</button>
+        </div>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-content">
+        <div class="timeline-date">2026-01-10</div>
+        <div class="timeline-text">
+          📤 <strong>桐宫美月 写实版</strong> 已找到新主人，感谢 97 天的陪伴
+        </div>
+        <div class="timeline-actions">
+          <button class="btn-tiny">查看出柜记录</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="quick-actions">
+    <div class="qa-card">
+      <div class="qa-icon qa-in">➕</div>
+      <div>
+        <div class="qa-title">新藏品入柜</div>
+        <div class="qa-sub">记录新入手的塑料小人</div>
+      </div>
+    </div>
+    <div class="qa-card">
+      <div class="qa-icon qa-out">🏷️</div>
+      <div>
+        <div class="qa-title">出柜登记</div>
+        <div class="qa-sub">温柔告别，记录藏品流转</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

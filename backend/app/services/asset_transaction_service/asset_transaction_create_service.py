@@ -229,6 +229,9 @@ class AssetTransactionCreateService:
         unit_price = total_amount / quantity if quantity > 0 and total_amount > 0 else 0
 
         now = datetime.now()
+        # 使用订单的创建时间作为交易记录的创建和更新时间，保持与实际业务发生时间一致
+        order_created_at = order.created_at if order.created_at else now
+        order_updated_at = order.updated_at if order.updated_at else now
         transaction = AssetTransaction(
             user_id=user_id,
             figure_id=figure_id,
@@ -238,9 +241,9 @@ class AssetTransactionCreateService:
             quantity=quantity,
             total_amount=total_amount,
             remaining_quantity=quantity,
-            transaction_date=now,
-            created_at=now,
-            updated_at=now,
+            transaction_date=order_created_at,
+            created_at=order_created_at,
+            updated_at=order_updated_at,
             notes=f"订单导入 - {order.shop_name or '未知店铺'}"
         )
 

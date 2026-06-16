@@ -82,7 +82,6 @@ export function usePayBalance(options = {}) {
   const handlePayBalanceSuccess = () => {
     payBalanceConfirmVisible.value = false
     selectedPayBalanceOrder.value = null
-    ElMessage.success('尾款支付成功')
     // 调用外部传入的成功回调
     if (options.onSuccess) {
       options.onSuccess()

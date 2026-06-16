@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.models.asset import OrderTransaction
+from app.models.order import Order
 from app.models.sold_order import SoldOrder
 
 
@@ -49,10 +50,13 @@ class MonthlyStatsService:
         # 数据源：order_transactions 表中 transaction_type = 'BUY' 且 transaction_date 在本月内的记录
         buy_amount_result = db.query(
             func.coalesce(func.sum(OrderTransaction.total_amount), 0).label('amount')
+        ).join(
+            Order, OrderTransaction.order_id == Order.id
         ).filter(
             OrderTransaction.user_id == user_id,
             OrderTransaction.transaction_type == "BUY",
             OrderTransaction.is_active == True,
+            Order.is_active == 1,
             func.date(OrderTransaction.transaction_date) >= month_start,
             func.date(OrderTransaction.transaction_date) <= month_end
         ).scalar() or 0
@@ -60,10 +64,13 @@ class MonthlyStatsService:
         # 买入退款扣减（REFUND类型为负向流水）
         buy_refund_result = db.query(
             func.coalesce(func.sum(OrderTransaction.total_amount), 0).label('amount')
+        ).join(
+            Order, OrderTransaction.order_id == Order.id
         ).filter(
             OrderTransaction.user_id == user_id,
             OrderTransaction.transaction_type == "REFUND",
             OrderTransaction.is_active == True,
+            Order.is_active == 1,
             func.date(OrderTransaction.transaction_date) >= month_start,
             func.date(OrderTransaction.transaction_date) <= month_end
         ).scalar() or 0
@@ -71,10 +78,13 @@ class MonthlyStatsService:
         # 买入笔数统计（仅统计BUY类型，不含退款）
         buy_count_result = db.query(
             func.count(OrderTransaction.id).label('count')
+        ).join(
+            Order, OrderTransaction.order_id == Order.id
         ).filter(
             OrderTransaction.user_id == user_id,
             OrderTransaction.transaction_type == "BUY",
             OrderTransaction.is_active == True,
+            Order.is_active == 1,
             func.date(OrderTransaction.transaction_date) >= month_start,
             func.date(OrderTransaction.transaction_date) <= month_end
         ).scalar() or 0
@@ -86,10 +96,13 @@ class MonthlyStatsService:
         # 数据源：order_transactions 表中 transaction_type = 'SELL' 且 transaction_date 在本月内的记录
         sell_amount_result = db.query(
             func.coalesce(func.sum(OrderTransaction.total_amount), 0).label('amount')
+        ).join(
+            SoldOrder, OrderTransaction.sold_order_id == SoldOrder.id
         ).filter(
             OrderTransaction.user_id == user_id,
             OrderTransaction.transaction_type == "SELL",
             OrderTransaction.is_active == True,
+            SoldOrder.is_active == 1,
             func.date(OrderTransaction.transaction_date) >= month_start,
             func.date(OrderTransaction.transaction_date) <= month_end
         ).scalar() or 0
@@ -97,10 +110,13 @@ class MonthlyStatsService:
         # 卖出退货扣减（RETURN类型为负向流水）
         sell_return_result = db.query(
             func.coalesce(func.sum(OrderTransaction.total_amount), 0).label('amount')
+        ).join(
+            SoldOrder, OrderTransaction.sold_order_id == SoldOrder.id
         ).filter(
             OrderTransaction.user_id == user_id,
             OrderTransaction.transaction_type == "RETURN",
             OrderTransaction.is_active == True,
+            SoldOrder.is_active == 1,
             func.date(OrderTransaction.transaction_date) >= month_start,
             func.date(OrderTransaction.transaction_date) <= month_end
         ).scalar() or 0
@@ -108,10 +124,13 @@ class MonthlyStatsService:
         # 卖出笔数统计（仅统计SELL类型，不含退货）
         sell_count_result = db.query(
             func.count(OrderTransaction.id).label('count')
+        ).join(
+            SoldOrder, OrderTransaction.sold_order_id == SoldOrder.id
         ).filter(
             OrderTransaction.user_id == user_id,
             OrderTransaction.transaction_type == "SELL",
             OrderTransaction.is_active == True,
+            SoldOrder.is_active == 1,
             func.date(OrderTransaction.transaction_date) >= month_start,
             func.date(OrderTransaction.transaction_date) <= month_end
         ).scalar() or 0
