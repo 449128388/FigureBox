@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的收藏柜 - 分类详情</title>
+<style>
+  :root {
+    --bg: #F7F5F2;
+    --card-bg: #FFFFFF;
+    --text-primary: #1F1F1F;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border: #EBE8E4;
+    --accent: #C49A6C;
+    --accent-light: #FDF6EE;
+    --accent-border: #E8D5C0;
+    --blue: #4A90E2;
+    --green: #7EB8A2;
+    --orange: #E6A23C;
+    --red: #D66A6A;
+    --purple: #9B7ED8;
+    --radius: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-hover: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--text-primary); line-height: 1.5;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+  /* Header */
+  .header {
+    background: var(--card-bg); border-bottom: 1px solid var(--border);
+    padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .back-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; color: var(--text-secondary);
+  }
+  .header-title { font-size: 18px; font-weight: 600; }
+  .header-meta { font-size: 13px; color: var(--text-tertiary); margin-left: 8px; }
+
+  /* View Toggle */
+  .view-toggle {
+    display: flex; gap: 6px;
+  }
+  .view-btn {
+    padding: 5px 12px; border: 1px solid var(--border); background: #fff;
+    border-radius: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer;
+  }
+  .view-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+  /* Section Title */
+  .section-title {
+    font-size: 15px; font-weight: 600; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .section-title::before {
+    content: ""; display: inline-block; width: 4px; height: 16px;
+    background: var(--accent); border-radius: 2px;
+  }
+
+  /* Cabinet Grid (Home) */
+  .cabinet-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px;
+  }
+  .cabinet-card {
+    background: var(--card-bg); border-radius: var(--radius); overflow: hidden;
+    box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .cabinet-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: var(--accent-border); }
+  .cabinet-img-wrap {
+    height: 120px; background: #F0EEEB; display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .cabinet-img {
+    width: 56px; height: 56px; background: #E0DCD7; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 28px; color: #B0ABA5;
+  }
+  .cabinet-badge {
+    position: absolute; top: 8px; right: 8px;
+    padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .badge-star { background: #E8F4F8; color: var(--blue); }
+  .badge-new { background: #F0F5E8; color: var(--green); }
+  .badge-fix { background: #FDF6EE; color: var(--orange); }
+  .badge-out { background: #F5F5F5; color: var(--text-tertiary); }
+  .badge-air { background: #F3E8FF; color: var(--purple); }
+  .badge-dup { background: #FFF2F0; color: var(--red); }
+  .badge-wait { background: #E6F7FF; color: #1890FF; }
+  .badge-role { background: #F0F5E8; color: #52C41A; }
+  .cabinet-info { padding: 12px; text-align: center; }
+  .cabinet-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .cabinet-meta { font-size: 12px; color: var(--text-tertiary); }
+  .cabinet-more {
+    background: var(--card-bg); border: 2px dashed var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; min-height: 186px; border-radius: var(--radius); cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .cabinet-more:hover { border-color: var(--accent); }
+  .more-num { font-size: 28px; font-weight: 700; color: var(--text-secondary); }
+  .more-label { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
+
+  /* Detail Page */
+  .detail-header {
+    background: var(--card-bg); border-radius: var(--radius); padding: 20px;
+    box-shadow: var(--shadow); margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .detail-header-left { display: flex; align-items: center; gap: 16px; }
+  .detail-icon {
+    width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0;
+  }
+  .detail-title { font-size: 18px; font-weight: 600; }
+  .detail-sub { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+  .detail-stats { display: flex; gap: 16px; }
+  .d-stat { text-align: center; }
+  .d-stat-num { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+  .d-stat-label { font-size: 12px; color: var(--text-tertiary); }
+
+  /* Sort Bar */
+  .sort-bar {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+  }
+  .sort-left { display: flex; gap: 8px; }
+  .sort-tag {
+    padding: 4px 10px; border-radius: 14px; font-size: 12px; border: 1px solid var(--border);
+    background: #fff; color: var(--text-secondary); cursor: pointer;
+  }
+  .sort-tag.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+
+  /* Figure Grid */
+  .figure-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .figure-card {
+    background: var(--card-bg); border-radius: var(--radius); overflow: hidden;
+    box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .figure-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+  .figure-img-wrap {
+    height: 180px; background: #F0EEEB; display: flex; align-items: center; justify-content: center; position: relative;
+  }
+  .figure-img {
+    width: 100px; height: 100px; background: #E0DCD7; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 40px; color: #B0ABA5;
+  }
+  .figure-status {
+    position: absolute; top: 10px; left: 10px;
+    padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff;
+  }
+  .st-in { background: var(--green); }
+  .st-air { background: var(--purple); }
+  .st-fix { background: var(--orange); }
+  .st-out { background: var(--text-tertiary); }
+  .figure-stars {
+    position: absolute; bottom: 10px; right: 10px;
+    background: rgba(255,255,255,0.9); padding: 2px 8px; border-radius: 10px;
+    font-size: 12px; color: var(--orange);
+  }
+  .figure-info { padding: 14px; }
+  .figure-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .figure-line { font-size: 12px; color: var(--text-secondary); margin-bottom: 2px; }
+  .figure-line-gray { font-size: 12px; color: var(--text-tertiary); margin-bottom: 2px; }
+  .figure-actions {
+    display: flex; gap: 8px; margin-top: 10px;
+  }
+  .btn-tiny {
+    flex: 1; padding: 6px 0; text-align: center; border: 1px solid var(--border);
+    background: #fff; border-radius: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
+  }
+  .btn-tiny:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-tiny-primary { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+
+  /* List View (hidden by default) */
+  .list-view { display: none; }
+  .list-item {
+    background: var(--card-bg); border-radius: var(--radius); padding: 14px 16px;
+    box-shadow: var(--shadow); margin-bottom: 10px; display: flex; align-items: center; gap: 14px;
+  }
+  .list-thumb {
+    width: 56px; height: 56px; background: #F0EEEB; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 24px; color: #B0ABA5; flex-shrink: 0;
+  }
+  .list-body { flex: 1; }
+  .list-title { font-size: 15px; font-weight: 600; }
+  .list-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .list-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    margin-top: 4px;
+  }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 768px) {
+    .cabinet-grid { grid-template-columns: repeat(2, 1fr); }
+    .figure-grid { grid-template-columns: repeat(2, 1fr); }
+    .container { padding: 16px; }
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="back-btn" onclick="showHome()">←</div>
+    <div>
+      <div class="header-title" id="pageTitle">我的收藏柜</div>
+      <span class="header-meta" id="pageMeta"></span>
+    </div>
+  </div>
+  <div class="view-toggle" id="viewToggle" style="display:none;">
+    <button class="view-btn active" onclick="switchView('grid')">⊞ 网格</button>
+    <button class="view-btn" onclick="switchView('list')">☰ 列表</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- HOME: 8 Categories -->
+  <div id="homeView">
+    <div class="section-title">我的收藏柜</div>
+    <div class="cabinet-grid">
+      <div class="cabinet-card" onclick="showDetail('star')">
+        <div class="cabinet-img-wrap">
+          <div class="cabinet-img">🖼️</div>
+          <span class="cabinet-badge badge-star">镇柜之宝</span>
+        </div>
+        <div class="cabinet-info">
+          <div class="cabinet-name">海景房专区</div>
+          <div class="cabinet-meta">3 体 · 入柜 180+ 天</div>
+        </div>
+      </div>
+      <div class="cabinet-card" onclick="showDetail('new')">
+        <div class="cabinet-img-wrap">
+          <div class="cabinet-img">✨</div>
+          <span class="cabinet-badge badge-new">新欢</span>
+        </div>
+        <div class="cabinet-info">
+          <div class="cabinet-name">最近入柜</div>
+          <div class="cabinet-meta">5 体 · 30 天内新成员</div>
+        </div>
+      </div>
+      <div class="cabinet-card" onclick="showDetail('fix')">
+        <div class="cabinet-img-wrap">
+          <div class="cabinet-img">🔧</div>
+          <span class="cabinet-badge badge-fix">待修复</span>
+        </div>
+        <div class="cabinet-info">
+          <div class="cabinet-name">修复工坊</div>
+          <div class="cabinet-meta">5 体 · 补件/补色中</div>
+        </div>
+      </div>
+      <div class="cabinet-card" onclick="showDetail('out')">
+        <div class="cabinet-img-wrap">
+          <div class="cabinet-img">📦</div>
+          <span class="cabinet-badge badge-out">已出坑</span>
+        </div>
+        <div class="cabinet-info">
+          <div class="cabinet-name">已出藏品</div>
+          <div class="cabinet-meta">8 体 · 找到新主人</div>
+        </div>
+      </div>
+      <div class="cabinet-card" onclick="showDetail('air')">
+        <div class="cabinet-img-wrap">
+          <div class="cabinet-img">☁️</div>
+          <span class="cabinet-badge badge-air">空气谷</span>
+        </div>
+        <div class="cabinet-info">
+          <div class="cabinet-name">预定中</div>
+          <div class="cabinet-meta">12 体 · 待付尾款/待出荷</div>
+        </div>
+      </div>
+      <div class="cabinet-card" onclick="showDetail('dup')">
+        <div class="cabinet-img-wrap">
+          <div class="cabinet-img">👯</div>
+          <span class="cabinet-badge badge-dup">复数</span>
+        </div>
+        <div class="cabinet-info">
+          <div class="cabinet-name">复数专区</div>
+          <div class="cabinet-meta">6 体 · 同一手办多体</div>
+        </div>
+      </div>
+      <div class="cabinet-card" onclick="showDetail('wait')">
+        <div class="cabinet-img-wrap">
+          <div class="cabinet-img">📅</div>
+          <span class="cabinet-badge badge-wait">待出荷</span>
+        </div>
+        <div class="cabinet-info">
+          <div class="cabinet-name">待出荷</div>
+          <div class="cabinet-meta">4 体 · 已付清等工厂</div>
+        </div>
+      </div>
+      <div class="cabinet-card" onclick="showDetail('role')">
+        <div class="cabinet-img-wrap">
+          <div class="cabinet-img">💝</div>
+          <span class="cabinet-badge badge-role">本命</span>
+        </div>
+        <div class="cabinet-info">
+          <div class="cabinet-name">本命角色</div>
+          <div class="cabinet-meta">9 体 · 蕾姆全收集</div>
+        </div>
+      </div>
+      <div class="cabinet-card cabinet-more">
+        <div class="more-num">+15</div>
+        <div class="more-label">更多藏品</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL: Star Cabinet -->
+  <div id="detailView" class="hidden">
+    <div class="detail-header">
+      <div class="detail-header-left">
+        <div class="detail-icon" style="background:#E8F4F8;" id="detailIcon">🖼️</div>
+        <div>
+          <div class="detail-title" id="detailTitle">海景房专区</div>
+          <div class="detail-sub" id="detailSub">你最珍视的藏品，陪伴最久的塑料小人</div>
+        </div>
+      </div>
+      <div class="detail-stats">
+        <div class="d-stat"><div class="d-stat-num" id="statNum">3</div><div class="d-stat-label">藏品</div></div>
+        <div class="d-stat"><div class="d-stat-num" id="statDays">1,024</div><div class="d-stat-label">陪伴天数</div></div>
+      </div>
+    </div>
+
+    <div class="sort-bar">
+      <div class="sort-left">
+        <span class="sort-tag active">喜爱度</span>
+        <span class="sort-tag">收藏天数</span>
+        <span class="sort-tag">入手时间</span>
+        <span class="sort-tag">名称</span>
+      </div>
+    </div>
+
+    <!-- Grid View -->
+    <div class="figure-grid" id="gridView">
+      <div class="figure-card">
+        <div class="figure-img-wrap">
+          <div class="figure-img">🧸</div>
+          <span class="figure-status st-in">在柜</span>
+          <span class="figure-stars">⭐⭐⭐⭐⭐</span>
+        </div>
+        <div class="figure-info">
+          <div class="figure-name">蜜姬</div>
+          <div class="figure-line">原创 · 1/7 · Native</div>
+          <div class="figure-line-gray">入柜 2025-05-20 · 陪伴 392 天</div>
+          <div class="figure-actions">
+            <button class="btn-tiny">查看详情</button>
+            <button class="btn-tiny btn-tiny-primary">出柜登记</button>
+          </div>
+        </div>
+      </div>
+      <div class="figure-card">
+        <div class="figure-img-wrap">
+          <div class="figure-img">🎀</div>
+          <span class="figure-status st-in">在柜</span>
+          <span class="figure-stars">⭐⭐⭐⭐⭐</span>
+        </div>
+        <div class="figure-info">
+          <div class="figure-name">桐宫美月 写实版</div>
+          <div class="figure-line">原创 · 1/6 · ALTER</div>
+          <div class="figure-line-gray">入柜 2025-08-15 · 陪伴 305 天</div>
+          <div class="figure-actions">
+            <button class="btn-tiny">查看详情</button>
+            <button class="btn-tiny btn-tiny-primary">出柜登记</button>
+          </div>
+        </div>
+      </div>
+      <div class="figure-card">
+        <div class="figure-img-wrap">
+          <div class="figure-img">🎵</div>
+          <span class="figure-status st-in">在柜</span>
+          <span class="figure-stars">⭐⭐⭐⭐</span>
+        </div>
+        <div class="figure-info">
+          <div class="figure-name">初音韶华</div>
+          <div class="figure-line">VOCALOID · 1/7 · MaxFactory</div>
+          <div class="figure-line-gray">入柜 2026-03-15 · 陪伴 93 天</div>
+          <div class="figure-actions">
+            <button class="btn-tiny">查看详情</button>
+            <button class="btn-tiny btn-tiny-primary">出柜登记</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- List View (demo) -->
+    <div class="list-view" id="listView">
+      <div class="list-item">
+        <div class="list-thumb">🧸</div>
+        <div class="list-body">
+          <div class="list-title">蜜姬</div>
+          <div class="list-meta">原创 · 1/7 · Native · 入柜 392 天</div>
+          <span class="list-tag" style="background:#FDF6EE;color:var(--orange);">⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+      <div class="list-item">
+        <div class="list-thumb">🎀</div>
+        <div class="list-body">
+          <div class="list-title">桐宫美月 写实版</div>
+          <div class="list-meta">原创 · 1/6 · ALTER · 入柜 305 天</div>
+          <span class="list-tag" style="background:#FDF6EE;color:var(--orange);">⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+      <div class="list-item">
+        <div class="list-thumb">🎵</div>
+        <div class="list-body">
+          <div class="list-title">初音韶华</div>
+          <div class="list-meta">VOCALOID · 1/7 · MaxFactory · 入柜 93 天</div>
+          <span class="list-tag" style="background:#FDF6EE;color:var(--orange);">⭐⭐⭐⭐</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const cabinetData = {
+  star: { title: '海景房专区', sub: '你最珍视的藏品，陪伴最久的塑料小人', icon: '🖼️', iconBg: '#E8F4F8', num: 3, days: '1,024' },
+  new: { title: '最近入柜', sub: '30天内加入收藏室的新成员', icon: '✨', iconBg: '#F0F5E8', num: 5, days: '30' },
+  fix: { title: '修复工坊', sub: '正在补件、补色或返厂中的病号', icon: '🔧', iconBg: '#FDF6EE', num: 5, days: '-' },
+  out: { title: '已出藏品', sub: '已经找到新主人的藏品，感谢陪伴', icon: '📦', iconBg: '#F5F5F5', num: 8, days: '1,024' },
+  air: { title: '预定中', sub: '空气谷 — 已下单但尚未入库的藏品', icon: '☁️', iconBg: '#F3E8FF', num: 12, days: '-' },
+  dup: { title: '复数专区', sub: '同一手办持有2体以上的复数库存', icon: '👯', iconBg: '#FFF2F0', num: 6, days: '180' },
+  wait: { title: '待出荷', sub: '已付清全款或尾款，等待工厂出荷', icon: '📅', iconBg: '#E6F7FF', num: 4, days: '-' },
+  role: { title: '本命角色', sub: '蕾姆 — 你最钟爱的角色全收集', icon: '💝', iconBg: '#F0F5E8', num: 9, days: '520' }
+};
+
+function showHome() {
+  document.getElementById('homeView').classList.remove('hidden');
+  document.getElementById('detailView').classList.add('hidden');
+  document.getElementById('viewToggle').style.display = 'none';
+  document.getElementById('pageTitle').textContent = '我的收藏柜';
+  document.getElementById('pageMeta').textContent = '';
+}
+
+function showDetail(key) {
+  const d = cabinetData[key];
+  document.getElementById('homeView').classList.add('hidden');
+  document.getElementById('detailView').classList.remove('hidden');
+  document.getElementById('viewToggle').style.display = 'flex';
+  document.getElementById('pageTitle').textContent = d.title;
+  document.getElementById('pageMeta').textContent = '共 ' + d.num + ' 体';
+  document.getElementById('detailTitle').textContent = d.title;
+  document.getElementById('detailSub').textContent = d.sub;
+  document.getElementById('detailIcon').textContent = d.icon;
+  document.getElementById('detailIcon').style.background = d.iconBg;
+  document.getElementById('statNum').textContent = d.num;
+  document.getElementById('statDays').textContent = d.days;
+}
+
+function switchView(mode) {
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (mode === 'grid') {
+    document.getElementById('gridView').style.display = 'grid';
+    document.getElementById('listView').style.display = 'none';
+  } else {
+    document.getElementById('gridView').style.display = 'none';
+    document.getElementById('listView').style.display = 'block';
+  }
+}
+</script>
+
+</body>
+</html>

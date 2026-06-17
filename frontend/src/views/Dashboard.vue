@@ -129,24 +129,36 @@
 
     <!-- 收藏家模式内容 -->
     <div v-else class="collector-mode">
-      <CollectorHeader
-        @share-poster="sharePoster"
-        @privacy-settings="privacySettings"
+      <!-- 收藏柜详情视图 -->
+      <CabinetDetail
+        v-if="selectedCabinet"
+        :cabinet="selectedCabinet"
+        @back="handleCabinetBack"
       />
-      
-      <CollectorOverview :collector-data="collectorData" />
-      
-      <ValuableCollections :collector-data="collectorData" />
-      
-      <TagCloud
-        :collector-data="collectorData"
-        @filter-by-tag="filterByTag"
-      />
-      
-      <ActivityFeed
-        :collector-data="collectorData"
-        @activity-action="handleActivityAction"
-      />
+      <!-- 收藏柜概览视图 -->
+      <template v-else>
+        <CollectorHeader
+          @share-poster="sharePoster"
+          @privacy-settings="privacySettings"
+        />
+        
+        <CollectorOverview :collector-data="collectorData" />
+        
+        <CollectionCabinets
+          :collector-data="collectorData"
+          @cabinet-click="handleCabinetClick"
+        />
+        
+        <TagCloud
+          :collector-data="collectorData"
+          @filter-by-tag="filterByTag"
+        />
+        
+        <ActivityFeed
+          :collector-data="collectorData"
+          @activity-action="handleActivityAction"
+        />
+      </template>
     </div>
 
     <!-- 预警设置对话框 -->
@@ -266,7 +278,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 // 导入收藏家模式组件
 import CollectorHeader from './Dashboard/components/collector/CollectorHeader.vue'
 import CollectorOverview from './Dashboard/components/collector/CollectorOverview.vue'
-import ValuableCollections from './Dashboard/components/collector/ValuableCollections.vue'
+import CollectionCabinets from './Dashboard/components/collector/CollectionCabinets.vue'
+import CabinetDetail from './Dashboard/components/collector/CabinetDetail/CabinetDetail.vue'
 import TagCloud from './Dashboard/components/collector/TagCloud.vue'
 import ActivityFeed from './Dashboard/components/collector/ActivityFeed.vue'
 
@@ -303,7 +316,8 @@ export default {
     // 收藏家模式组件
     CollectorHeader,
     CollectorOverview,
-      ValuableCollections,
+      CollectionCabinets,
+      CabinetDetail,
       TagCloud,
       ActivityFeed,
       // 倒狗模式组件
@@ -359,6 +373,7 @@ export default {
     const alertDialogVisible = ref(false)
     const figures = ref([])
     const currentMode = ref('reseller')
+    const selectedCabinet = ref(null)
     const tradeData = ref(null)
     const marketData = ref(null)
     
@@ -549,11 +564,22 @@ export default {
     // 设置模式
     const setMode = (mode) => {
       currentMode.value = mode
+      selectedCabinet.value = null  // 切换模式时关闭详情
       if (mode === 'collector') {
         fetchCollectorData()
       } else if (mode === 'reseller') {
         fetchDashboardData()
       }
+    }
+    
+    // 收藏柜点击：进入详情
+    const handleCabinetClick = (cabinet) => {
+      selectedCabinet.value = cabinet
+    }
+    
+    // 收藏柜详情返回
+    const handleCabinetBack = () => {
+      selectedCabinet.value = null
     }
     
     // 显示年度消费上限对话框
@@ -699,6 +725,7 @@ export default {
       figures,
       userStore,
       currentMode,
+      selectedCabinet,
       annualLimitDialogVisible,
       annualLimitForm,
       annualLimitLoading,
@@ -708,6 +735,8 @@ export default {
       openAlertSettings,
       createAlert,
       setMode,
+      handleCabinetClick,
+      handleCabinetBack,
       showAnnualLimitDialog,
       saveAnnualLimit,
       exportBill,

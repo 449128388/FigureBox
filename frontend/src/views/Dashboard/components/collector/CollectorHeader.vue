@@ -14,24 +14,28 @@
   - 使用 Element Plus 图标组件
 -->
 <template>
-  <div class="collector-header">
-    <div class="avatar">[头像]</div>
-    <h3>我的塑料资产</h3>
-    <div class="header-actions">
-      <el-button @click="sharePoster">分享海报</el-button>
-      <el-button @click="privacySettings">
-        隐私设置 <el-icon><View /></el-icon>
-      </el-button>
+  <div class="profile-hero">
+    <div class="profile-left">
+      <div class="avatar">🧸</div>
+      <div class="profile-info">
+        <div class="profile-title">我的塑料资产</div>
+        <div class="profile-sub">藏品陈列室 · 以热爱为尺，不以涨跌为度</div>
+      </div>
+    </div>
+    <div class="profile-actions">
+      <button class="btn-ghost" @click="sharePoster">
+        <span class="btn-icon">📤</span> 分享海报
+      </button>
+      <button class="btn-ghost" @click="privacySettings">
+        <span class="btn-icon">🔒</span> 隐私设置
+      </button>
     </div>
   </div>
 </template>
 
 <script>
-import { View } from '@element-plus/icons-vue'
-
 export default {
   name: 'CollectorHeader',
-  components: { View },
   emits: ['share-poster', 'privacy-settings'],
   methods: {
     sharePoster() {
@@ -45,49 +49,93 @@ export default {
 </script>
 
 <style scoped>
-.collector-header {
+.profile-hero {
+  background: var(--card-bg, #FFFFFF);
+  border-radius: var(--radius, 12px);
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow, 0 2px 8px rgba(0,0,0,0.04));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 30px;
-  padding: 20px;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.profile-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .avatar {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background-color: #f0f0f0;
+  background: linear-gradient(135deg, #E8D5C0, #C49A6C);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
-  color: #666;
+  color: #fff;
+  flex-shrink: 0;
 }
 
-.collector-header h3 {
-  margin: 0;
-  color: #333;
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-title {
   font-size: 20px;
   font-weight: 600;
+  color: var(--text-primary, #1F1F1F);
 }
 
-.header-actions {
+.profile-sub {
+  font-size: 13px;
+  color: var(--text-tertiary, #999999);
+}
+
+.profile-actions {
   display: flex;
   gap: 10px;
 }
 
+.btn-ghost {
+  padding: 6px 14px;
+  border: 1px solid var(--border, #EBE8E4);
+  background: #fff;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-secondary, #666666);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent, #C49A6C);
+  color: var(--accent, #C49A6C);
+}
+
+.btn-icon {
+  font-size: 14px;
+}
+
 @media (max-width: 768px) {
-  .collector-header {
+  .profile-hero {
     flex-direction: column;
     gap: 15px;
     text-align: center;
   }
-  
-  .header-actions {
+
+  .profile-left {
+    flex-direction: column;
+  }
+
+  .profile-actions {
     width: 100%;
     justify-content: center;
   }
