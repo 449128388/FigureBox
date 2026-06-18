@@ -16,7 +16,7 @@ export function formatFigureInfo(item) {
 }
 
 /**
- * 格式化入柜时间·陪伴时间信息
+ * 格式化入库时间·陪伴时间信息
  * @param {Object} item - 藏品对象
  * @returns {string} 格式化后的字符串
  */
@@ -24,9 +24,9 @@ export function formatDateInfo(item) {
   const date = item?.transaction_date || '未知'
   const days = item?.holding_days
   if (days && days > 0) {
-    return `入柜 ${date} · 陪伴 ${days} 天`
+    return `入库时间 ${date} · 陪伴 ${days} 天`
   }
-  return `入柜 ${date}`
+  return `入库时间 ${date}`
 }
 
 /**

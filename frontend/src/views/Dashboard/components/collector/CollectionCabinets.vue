@@ -40,11 +40,6 @@
           <div class="cabinet-meta">{{ cabinet.meta }}</div>
         </div>
       </div>
-      <!-- 更多藏品卡片 -->
-      <div class="cabinet-card cabinet-more" @click="handleMoreClick">
-        <div class="more-num">+{{ totalCount }}</div>
-        <div class="more-label">更多藏品</div>
-      </div>
     </div>
   </div>
 </template>
@@ -61,9 +56,6 @@ export default {
   computed: {
     cabinets() {
       return this.collectorData?.cabinets || this.defaultCabinets
-    },
-    totalCount() {
-      return this.cabinets.reduce((sum, c) => sum + (c.count || 0), 0)
     },
     defaultCabinets() {
       return [
@@ -94,9 +86,6 @@ export default {
     },
     handleCabinetClick(cabinet) {
       this.$emit('cabinet-click', cabinet)
-    },
-    handleMoreClick() {
-      this.$emit('more-click')
     }
   }
 }
@@ -199,35 +188,6 @@ export default {
 .cabinet-meta {
   font-size: 12px;
   color: #999999;
-}
-
-.cabinet-more {
-  background: #FFFFFF;
-  border: 2px dashed #EBE8E4;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 186px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.cabinet-more:hover {
-  border-color: #C49A6C;
-}
-
-.more-num {
-  font-size: 28px;
-  font-weight: 700;
-  color: #666666;
-}
-
-.more-label {
-  font-size: 13px;
-  color: #999999;
-  margin-top: 4px;
 }
 
 @media (max-width: 768px) {

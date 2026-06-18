@@ -36,7 +36,7 @@
           :rating="starRatings[item.id] || 0"
           :is-editing="starEditingIndex === index"
           @click="handleToggleStar(index)"
-          @set-rating="handleSetRating(item.id, index, $event.rating)"
+          @set-rating="handleStarSetRating($event, item.id, index)"
         />
       </div>
       <div class="figure-info">
@@ -44,8 +44,8 @@
         <div class="figure-line">{{ formatFigureInfo(item) }}</div>
         <div class="figure-line-gray">{{ formatDateInfo(item) }}</div>
         <div class="figure-actions">
-          <button class="btn-tiny">查看详情</button>
-          <button class="btn-tiny btn-tiny-primary">出柜登记</button>
+          <button class="btn-tiny" @click="handleViewDetail(item)">查看详情</button>
+          <button class="btn-tiny btn-tiny-primary" @click="handleSell(item)">出柜登记</button>
         </div>
       </div>
     </div>
@@ -63,6 +63,8 @@ export default {
   components: {
     StarRating
   },
+
+  emits: ['toggle-star', 'set-rating', 'view-detail', 'sell'],
 
   props: {
     items: {
@@ -116,13 +118,29 @@ export default {
     },
 
     /**
-     * 处理设置评分
-     * @param {string} figureId - 手办ID
-     * @param {number} index - 卡片索引
-     * @param {number} rating - 评分值
+     * 设置评分事件包装器（接收 StarRating 的自定义事件负载）
+     * 避免在模板中直接使用 $event.rating 的不确定性
+     * @param {Object} payload - StarRating 发出的事件负载 { rating }
      */
-    handleSetRating(figureId, index, rating) {
+    handleStarSetRating(payload, figureId, index) {
+      const rating = payload?.rating || payload || 0
       this.$emit('set-rating', { figureId, index, rating })
+    },
+
+    /**
+     * 处理查看详情
+     * @param {Object} item - 藏品数据
+     */
+    handleViewDetail(item) {
+      this.$emit('view-detail', { item })
+    },
+
+    /**
+     * 处理出柜登记
+     * @param {Object} item - 藏品数据
+     */
+    handleSell(item) {
+      this.$emit('sell', { item })
     }
   }
 }

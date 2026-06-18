@@ -46,6 +46,8 @@
 export default {
   name: 'StarRating',
 
+  emits: ['click', 'set-rating'],
+
   props: {
     rating: {
       type: Number,

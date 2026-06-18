@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>出柜登记 - 移出展示柜</title>
+<style>
+  :root {
+    --bg: #F7F5F2;
+    --card-bg: #FFFFFF;
+    --text-primary: #1F1F1F;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border: #EBE8E4;
+    --accent: #C49A6C;
+    --accent-light: #FDF6EE;
+    --accent-border: #E8D5C0;
+    --green: #7EB8A2;
+    --red: #D66A6A;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--text-primary); line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 200;
+    display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .overlay.active { display: flex; opacity: 1; }
+
+  .drawer {
+    background: var(--card-bg); border-radius: var(--radius); width: 520px; max-width: 92vw;
+    max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+    transform: translateY(20px); transition: transform 0.3s;
+    box-shadow: var(--shadow);
+  }
+  .overlay.active .drawer { transform: translateY(0); }
+
+  .drawer-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .drawer-title { font-size: 17px; font-weight: 600; }
+  .drawer-close {
+    width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; color: var(--text-secondary);
+  }
+  .drawer-close:hover { border-color: var(--red); color: var(--red); }
+
+  .drawer-body { padding: 24px; overflow-y: auto; flex: 1; }
+
+  /* Figure Mini Hero */
+  .figure-mini {
+    display: flex; gap: 16px; align-items: center;
+    background: #FAFAFA; border-radius: 10px; padding: 16px;
+    border: 1px solid var(--border); margin-bottom: 20px;
+  }
+  .figure-thumb {
+    width: 64px; height: 64px; background: #F0EEEB; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 32px; color: #B0ABA5;
+    flex-shrink: 0;
+  }
+  .figure-info { flex: 1; }
+  .figure-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .figure-meta { font-size: 13px; color: var(--text-secondary); }
+  .figure-cabinet-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    background: var(--accent-light); color: var(--accent); margin-top: 6px;
+  }
+
+  /* Info Block */
+  .info-block {
+    background: #FFF8F0; border: 1px solid #FFE4C0; border-radius: 8px; padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .info-block-title { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+  .info-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .info-row:last-child { margin-bottom: 0; }
+  .info-label { color: var(--text-secondary); }
+  .info-value { color: var(--text-primary); font-weight: 500; }
+
+  /* Option List */
+  .option-list { margin-bottom: 20px; }
+  .option-item {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .option-item:hover { border-color: var(--accent); background: var(--accent-light); }
+  .option-item.selected {
+    border-color: var(--accent); background: var(--accent-light);
+  }
+  .option-radio {
+    width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+  }
+  .option-item.selected .option-radio { border-color: var(--accent); }
+  .option-radio-inner {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: none;
+  }
+  .option-item.selected .option-radio-inner { display: block; }
+  .option-body { flex: 1; }
+  .option-title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .option-desc { font-size: 12px; color: var(--text-tertiary); }
+
+  /* Warning Box */
+  .warn-box {
+    background: #FFF2F0; border: 1px solid #FFCCC7; border-radius: 8px;
+    padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; margin-bottom: 20px;
+  }
+  .warn-icon { font-size: 18px; flex-shrink: 0; }
+  .warn-text { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+  .warn-text strong { color: var(--red); font-weight: 600; }
+
+  /* Drawer Footer */
+  .drawer-footer {
+    padding: 16px 24px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 12px; flex-shrink: 0;
+  }
+  .btn {
+    padding: 9px 20px; border-radius: 8px; font-size: 14px; cursor: pointer;
+    border: 1px solid transparent; transition: all 0.2s;
+  }
+  .btn-default { background: #fff; border-color: var(--border); color: var(--text-secondary); }
+  .btn-default:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #B0855A; border-color: #B0855A; }
+  .btn-danger { background: #fff; border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: #FFF2F0; }
+
+  .hint-text { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; text-align: center; }
+
+  /* Demo */
+  .demo-triggers { padding: 40px; display: flex; gap: 20px; justify-content: center; }
+  .demo-btn {
+    padding: 12px 28px; border-radius: 8px; font-size: 14px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent-light); color: var(--accent);
+    font-weight: 500;
+  }
+  .demo-btn:hover { background: var(--accent); color: #fff; }
+
+  .hidden { display: none !important; }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="demo-triggers">
+  <button class="demo-btn" onclick="openOut()">🏷️ 出柜登记（从海景房移出）</button>
+</div>
+
+<!-- ====== 出柜登记 Drawer ====== -->
+<div class="overlay" id="outOverlay">
+  <div class="drawer">
+    <div class="drawer-header">
+      <div class="drawer-title">🏷️ 出柜登记</div>
+      <div class="drawer-close" onclick="closeAll()">✕</div>
+    </div>
+    <div class="drawer-body">
+
+      <!-- 藏品信息 -->
+      <div class="figure-mini">
+        <div class="figure-thumb">🧸</div>
+        <div class="figure-info">
+          <div class="figure-name">蜜姬</div>
+          <div class="figure-meta">原创 · 1/7 · Native · 库存 3 体</div>
+          <div class="figure-cabinet-tag">📂 当前所在：海景房专区</div>
+        </div>
+      </div>
+
+      <!-- 说明 -->
+      <div class="info-block">
+        <div class="info-block-title">📌 出柜说明</div>
+        <div class="info-row">
+          <span class="info-label">操作类型</span>
+          <span class="info-value">移出当前展示柜</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">资金影响</span>
+          <span class="info-value" style="color:var(--green)">无 · 不涉及交易</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">库存影响</span>
+          <span class="info-value">库存数量不变</span>
+        </div>
+      </div>
+
+      <!-- 选择去向 -->
+      <div style="font-size:14px; font-weight:600; margin-bottom:10px;">移出后去向</div>
+      <div class="option-list" id="optionList">
+        <div class="option-item selected" onclick="selectOption(this, 'default')">
+          <div class="option-radio"><div class="option-radio-inner"></div></div>
+          <div class="option-body">
+            <div class="option-title">移出当前收藏</div>
+            <div class="option-desc">仅移出「海景房专区」，其他分类保留</div>
+          </div>
+        </div>
+
+      <!-- 警告提示 -->
+      <div class="warn-box">
+        <div class="warn-icon">⚠️</div>
+        <div class="warn-text">
+          <strong>注意：</strong>出柜登记仅影响展示柜分类，不会删除藏品信息，也不会产生交易流水。<br>
+          该藏品仍可在「我的收藏」全部列表中查看。
+        </div>
+      </div>
+
+      <div class="hint-text">陪伴 392 天 · 感谢这段收藏时光</div>
+
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-default" onclick="closeAll()">取消</button>
+      <button class="btn btn-primary" onclick="confirmOut()">确认出柜</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openOut() {
+  document.getElementById('outOverlay').classList.add('active');
+}
+function closeAll() {
+  document.querySelectorAll('.overlay').forEach(el => el.classList.remove('active'));
+}
+function selectOption(el, val) {
+  document.querySelectorAll('.option-item').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function confirmOut() {
+  alert('已确认出柜：蜜姬 从「海景房专区」移出');
+  closeAll();
+}
+
+document.querySelectorAll('.overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeAll(); });
+});
+</script>
+
+</body>
+</html>

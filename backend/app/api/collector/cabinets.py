@@ -3,22 +3,33 @@ cabinets.py - 收藏家看板我的收藏柜接口
 
 API端点：
 - GET /collector/cabinets: 获取我的收藏柜8个分类橱窗卡片
+- POST /api/v1/cabinets/remove-figure: 将藏品从收藏柜移出
 
 职责：
 - 返回8个固定收藏柜分类，即使无数据也展示
 - 4个分类有真实统计逻辑：海景房专区、最近入柜、修复工坊、已出藏品
 - 4个分类默认为空数据：预定中、复数专区、待出荷、本命角色
+- 支持出柜登记：将藏品从当前收藏柜分类移出
 
 各分类统计逻辑：
 1. 海景房专区（镇柜之宝）: 收藏天数>180天+入手价高+当前仍在库
 2. 最近入柜（新欢）: asset_transactions 中 type='buy'，30天内，按figure_id去重
 3. 修复工坊（待修复）: figure_tag关联tags表中name=待修复/缺件/断桩/待补色/蹭色
 4. 已出藏品（已出坑）: asset_transactions 中 type='sell'，按figure_id去重
+
+出柜登记逻辑：
+- 海景房专区：移除star标签
+- 最近入柜：无需处理（30天自动过期）
+- 修复工坊：移除修复相关标签
+- 其他分类：根据具体逻辑处理
 """
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func, text
+from pydantic import BaseModel
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 from app.models.database import get_db
 from app.models.figure import Figure
@@ -26,6 +37,7 @@ from app.models.user import User
 from app.models.sold_order import SoldOrder
 from app.models.tag import Tag, figure_tag
 from app.models.asset import AssetTransaction
+from app.models.order import Order
 from app.api.users import get_current_user
 
 router = APIRouter()
@@ -36,6 +48,20 @@ def get_image_url(figure):
     if figure.images and isinstance(figure.images, list) and len(figure.images) > 0:
         return figure.images[0]
     return ""
+
+
+def get_figure_stock(db, user_id, figure_id):
+    """获取手办当前总库存（所有入库记录的 remaining_quantity 之和）"""
+    from sqlalchemy import func
+    result = db.query(
+        func.coalesce(func.sum(AssetTransaction.remaining_quantity), 0)
+    ).filter(
+        AssetTransaction.user_id == user_id,
+        AssetTransaction.figure_id == figure_id,
+        AssetTransaction.transaction_type == 'buy',
+        AssetTransaction.is_active == True
+    ).scalar()
+    return result or 0
 
 
 @router.get("/cabinets")
@@ -95,7 +121,9 @@ async def get_collector_cabinets(
                     "work": trans.figure.work or "未知",
                     "scale": trans.figure.scale or "未知",
                     "manufacturer": trans.figure.manufacturer or "未知",
-                    "transaction_date": trans.transaction_date.strftime("%Y-%m-%d") if trans.transaction_date else None
+                    "transaction_date": trans.transaction_date.strftime("%Y-%m-%d") if trans.transaction_date else None,
+                    "purchase_price": trans.price or 0,
+                    "stock": get_figure_stock(db, current_user.id, figure_id)
                 })
 
     # 按年限从高到低排序
@@ -119,12 +147,22 @@ async def get_collector_cabinets(
     new_figures = []
     for figure_id, trans in recent_figure_map.items():
         if trans.figure:
-            # 计算陪伴天数（入库日期至今）
+            # 取该手办最早的入库时间计算陪伴天数（从第一次拥有开始算）
+            first_buy = db.query(AssetTransaction).filter(
+                AssetTransaction.figure_id == figure_id,
+                AssetTransaction.user_id == current_user.id,
+                AssetTransaction.transaction_type == 'buy',
+                AssetTransaction.is_active == True
+            ).order_by(AssetTransaction.transaction_date.asc()).first()
+
             holding_days = 0
-            if trans.transaction_date:
-                days = (now - trans.transaction_date).days
+            first_buy_date = None
+            if first_buy and first_buy.transaction_date:
+                days = (now - first_buy.transaction_date).days
                 if days > 0:
                     holding_days = days
+                first_buy_date = first_buy.transaction_date
+
             new_figures.append({
                 "id": figure_id,
                 "name": trans.figure.name or "未知",
@@ -133,7 +171,9 @@ async def get_collector_cabinets(
                 "work": trans.figure.work or "未知",
                 "scale": trans.figure.scale or "未知",
                 "manufacturer": trans.figure.manufacturer or "未知",
-                "transaction_date": trans.transaction_date.strftime("%Y-%m-%d") if trans.transaction_date else None
+                "transaction_date": first_buy_date.strftime("%Y-%m-%d") if first_buy_date else None,
+                "purchase_price": trans.price or 0,
+                "stock": get_figure_stock(db, current_user.id, figure_id)
             })
 
     # ====== 3. 修复工坊（待修复） ======
@@ -146,7 +186,6 @@ async def get_collector_cabinets(
     repair_figures = []
     if repair_tag_ids:
         # 通过 figure_tag 中间表查询有关联这些tag的figure
-        from sqlalchemy import text
         result = db.execute(
             text("SELECT figure_id FROM figure_tag WHERE tag_id IN :tag_ids"),
             {"tag_ids": tuple(repair_tag_ids)}
@@ -178,7 +217,9 @@ async def get_collector_cabinets(
                     "work": fig.work or "未知",
                     "scale": fig.scale or "未知",
                     "manufacturer": fig.manufacturer or "未知",
-                    "transaction_date": first_buy_date.strftime("%Y-%m-%d") if first_buy_date else None
+                    "transaction_date": first_buy_date.strftime("%Y-%m-%d") if first_buy_date else None,
+                    "purchase_price": first_buy.price if first_buy else 0,
+                    "stock": get_figure_stock(db, current_user.id, fid)
                 })
 
     # ====== 4. 已出藏品（已出坑） ======
@@ -226,8 +267,158 @@ async def get_collector_cabinets(
                 "work": fig.work or "未知",
                 "scale": fig.scale or "未知",
                 "manufacturer": fig.manufacturer or "未知",
-                "transaction_date": first_buy_date.strftime("%Y-%m-%d") if first_buy_date else None
+                "transaction_date": first_buy_date.strftime("%Y-%m-%d") if first_buy_date else None,
+                "purchase_price": first_buy.price if first_buy else 0,
+                "stock": get_figure_stock(db, current_user.id, fid)
             })
+
+    # ====== 5. 预定中（空气谷） ======
+    # 订单类型为"定金预定"、尾款状态为未付款的订单
+    air_orders = db.query(Order).filter(
+        Order.user_id == current_user.id,
+        Order.order_type == '定金预定',
+        Order.status.in_(['未支付', '已支付']),
+        Order.is_active == 1
+    ).all()
+
+    air_figures = []
+    seen_air_figure_ids = set()
+    for order in air_orders:
+        if order.figure_id not in seen_air_figure_ids and order.figure:
+            seen_air_figure_ids.add(order.figure_id)
+            air_figures.append({
+                "id": order.figure_id,
+                "name": order.figure.name or "未知",
+                "image": get_image_url(order.figure),
+                "holding_days": 0,
+                "work": order.figure.work or "未知",
+                "scale": order.figure.scale or "未知",
+                "manufacturer": order.figure.manufacturer or "未知",
+                "transaction_date": order.created_at.strftime("%Y-%m-%d") if order.created_at else None,
+                "purchase_price": order.deposit or 0,
+                "stock": get_figure_stock(db, current_user.id, order.figure_id)
+            })
+
+    # ====== 6. 复数专区 ======
+    # 同一款手办 remaining_quantity > 0 且总量 >= 2
+    dup_stock = db.query(
+        AssetTransaction.figure_id,
+        func.sum(AssetTransaction.remaining_quantity).label('total_stock')
+    ).filter(
+        AssetTransaction.user_id == current_user.id,
+        AssetTransaction.transaction_type == 'buy',
+        AssetTransaction.is_active == True,
+        AssetTransaction.remaining_quantity > 0
+    ).group_by(AssetTransaction.figure_id).having(
+        func.sum(AssetTransaction.remaining_quantity) >= 2
+    ).all()
+
+    dup_figure_ids = [r.figure_id for r in dup_stock]
+    dup_stock_map = {r.figure_id: int(getattr(r, 'total_stock', 0) or 0) for r in dup_stock}
+    dup_figures = []
+    for fid in dup_figure_ids:
+        fig = db.query(Figure).filter(Figure.id == fid).first()
+        if fig:
+            # 取最早入库日期
+            first_buy = db.query(AssetTransaction).filter(
+                AssetTransaction.figure_id == fid,
+                AssetTransaction.user_id == current_user.id,
+                AssetTransaction.transaction_type == 'buy',
+                AssetTransaction.is_active == True
+            ).order_by(AssetTransaction.transaction_date.asc()).first()
+            first_buy_date = first_buy.transaction_date if first_buy and first_buy.transaction_date else None
+            holding_days = (now - first_buy_date).days if first_buy_date else 0
+            dup_figures.append({
+                "id": fid,
+                "name": fig.name or "未知",
+                "image": get_image_url(fig),
+                "holding_days": max(holding_days, 0),
+                "work": fig.work or "未知",
+                "scale": fig.scale or "未知",
+                "manufacturer": fig.manufacturer or "未知",
+                "transaction_date": first_buy_date.strftime("%Y-%m-%d") if first_buy_date else None,
+                "purchase_price": first_buy.price if first_buy else 0,
+                "stock": dup_stock_map.get(fid, 0)
+            })
+
+    # ====== 7. 待出荷 ======
+    # 钱已付清（已完成），等待出荷发货
+    wait_orders = db.query(Order).filter(
+        Order.user_id == current_user.id,
+        Order.status == '已完成',
+        Order.is_active == 1
+    ).all()
+
+    wait_figures = []
+    seen_wait_figure_ids = set()
+    for order in wait_orders:
+        if order.figure_id not in seen_wait_figure_ids and order.figure:
+            seen_wait_figure_ids.add(order.figure_id)
+            wait_figures.append({
+                "id": order.figure_id,
+                "name": order.figure.name or "未知",
+                "image": get_image_url(order.figure),
+                "holding_days": 0,
+                "work": order.figure.work or "未知",
+                "scale": order.figure.scale or "未知",
+                "manufacturer": order.figure.manufacturer or "未知",
+                "transaction_date": order.created_at.strftime("%Y-%m-%d") if order.created_at else None,
+                "purchase_price": (order.deposit or 0) + (order.balance or 0),
+                "stock": get_figure_stock(db, current_user.id, order.figure_id)
+            })
+
+    # ====== 8. 本命角色 ======
+    # 已入库的手办按 work 分组聚合
+    role_transactions = db.query(AssetTransaction).filter(
+        AssetTransaction.user_id == current_user.id,
+        AssetTransaction.transaction_type == 'buy',
+        AssetTransaction.is_active == True,
+        AssetTransaction.remaining_quantity > 0
+    ).all()
+
+    # 按 figure_id 去重
+    role_figure_map = {}
+    for trans in role_transactions:
+        if trans.figure_id not in role_figure_map and trans.figure:
+            role_figure_map[trans.figure_id] = trans
+
+    # 按 work 分组
+    work_groups = defaultdict(list)
+    for figure_id, trans in role_figure_map.items():
+        work = trans.figure.work or "未知作品"
+        work_groups[work].append(trans)
+
+    role_figures = []
+    role_work_count = len(work_groups)
+    role_total_count = sum(len(items) for items in work_groups.values())
+    # 取各 work 的代表性手办
+    for work, trans_list in sorted(work_groups.items(), key=lambda x: len(x[1]), reverse=True):
+        trans = trans_list[0]
+        # 计算该 work 组下所有藏品的陪伴天数总和
+        total_group_days = 0
+        for t in trans_list:
+            buy = db.query(AssetTransaction).filter(
+                AssetTransaction.figure_id == t.figure_id,
+                AssetTransaction.user_id == current_user.id,
+                AssetTransaction.transaction_type == 'buy',
+                AssetTransaction.is_active == True
+            ).order_by(AssetTransaction.transaction_date.asc()).first()
+            if buy and buy.transaction_date:
+                days = (now - buy.transaction_date).days
+                if days > 0:
+                    total_group_days += days
+        role_figures.append({
+            "id": trans.figure_id,
+            "name": f"{work} ({len(trans_list)} 体)",
+            "image": get_image_url(trans.figure),
+            "holding_days": total_group_days,
+            "work": work,
+            "scale": trans.figure.scale or "未知",
+            "manufacturer": trans.figure.manufacturer or "未知",
+            "transaction_date": None,
+            "purchase_price": 0,
+            "stock": len(trans_list)
+        })
 
     # ====== 计算各分类陪伴天数 ======
     def calc_total_days(items, field='holding_days'):
@@ -294,10 +485,10 @@ async def get_collector_cabinets(
             "description": "空气谷",
             "icon": "☁️",
             "icon_bg": "#F3E8FF",
-            "count": 0,
+            "count": len(air_figures),
             "companion_days": 0,
-            "meta": "0 体 · 暂无数据",
-            "items": []
+            "meta": f"{len(air_figures)} 体 · 待付尾款" if air_figures else "暂无预定",
+            "items": air_figures[:3]
         },
         {
             "key": "dup",
@@ -305,10 +496,10 @@ async def get_collector_cabinets(
             "description": "复数",
             "icon": "👯",
             "icon_bg": "#FFF2F0",
-            "count": 0,
-            "companion_days": 0,
-            "meta": "0 体 · 暂无数据",
-            "items": []
+            "count": len(dup_figures),
+            "companion_days": calc_total_days(dup_figures, 'holding_days'),
+            "meta": f"{len(dup_figures)} 体 · 同款复购" if dup_figures else "暂无复数藏品",
+            "items": dup_figures[:3]
         },
         {
             "key": "wait",
@@ -316,10 +507,10 @@ async def get_collector_cabinets(
             "description": "待出荷",
             "icon": "📅",
             "icon_bg": "#E6F7FF",
-            "count": 0,
+            "count": len(wait_figures),
             "companion_days": 0,
-            "meta": "0 体 · 暂无数据",
-            "items": []
+            "meta": f"{len(wait_figures)} 体 · 等待出货" if wait_figures else "暂无待出荷",
+            "items": wait_figures[:3]
         },
         {
             "key": "role",
@@ -327,13 +518,115 @@ async def get_collector_cabinets(
             "description": "本命",
             "icon": "💝",
             "icon_bg": "#F0F5E8",
-            "count": 0,
-            "companion_days": 0,
-            "meta": "0 体 · 暂无数据",
-            "items": []
+            "count": role_work_count,
+            "companion_days": calc_total_days(role_figures, 'holding_days'),
+            "meta": f"{role_work_count} 个作品 · {role_total_count} 体" if role_work_count else "暂无本命角色",
+            "items": role_figures[:3]
         }
     ]
 
     return {
         "cabinets": cabinets
     }
+
+
+# ========== 出柜登记接口 ==========
+
+class RemoveFigureRequest(BaseModel):
+    """出柜登记请求参数"""
+    figure_id: int
+    cabinet_key: str
+
+
+@router.post("/api/v1/cabinets/remove-figure")
+async def remove_figure_from_cabinet(
+    request: RemoveFigureRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    将藏品从收藏柜移出（出柜登记）
+
+    根据 cabinet_key 执行不同的移出逻辑：
+    - star (海景房专区): 移除 'star' 标签
+    - fix (修复工坊): 移除修复相关标签（待修复、缺件、断桩、待补色、蹭色）
+    - 其他分类: 暂不支持直接移出
+
+    Args:
+        request: 包含 figure_id 和 cabinet_key 的请求体
+
+    Returns:
+        { success: bool, message: str }
+    """
+    figure_id = request.figure_id
+    cabinet_key = request.cabinet_key
+
+    # 验证藏品是否存在且属于当前用户
+
+    # 检查该用户是否有该藏品的持仓记录
+    has_holding = db.query(AssetTransaction).filter(
+        AssetTransaction.figure_id == figure_id,
+        AssetTransaction.user_id == current_user.id,
+        AssetTransaction.transaction_type == 'buy',
+        AssetTransaction.is_active == True,
+        AssetTransaction.remaining_quantity > 0
+    ).first()
+
+    if not has_holding:
+        raise HTTPException(status_code=404, detail="未找到该藏品或无权操作")
+
+    # 根据 cabinet_key 执行不同的移出逻辑
+    if cabinet_key == 'star':
+        # 海景房专区：移除 star 标签
+        star_tag = db.query(Tag).filter(Tag.name == 'star').first()
+        if star_tag:
+            # 检查是否有关联
+            existing = db.execute(
+                text("SELECT 1 FROM figure_tag WHERE figure_id = :figure_id AND tag_id = :tag_id"),
+                {"figure_id": figure_id, "tag_id": star_tag.id}
+            ).fetchone()
+
+            if existing:
+                # 删除关联
+                db.execute(
+                    text("DELETE FROM figure_tag WHERE figure_id = :figure_id AND tag_id = :tag_id"),
+                    {"figure_id": figure_id, "tag_id": star_tag.id}
+                )
+                db.commit()
+                return {"success": True, "message": "已从海景房专区移出"}
+            else:
+                return {"success": True, "message": "该藏品不在海景房专区"}
+        else:
+            return {"success": True, "message": "无需移出"}
+
+    elif cabinet_key == 'fix':
+        # 修复工坊：移除修复相关标签
+        repair_tag_names = ['待修复', '缺件', '断桩', '待补色', '蹭色']
+        repair_tags = db.query(Tag).filter(Tag.name.in_(repair_tag_names)).all()
+
+        if repair_tags:
+            repair_tag_ids = [tag.id for tag in repair_tags]
+            # 删除所有修复相关标签的关联
+            db.execute(
+                text("""
+                    DELETE FROM figure_tag
+                    WHERE figure_id = :figure_id AND tag_id IN :tag_ids
+                """),
+                {"figure_id": figure_id, "tag_ids": tuple(repair_tag_ids)}
+            )
+            db.commit()
+            return {"success": True, "message": "已从修复工坊移出"}
+        else:
+            return {"success": True, "message": "无需移出"}
+
+    elif cabinet_key == 'new':
+        # 最近入柜：30天内自动计算，无法手动移出
+        return {"success": False, "message": "最近入柜分类由系统自动管理，无法手动移出"}
+
+    elif cabinet_key == 'out':
+        # 已出藏品：需要通过卖出流程
+        return {"success": False, "message": "已出藏品需要通过卖出订单流程处理"}
+
+    else:
+        # 其他分类暂不支持
+        return {"success": False, "message": f"暂不支持从 {cabinet_key} 分类移出"}

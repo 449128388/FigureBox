@@ -45,7 +45,8 @@
         </div>
       </div>
       <div class="list-actions">
-        <button class="btn-tiny">查看详情</button>
+        <button class="btn-tiny" @click="handleViewDetail(item)">查看详情</button>
+        <button class="btn-tiny btn-tiny-primary" @click="handleSell(item)">出柜登记</button>
       </div>
     </div>
   </div>
@@ -57,6 +58,8 @@ import { formatFigureInfo, formatDateInfo } from '../utils/formatters'
 
 export default {
   name: 'FigureList',
+
+  emits: ['view-detail', 'sell'],
 
   props: {
     items: {
@@ -95,7 +98,23 @@ export default {
 
   methods: {
     formatFigureInfo,
-    formatDateInfo
+    formatDateInfo,
+
+    /**
+     * 处理查看详情
+     * @param {Object} item - 藏品数据
+     */
+    handleViewDetail(item) {
+      this.$emit('view-detail', { item })
+    },
+
+    /**
+     * 处理出柜登记
+     * @param {Object} item - 藏品数据
+     */
+    handleSell(item) {
+      this.$emit('sell', { item })
+    }
   }
 }
 </script>
@@ -215,6 +234,8 @@ export default {
 }
 
 .list-actions {
+  display: flex;
+  gap: 8px;
   flex-shrink: 0;
 }
 

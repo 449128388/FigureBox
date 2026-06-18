@@ -128,23 +128,22 @@ export default {
       this.starTempValue = rating
       this.starRatings = { ...this.starRatings, [figureId]: rating }
 
-      // 0.5 秒后自动保存
-      setTimeout(async () => {
-        try {
-          await axios.post('/collector/ratings', {
-            figure_id: figureId,
-            cabinet_type: this.cabinet.key,
-            rating: rating
-          })
-          ElMessage.success('已更新')
-        } catch (e) {
-          ElMessage.error('评分保存失败')
-        }
-      }, 500)
-
       // 关闭编辑状态
       this.starEditingIndex = null
       this.starTempValue = 0
+
+      // 立即保存到后端
+      try {
+        await axios.post('/collector/ratings', {
+          figure_id: figureId,
+          cabinet_type: this.cabinet.key,
+          rating: rating
+        })
+        ElMessage.success('已更新')
+      } catch (e) {
+        console.error('评分保存失败:', e)
+        ElMessage.error('评分保存失败')
+      }
     },
 
     /**
@@ -179,12 +178,17 @@ export default {
      * @returns {Object} { sortBy, sortOrder }
      */
     getDefaultSortByCabinet(cabinetKey) {
-      // 海景房专区默认按喜爱度降序
-      if (cabinetKey === 'star') {
-        return { sortBy: 'rating', sortOrder: 'desc' }
+      const config = {
+        'star':  { sortBy: 'rating',           sortOrder: 'desc' }, // 海景房：喜爱度降序
+        'new':   { sortBy: 'transaction_date', sortOrder: 'desc' }, // 最近入柜：入手时间降序
+        'fix':   { sortBy: 'holding_days',     sortOrder: 'desc' }, // 修复工坊：收藏天数降序
+        'out':   { sortBy: 'transaction_date', sortOrder: 'desc' }, // 已出藏品：入手时间降序
+        'air':   { sortBy: 'transaction_date', sortOrder: 'asc'  }, // 预定中：入手时间升序（最早下单的在最前）
+        'dup':   { sortBy: 'name',             sortOrder: 'asc'  }, // 复数专区：名称升序
+        'wait':  { sortBy: 'transaction_date', sortOrder: 'asc'  }, // 待出荷：入手时间升序（最早付清的在最前）
+        'role':  { sortBy: 'transaction_date', sortOrder: 'desc' }  // 本命角色：入手时间降序
       }
-      // 其他默认按名称升序
-      return { sortBy: 'name', sortOrder: 'asc' }
+      return config[cabinetKey] || { sortBy: 'name', sortOrder: 'asc' }
     },
 
     /**
