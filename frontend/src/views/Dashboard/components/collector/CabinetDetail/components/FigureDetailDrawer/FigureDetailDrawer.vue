@@ -49,6 +49,7 @@
           :figure="figureData"
           :cabinet-icon="cabinetIcon"
           :status-text="statusInfo.text"
+          :statuses-list="figureStatuses"
           :is-star-figure="isStarFigure"
         />
 
@@ -64,6 +65,7 @@
           :cabinet-name="cabinetName"
           :status-label="statusInfo.label"
           :status-color="statusInfo.color"
+          :statuses-list="figureStatuses"
         />
 
         <!-- 收藏历程 -->
@@ -147,6 +149,21 @@ export default {
 
     isStarFigure() {
       return isStarFigure(this.cabinetKey, this.currentRating)
+    },
+
+    /**
+     * 从 figure.statuses 数组生成多状态标签列表
+     * 兼容旧版单 status 字段
+     */
+    figureStatuses() {
+      const statuses = this.figureData.statuses || (this.figureData.status ? [this.figureData.status] : [])
+      const STATUS_MAP = {
+        'in': { text: '在柜', cls: 'st-in' },
+        'air_unpaid': { text: '空气谷', cls: 'st-air' },
+        'air_paid': { text: '待出荷', cls: 'st-air-paid' },
+        'out': { text: '已出', cls: 'st-out' }
+      }
+      return statuses.map(s => STATUS_MAP[s] || { text: s, cls: 'st-in' })
     },
 
     historyList() {

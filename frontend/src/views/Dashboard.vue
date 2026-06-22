@@ -129,9 +129,60 @@
 
     <!-- 收藏家模式内容 -->
     <div v-else class="collector-mode">
+      <!-- 本命厂商列表/详情视图 -->
+      <template v-if="showManufacturerView">
+        <ManufacturerListView
+          v-if="manufacturerView === 'list'"
+          :manufacturers="manufacturers"
+          :manufacturer-count="manufacturerCount"
+          :loading="manufacturerLoading"
+          @add="handleManufacturerAdd"
+          @select="handleManufacturerSelect"
+          @edit="handleManufacturerEdit"
+          @delete="handleManufacturerDelete"
+          @back="handleManufacturerBackToCabinets"
+        />
+        <ManufacturerDetailView
+          v-else-if="manufacturerView === 'detail'"
+          :manufacturer="currentManufacturer"
+          :loading="manufacturerDetailLoading"
+          @back="handleManufacturerBackFromDetail"
+          @edit="handleManufacturerEdit"
+          @view-figure="handleManufacturerViewFigure"
+          @sell="handleManufacturerSellFigure"
+        />
+        <MakerFormDialog
+          :visible="manufacturerDialogVisible"
+          :is-editing="manufacturerIsEditing"
+          :form-data="manufacturerFormData"
+          @close="handleManufacturerDialogClose"
+          @save="handleManufacturerSave"
+        />
+        <!-- 本命厂商 - 藏品详情抽屉 -->
+        <FigureDetailDrawer
+          :visible="manufacturerDetailDrawerVisible"
+          :figure="manufacturerSelectedFigure"
+          cabinet-key="role"
+          cabinet-name="本命厂商"
+          cabinet-icon="🏭"
+          :rating="0"
+          @close="manufacturerDetailDrawerVisible = false"
+          @sell="handleManufacturerDetailSell"
+        />
+        <!-- 本命厂商 - 出柜登记抽屉 -->
+        <FigureOutDrawer
+          :visible="manufacturerOutDrawerVisible"
+          :figure="manufacturerSelectedFigure"
+          cabinet-key="role"
+          cabinet-name="本命厂商"
+          cabinet-icon="🏭"
+          @close="manufacturerOutDrawerVisible = false"
+          @confirm="handleManufacturerOutConfirm"
+        />
+      </template>
       <!-- 收藏柜详情视图 -->
       <CabinetDetail
-        v-if="selectedCabinet"
+        v-else-if="selectedCabinet"
         :cabinet="selectedCabinet"
         @back="handleCabinetBack"
       />
@@ -283,6 +334,15 @@ import CabinetDetail from './Dashboard/components/collector/CabinetDetail/Cabine
 import TagCloud from './Dashboard/components/collector/TagCloud.vue'
 import ActivityFeed from './Dashboard/components/collector/ActivityFeed.vue'
 
+// 导入本命厂商组件
+import ManufacturerListView from './Dashboard/components/collector/ManufacturerList/ManufacturerList.vue'
+import ManufacturerDetailView from './Dashboard/components/collector/ManufacturerList/ManufacturerDetail.vue'
+import MakerFormDialog from './Dashboard/components/collector/ManufacturerList/MakerFormDialog.vue'
+
+// 导入藏品详情抽屉组件
+import FigureDetailDrawer from './Dashboard/components/collector/CabinetDetail/components/FigureDetailDrawer/FigureDetailDrawer.vue'
+import FigureOutDrawer from './Dashboard/components/collector/CabinetDetail/components/FigureOutDrawer/index.vue'
+
 // 导入倒狗模式组件
 import AssetView from './Dashboard/components/reseller/AssetView.vue'
 import MarketView from './Dashboard/components/reseller/MarketView.vue'
@@ -295,6 +355,8 @@ import PayBalanceConfirmDrawer from './Dashboard/components/reseller/trade/PayBa
 
 // 导入收藏家模式 composable
 import { useCollectorData } from './Dashboard/composables/useCollectorData'
+// 导入本命厂商 composable
+import { useManufacturer } from './Dashboard/components/collector/ManufacturerList/composables/useManufacturer'
 // 导入账单导出 composable
 import { useBillExport } from './Dashboard/composables/useBillExport'
 // 导入创建买入订单 composable
@@ -314,12 +376,19 @@ export default {
     Money,
     Close,
     // 收藏家模式组件
-    CollectorHeader,
-    CollectorOverview,
+      CollectorHeader,
+      CollectorOverview,
       CollectionCabinets,
       CabinetDetail,
       TagCloud,
       ActivityFeed,
+      // 本命厂商组件
+      ManufacturerListView,
+      ManufacturerDetailView,
+      MakerFormDialog,
+      // 藏品详情抽屉组件
+      FigureDetailDrawer,
+      FigureOutDrawer,
       // 倒狗模式组件
       AssetView,
       MarketView,
@@ -338,6 +407,33 @@ export default {
 
     // 使用收藏家模式 composable
     const { collectorData, loading: collectorLoading, fetchCollectorData, sharePoster, privacySettings, filterByTag, handleActivityAction } = useCollectorData()
+
+    // 使用本命厂商 composable
+    const {
+      manufacturers,
+      manufacturerCount,
+      loading: manufacturerLoading,
+      currentManufacturer,
+      detailLoading: manufacturerDetailLoading,
+      formDialogVisible: manufacturerDialogVisible,
+      isEditing: manufacturerIsEditing,
+      formData: manufacturerFormData,
+      currentView: manufacturerView,
+      fetchManufacturers,
+      fetchManufacturerDetail,
+      openAddDialog: handleManufacturerAdd,
+      openEditDialog: handleManufacturerEdit,
+      saveManufacturer,
+      removeManufacturer: handleManufacturerDelete,
+      backToList: handleManufacturerBackToList
+    } = useManufacturer()
+
+    const showManufacturerView = ref(false)
+
+    // 本命厂商 - 藏品详情/出柜登记抽屉状态
+    const manufacturerDetailDrawerVisible = ref(false)
+    const manufacturerOutDrawerVisible = ref(false)
+    const manufacturerSelectedFigure = ref(null)
 
     // 使用账单导出 composable
     const { dialogVisible: billExportDialogVisible, loading: billExportLoading, openDialog: openBillExportDialog, exportBill: handleBillExport } = useBillExport()
@@ -574,12 +670,81 @@ export default {
     
     // 收藏柜点击：进入详情
     const handleCabinetClick = (cabinet) => {
-      selectedCabinet.value = cabinet
+      if (cabinet.key === 'role') {
+        // 本命厂商走独立视图
+        showManufacturerView.value = true
+        selectedCabinet.value = null
+        fetchManufacturers()
+      } else {
+        selectedCabinet.value = cabinet
+        showManufacturerView.value = false
+      }
     }
     
+    // 本命厂商详情
+    const handleManufacturerSelect = (id) => {
+      fetchManufacturerDetail(id)
+    }
+
+    // 本命厂商详情返回列表（含刷新）
+    const handleManufacturerBackFromDetail = () => {
+      handleManufacturerBackToList()
+      fetchManufacturers()
+    }
+
+    // 本命厂商列表返回收藏柜概览
+    const handleManufacturerBackToCabinets = () => {
+      showManufacturerView.value = false
+      fetchCollectorData()
+    }
+
+    // 本命厂商 - 查看手办详情
+    const handleManufacturerViewFigure = (fig) => {
+      manufacturerSelectedFigure.value = fig
+      manufacturerDetailDrawerVisible.value = true
+    }
+
+    // 本命厂商 - 手办出柜登记
+    const handleManufacturerSellFigure = (fig) => {
+      manufacturerSelectedFigure.value = fig
+      manufacturerOutDrawerVisible.value = true
+    }
+
+    // 本命厂商 - 详情抽屉中的出柜登记
+    const handleManufacturerDetailSell = ({ figure }) => {
+      manufacturerDetailDrawerVisible.value = false
+      setTimeout(() => {
+        manufacturerSelectedFigure.value = figure || manufacturerSelectedFigure.value
+        manufacturerOutDrawerVisible.value = true
+      }, 300)
+    }
+
+    // 本命厂商 - 出柜登记确认
+    const handleManufacturerOutConfirm = () => {
+      manufacturerOutDrawerVisible.value = false
+    }
+
+    // 本命厂商弹窗关闭
+    const handleManufacturerDialogClose = () => {
+      manufacturerDialogVisible.value = false
+    }
+
+    // 本命厂商保存
+    const handleManufacturerSave = async (formDataFromDialog) => {
+      // 将弹窗表单数据同步到 composable 的 formData
+      if (formDataFromDialog) {
+        Object.assign(manufacturerFormData, formDataFromDialog)
+      }
+      const success = await saveManufacturer()
+      if (success) {
+        manufacturerDialogVisible.value = false
+      }
+    }
+
     // 收藏柜详情返回
     const handleCabinetBack = () => {
       selectedCabinet.value = null
+      fetchCollectorData()
     }
     
     // 显示年度消费上限对话框
@@ -771,6 +936,34 @@ export default {
       selectedPayBalanceOrder,
       selectPayBalanceOrder,
       handlePayBalanceSuccess,
+      // 本命厂商
+      showManufacturerView,
+      manufacturers,
+      manufacturerCount,
+      manufacturerLoading,
+      currentManufacturer,
+      manufacturerDetailLoading,
+      manufacturerDialogVisible,
+      manufacturerIsEditing,
+      manufacturerFormData,
+      manufacturerView,
+      handleManufacturerAdd,
+      handleManufacturerEdit,
+      handleManufacturerDelete,
+      handleManufacturerBackToList,
+      handleManufacturerBackFromDetail,
+      handleManufacturerBackToCabinets,
+      handleManufacturerSelect,
+      handleManufacturerDialogClose,
+      handleManufacturerSave,
+      // 本命厂商 - 藏品详情/出柜登记
+      manufacturerDetailDrawerVisible,
+      manufacturerOutDrawerVisible,
+      manufacturerSelectedFigure,
+      handleManufacturerViewFigure,
+      handleManufacturerSellFigure,
+      handleManufacturerDetailSell,
+      handleManufacturerOutConfirm,
     }
   }
 }</script>

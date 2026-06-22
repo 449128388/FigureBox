@@ -19,13 +19,19 @@
         <div class="tl-date">{{ item.date }}</div>
         <!-- API 格式 -->
         <template v-if="item.type_label">
-          <div class="tl-text">
-            <span class="tl-tag" :class="item.type === 'sell' ? 'tag-sell' : item.type === 'adjust' ? 'tag-adjust' : item.type_label === '补仓' ? 'tag-replenish' : 'tag-buy'">
-              {{ item.type_label }}
-            </span>
+          <!-- 手续费合并展示 -->
+          <div v-if="item.type === 'fee' && item.fee_detail" class="tl-text">
+            <span class="tl-tag tag-fee">手续费</span>
+            运费 <strong>¥{{ formatPrice(item.fee_detail.shipping_fee) }}</strong>
+            + 平台手续费 <strong>¥{{ formatPrice(item.fee_detail.platform_fee) }}</strong>
+            合计支出 <strong>¥{{ formatPrice(item.fee_detail.total) }}</strong>
+            <span class="tl-balance"> · 库存 {{ item.balance }} 体</span>
+          </div>
+          <div v-else class="tl-text">
+            <span class="tl-tag" :class="tagClass(item)">{{ item.type_label }}</span>
             <strong>{{ item.quantity }}</strong> 体
             <span v-if="item.price"> · {{ item.type === 'sell' ? '卖出价' : '成本价' }} ¥{{ formatPrice(item.price) }}</span>
-            <span v-if="item.quantity > 0" class="tl-balance"> · 库存 {{ item.balance }} 体</span>
+            <span v-if="item.balance !== undefined" class="tl-balance"> · 库存 {{ item.balance }} 体</span>
           </div>
         </template>
         <!-- 旧格式兼容 -->
@@ -50,6 +56,14 @@ export default {
     formatPrice(val) {
       if (val === undefined || val === null) return '0'
       return Number(val).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    },
+    tagClass(item) {
+      if (item.type === 'sell') return 'tag-sell'
+      if (item.type === 'adjust') return 'tag-adjust'
+      if (item.type_label === '补仓') return 'tag-replenish'
+      if (item.type_label === '定金') return 'tag-deposit'
+      if (item.type_label === '尾款') return 'tag-balance'
+      return 'tag-buy'
     }
   }
 }
@@ -153,6 +167,21 @@ export default {
 .tag-buy {
   background: #E8F5E9;
   color: #2E7D32;
+}
+
+.tag-deposit {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.tag-balance {
+  background: #E0F2F1;
+  color: #00695C;
+}
+
+.tag-fee {
+  background: #E3F2FD;
+  color: #1565C0;
 }
 
 .tag-replenish {

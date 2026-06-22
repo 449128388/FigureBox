@@ -29,7 +29,7 @@ export function useCollectorData() {
           { key: 'air', name: '预定中', description: '空气谷', icon: '☁️', icon_bg: '#F3E8FF', count: 12, meta: '12 体 · 待付尾款/待出荷', items: [] },
           { key: 'dup', name: '复数专区', description: '复数', icon: '👯', icon_bg: '#FFF2F0', count: 6, meta: '6 体 · 同一手办多体', items: [] },
           { key: 'wait', name: '待出荷', description: '待出荷', icon: '📅', icon_bg: '#E6F7FF', count: 4, meta: '4 体 · 已付清等工厂', items: [] },
-          { key: 'role', name: '本命角色', description: '本命', icon: '💝', icon_bg: '#F0F5E8', count: 9, meta: '9 体 · 蕾姆全收集', items: [] }
+          { key: 'role', name: '本命厂商', description: '本命', icon: '🏭', icon_bg: '#E8F4F8', count: 0, meta: '暂无本命厂商', items: [] }
         ],
         tags: tagsRes.tags || [],
         activities: timelineRes.activities || []

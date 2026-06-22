@@ -18,7 +18,7 @@ collector_router.py - 收藏家看板路由注册层
 
 from fastapi import APIRouter
 
-from . import dashboard, summary, cabinets, tags, timeline, ratings, transactions
+from . import dashboard, summary, cabinets, tags, timeline, ratings, transactions, manufacturers
 
 router = APIRouter()
 
@@ -64,4 +64,10 @@ router.include_router(
     transactions.router,
     prefix="",
     tags=["collector-transactions"]
+)
+
+router.include_router(
+    manufacturers.router,
+    prefix="",
+    tags=["collector-manufacturers"]
 )

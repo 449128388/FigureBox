@@ -39,6 +39,7 @@ from app.models.tag import Tag, figure_tag
 from app.models.asset import AssetTransaction
 from app.models.order import Order
 from app.api.users import get_current_user
+from app.services.collector_service.collector_manufacturer_service import CollectorManufacturerService
 
 router = APIRouter()
 
@@ -367,8 +368,8 @@ async def get_collector_cabinets(
                 "stock": get_figure_stock(db, current_user.id, order.figure_id)
             })
 
-    # ====== 8. 本命角色 ======
-    # 已入库的手办按 work 分组聚合
+    # ====== 8. 本命厂商 ======
+    # 已入库的手办按 manufacturer 分组聚合
     role_transactions = db.query(AssetTransaction).filter(
         AssetTransaction.user_id == current_user.id,
         AssetTransaction.transaction_type == 'buy',
@@ -382,19 +383,23 @@ async def get_collector_cabinets(
         if trans.figure_id not in role_figure_map and trans.figure:
             role_figure_map[trans.figure_id] = trans
 
-    # 按 work 分组
-    work_groups = defaultdict(list)
+    # 按 manufacturer 分组
+    manufacturer_groups = defaultdict(list)
     for figure_id, trans in role_figure_map.items():
-        work = trans.figure.work or "未知作品"
-        work_groups[work].append(trans)
+        manufacturer = trans.figure.manufacturer or "未知厂商"
+        manufacturer_groups[manufacturer].append(trans)
 
     role_figures = []
-    role_work_count = len(work_groups)
-    role_total_count = sum(len(items) for items in work_groups.values())
-    # 取各 work 的代表性手办
-    for work, trans_list in sorted(work_groups.items(), key=lambda x: len(x[1]), reverse=True):
+    role_work_count = len(manufacturer_groups)
+    role_total_count = sum(len(items) for items in manufacturer_groups.values())
+
+    # 获取已添加的本命厂商数量（仅统计 favorite_manufacturers 表中的数据）
+    manufacturer_count = CollectorManufacturerService.get_count(db, current_user.id)
+
+    # 取各 manufacturer 的代表性手办
+    for manufacturer, trans_list in sorted(manufacturer_groups.items(), key=lambda x: len(x[1]), reverse=True):
         trans = trans_list[0]
-        # 计算该 work 组下所有藏品的陪伴天数总和
+        # 计算该 manufacturer 组下所有藏品的陪伴天数总和
         total_group_days = 0
         for t in trans_list:
             buy = db.query(AssetTransaction).filter(
@@ -409,10 +414,10 @@ async def get_collector_cabinets(
                     total_group_days += days
         role_figures.append({
             "id": trans.figure_id,
-            "name": f"{work} ({len(trans_list)} 体)",
+            "name": f"{manufacturer} ({len(trans_list)} 体)",
             "image": get_image_url(trans.figure),
             "holding_days": total_group_days,
-            "work": work,
+            "work": manufacturer,
             "scale": trans.figure.scale or "未知",
             "manufacturer": trans.figure.manufacturer or "未知",
             "transaction_date": None,
@@ -514,13 +519,13 @@ async def get_collector_cabinets(
         },
         {
             "key": "role",
-            "name": "本命角色",
+            "name": "本命厂商",
             "description": "本命",
-            "icon": "💝",
-            "icon_bg": "#F0F5E8",
-            "count": role_work_count,
+            "icon": "🏭",
+            "icon_bg": "#E8F4F8",
+            "count": manufacturer_count,
             "companion_days": calc_total_days(role_figures, 'holding_days'),
-            "meta": f"{role_work_count} 个作品 · {role_total_count} 体" if role_work_count else "暂无本命角色",
+            "meta": f"{manufacturer_count} 家 · 追厂狂魔" if manufacturer_count > 0 else "暂无本命厂商",
             "items": role_figures[:3]
         }
     ]

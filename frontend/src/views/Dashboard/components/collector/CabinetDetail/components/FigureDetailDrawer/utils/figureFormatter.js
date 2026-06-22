@@ -68,6 +68,9 @@ export function getStatusInfo(cabinetKey) {
  */
 export function generateHistoryList(figure) {
   const list = []
+  const statuses = figure?.statuses || (figure?.status ? [figure.status] : [])
+
+  // 有入库记录时显示首次入库
   if (figure?.transaction_date) {
     const costText = figure.purchase_price ? `，成本 ¥${Number(figure.purchase_price).toLocaleString()}` : ''
     list.push({
@@ -75,6 +78,22 @@ export function generateHistoryList(figure) {
       text: `首次入库 · 买入 <strong>1 体</strong>${costText}`
     })
   }
+
+  // 无入库记录但有待出荷/空气谷状态时显示预定信息
+  if (!figure?.transaction_date && statuses.length > 0) {
+    if (statuses.includes('air_paid')) {
+      list.push({
+        date: '--',
+        text: '已付清尾款，等待工厂出货'
+      })
+    } else if (statuses.includes('air_unpaid')) {
+      list.push({
+        date: '--',
+        text: '已下定金，待补尾款'
+      })
+    }
+  }
+
   return list
 }
 

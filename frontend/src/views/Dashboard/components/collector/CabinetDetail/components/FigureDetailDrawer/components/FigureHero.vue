@@ -23,7 +23,12 @@
         入库时间: {{ figure.transaction_date || '未知' }} · 陪伴 <strong>{{ figure.holding_days || 0 }} 天</strong>
       </div>
       <div class="figure-hero-tags">
-        <span class="tag-pill tag-in">{{ statusText }}</span>
+        <span
+          v-for="st in statusesList"
+          :key="st.cls"
+          class="tag-pill"
+          :class="'tag-' + st.cls"
+        >{{ st.text }}</span>
         <span v-if="isStarFigure" class="tag-pill tag-star">镇柜之宝</span>
       </div>
     </div>
@@ -48,6 +53,10 @@ export default {
     statusText: {
       type: String,
       default: '在柜'
+    },
+    statusesList: {
+      type: Array,
+      default: () => []
     },
     isStarFigure: {
       type: Boolean,
@@ -128,6 +137,21 @@ export default {
 .tag-in {
   background: #E8F4F8;
   color: #7EB8A2;
+}
+
+.tag-st-air {
+  background: #F3E8FF;
+  color: #9B7ED8;
+}
+
+.tag-st-air-paid {
+  background: #E6F7FF;
+  color: #4A90D9;
+}
+
+.tag-st-out {
+  background: #F0F0F0;
+  color: #999;
 }
 
 .tag-star {

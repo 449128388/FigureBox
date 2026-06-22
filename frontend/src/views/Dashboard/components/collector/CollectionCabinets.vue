@@ -66,7 +66,7 @@ export default {
         { key: 'air', name: '预定中', description: '空气谷', icon: '☁️', icon_bg: '#F3E8FF', count: 0, meta: '0 体 · 暂无数据', items: [] },
         { key: 'dup', name: '复数专区', description: '复数', icon: '👯', icon_bg: '#FFF2F0', count: 0, meta: '0 体 · 暂无数据', items: [] },
         { key: 'wait', name: '待出荷', description: '待出荷', icon: '📅', icon_bg: '#E6F7FF', count: 0, meta: '0 体 · 暂无数据', items: [] },
-        { key: 'role', name: '本命角色', description: '本命', icon: '💝', icon_bg: '#F0F5E8', count: 0, meta: '0 体 · 暂无数据', items: [] }
+        { key: 'role', name: '本命厂商', description: '本命', icon: '🏭', icon_bg: '#E8F4F8', count: 0, meta: '暂无本命厂商', items: [] }
       ]
     }
   },
@@ -170,7 +170,7 @@ export default {
 .badge-air { background: #F3E8FF; color: #9B7ED8; }
 .badge-dup { background: #FFF2F0; color: #D66A6A; }
 .badge-wait { background: #E6F7FF; color: #1890FF; }
-.badge-role { background: #F0F5E8; color: #52C41A; }
+.badge-role { background: #E0F7FA; color: #00BCD4; }
 .badge-default { background: #F5F5F5; color: #999999; }
 
 .cabinet-info {

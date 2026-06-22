@@ -22,7 +22,14 @@
       </div>
       <div class="info-item">
         <div class="info-label">当前状态</div>
-        <div class="info-value" :style="{ color: statusColor }">{{ statusLabel }}</div>
+        <div class="info-value">
+          <span
+            v-for="(st, idx) in statusesList"
+            :key="idx"
+            class="status-badge"
+            :style="{ color: st.cls === 'st-in' ? '#7EB8A2' : st.cls === 'st-air' ? '#9B7ED8' : st.cls === 'st-air-paid' ? '#4A90D9' : '#999' }"
+          >{{ st.text }}<template v-if="idx < statusesList.length - 1">、</template></span>
+        </div>
       </div>
       <div class="info-item">
         <div class="info-label">收藏柜分类</div>
@@ -52,6 +59,10 @@ export default {
     statusColor: {
       type: String,
       default: '#7EB8A2'
+    },
+    statusesList: {
+      type: Array,
+      default: () => []
     }
   }
 }
