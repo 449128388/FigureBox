@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 
 from app.models.favorite_manufacturer import FavoriteManufacturer
 from app.models.asset import AssetTransaction
+from app.models.cabinet_exclusion import CabinetFigureExclusion
 
 
 class CollectorManufacturerService:
@@ -210,12 +211,21 @@ class CollectorManufacturerService:
         ).all()
         matched_ids = set(f[0] for f in matched_figure_ids)
 
+        # 过滤掉已从本命厂商分类中排除的手办
+        excluded_ids = set(
+            r[0] for r in db.query(CabinetFigureExclusion.figure_id).filter(
+                CabinetFigureExclusion.user_id == user_id,
+                CabinetFigureExclusion.cabinet_type == 'maker'
+            ).all()
+        )
+        matched_ids -= excluded_ids
+
         in_count = len(matched_ids & in_figure_ids)
         air_count = len(matched_ids & air_figure_ids)
         out_count = len(matched_ids & sold_figure_ids)
 
         return {
-            "total_count": total or len(matched_ids),
+            "total_count": len(matched_ids),
             "in_count": in_count,
             "air_count": air_count,
             "out_count": out_count
@@ -236,8 +246,19 @@ class CollectorManufacturerService:
             Figure.is_active == True
         ).all()
 
+        # 获取已从"maker"分类中排除的 figure_id 集合
+        excluded_ids = set(
+            r[0] for r in db.query(CabinetFigureExclusion.figure_id).filter(
+                CabinetFigureExclusion.user_id == user_id,
+                CabinetFigureExclusion.cabinet_type == 'maker'
+            ).all()
+        )
+
         result = []
         for fig in figures:
+            # 跳过已排除的手办
+            if fig.id in excluded_ids:
+                continue
             # 获取该 figure 的所有状态（同一手办可同时存在多种状态）
             statuses = []
 

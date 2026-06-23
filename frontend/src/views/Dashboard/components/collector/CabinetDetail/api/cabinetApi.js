@@ -9,24 +9,27 @@
 import request from '@/utils/request'
 
 /**
- * 将藏品从收藏柜移出
+ * 将藏品从展示分类中排除（软出柜）
  * @param {number} figureId - 藏品ID
- * @param {string} cabinetKey - 收藏柜key
+ * @param {string} cabinetType - 分类标识
+ * @param {string} [sourceCabinet] - 源分类（可选）
+ * @param {string} [excludeReason] - 移出原因（可选）
  * @returns {Promise<Object>} 操作结果
  */
-export async function removeFigureFromCabinet(figureId, cabinetKey) {
+export async function excludeFigureFromCabinet(figureId, cabinetType, sourceCabinet, excludeReason) {
   try {
     const response = await request({
-      url: '/api/v1/cabinets/remove-figure',
+      url: `/collector/cabinets/figures/${figureId}/exclude`,
       method: 'POST',
       data: {
-        figure_id: figureId,
-        cabinet_key: cabinetKey
+        cabinet_type: cabinetType,
+        source_cabinet: sourceCabinet,
+        exclude_reason: excludeReason
       }
     })
     return response
   } catch (error) {
-    console.error('移出藏品失败:', error)
+    console.error('出柜登记失败:', error)
     throw error
   }
 }

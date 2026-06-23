@@ -46,7 +46,7 @@
       </div>
       <div class="list-actions">
         <button class="btn-tiny" @click="handleViewDetail(item)">查看详情</button>
-        <button class="btn-tiny btn-tiny-primary" @click="handleSell(item)">出柜登记</button>
+        <button v-if="cabinetKey !== 'out'" class="btn-tiny btn-tiny-primary" @click="handleSell(item)">出柜登记</button>
       </div>
     </div>
   </div>

@@ -3,25 +3,22 @@ cabinets.py - 收藏家看板我的收藏柜接口
 
 API端点：
 - GET /collector/cabinets: 获取我的收藏柜8个分类橱窗卡片
-- POST /api/v1/cabinets/remove-figure: 将藏品从收藏柜移出
+- POST /cabinets/figures/{figure_id}/exclude: 软出柜（将藏品从展示分类中排除）
 
 职责：
 - 返回8个固定收藏柜分类，即使无数据也展示
-- 4个分类有真实统计逻辑：海景房专区、最近入柜、修复工坊、已出藏品
-- 4个分类默认为空数据：预定中、复数专区、待出荷、本命角色
-- 支持出柜登记：将藏品从当前收藏柜分类移出
+- 所有分类查询均 LEFT JOIN cabinet_figure_exclusions 排除表，过滤用户手动移出的记录
+- 出柜登记仅为"软出柜"，不删除藏品信息，不产生交易流水
 
 各分类统计逻辑：
-1. 海景房专区（镇柜之宝）: 收藏天数>180天+入手价高+当前仍在库
+1. 海景房专区（镇柜之宝）: 收藏天数>180天+当前仍在库
 2. 最近入柜（新欢）: asset_transactions 中 type='buy'，30天内，按figure_id去重
 3. 修复工坊（待修复）: figure_tag关联tags表中name=待修复/缺件/断桩/待补色/蹭色
 4. 已出藏品（已出坑）: asset_transactions 中 type='sell'，按figure_id去重
 
-出柜登记逻辑：
-- 海景房专区：移除star标签
-- 最近入柜：无需处理（30天自动过期）
-- 修复工坊：移除修复相关标签
-- 其他分类：根据具体逻辑处理
+排除机制：
+- 所有分类在统计数据前，从 exclusion_map（bulk_get_excluded_ids_by_cabinet）中过滤
+- 被排除的手办不在该分类中展示，但其他分类仍可正常展示
 """
 
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
@@ -40,6 +37,7 @@ from app.models.asset import AssetTransaction
 from app.models.order import Order
 from app.api.users import get_current_user
 from app.services.collector_service.collector_manufacturer_service import CollectorManufacturerService
+from app.services.collector_service.collector_exclusion_service import CollectorExclusionService
 
 router = APIRouter()
 
@@ -88,6 +86,9 @@ async def get_collector_cabinets(
     current_year = now.year
     current_month = now.month
 
+    # 加载所有展示分类排除记录，各分类查询需要过滤掉已排除的手办
+    exclusion_map = CollectorExclusionService.bulk_get_excluded_ids_by_cabinet(db, current_user.id)
+
     # ====== 1. 海景房专区（镇柜之宝） ======
     # 兜底规则：收藏天数 > 180 天 + 当前仍在库
     star_figures = []
@@ -111,6 +112,8 @@ async def get_collector_cabinets(
                 figure_holdings[trans.figure_id] = trans
 
     for figure_id, trans in figure_holdings.items():
+        if figure_id in exclusion_map.get('star', set()):
+            continue
         if trans.transaction_date:
             holding_days = (now - trans.transaction_date).days
             if holding_days > 180 and trans.figure:
@@ -147,6 +150,8 @@ async def get_collector_cabinets(
 
     new_figures = []
     for figure_id, trans in recent_figure_map.items():
+        if figure_id in exclusion_map.get('new', set()):
+            continue
         if trans.figure:
             # 取该手办最早的入库时间计算陪伴天数（从第一次拥有开始算）
             first_buy = db.query(AssetTransaction).filter(
@@ -193,6 +198,8 @@ async def get_collector_cabinets(
         ).fetchall()
 
         repair_figure_ids = set(row[0] for row in result)
+        # 过滤掉已排除的手办
+        repair_figure_ids -= exclusion_map.get('fix', set())
         for fid in repair_figure_ids:
             fig = db.query(Figure).filter(Figure.id == fid).first()
             if fig:
@@ -237,6 +244,8 @@ async def get_collector_cabinets(
 
     sold_figures = []
     for fid in sold_figure_ids:
+        if fid in exclusion_map.get('out', set()):
+            continue
         fig = db.query(Figure).filter(Figure.id == fid).first()
         if fig:
             # 计算陪伴天数（卖出日期 - 首次入库日期）
@@ -286,6 +295,8 @@ async def get_collector_cabinets(
     seen_air_figure_ids = set()
     for order in air_orders:
         if order.figure_id not in seen_air_figure_ids and order.figure:
+            if order.figure_id in exclusion_map.get('air', set()):
+                continue
             seen_air_figure_ids.add(order.figure_id)
             air_figures.append({
                 "id": order.figure_id,
@@ -315,6 +326,8 @@ async def get_collector_cabinets(
     ).all()
 
     dup_figure_ids = [r.figure_id for r in dup_stock]
+    # 过滤掉已排除的手办
+    dup_figure_ids = [fid for fid in dup_figure_ids if fid not in exclusion_map.get('dup', set())]
     dup_stock_map = {r.figure_id: int(getattr(r, 'total_stock', 0) or 0) for r in dup_stock}
     dup_figures = []
     for fid in dup_figure_ids:
@@ -354,6 +367,8 @@ async def get_collector_cabinets(
     seen_wait_figure_ids = set()
     for order in wait_orders:
         if order.figure_id not in seen_wait_figure_ids and order.figure:
+            if order.figure_id in exclusion_map.get('wait', set()):
+                continue
             seen_wait_figure_ids.add(order.figure_id)
             wait_figures.append({
                 "id": order.figure_id,
@@ -381,7 +396,9 @@ async def get_collector_cabinets(
     role_figure_map = {}
     for trans in role_transactions:
         if trans.figure_id not in role_figure_map and trans.figure:
-            role_figure_map[trans.figure_id] = trans
+            # 过滤掉已排除的手办
+            if trans.figure_id not in exclusion_map.get('maker', set()):
+                role_figure_map[trans.figure_id] = trans
 
     # 按 manufacturer 分组
     manufacturer_groups = defaultdict(list)
@@ -449,7 +466,7 @@ async def get_collector_cabinets(
             "count": len(star_figures),
             "companion_days": calc_total_days(star_figures, 'holding_days'),
             "meta": f"{len(star_figures)} 体 · 入柜 180+ 天" if star_figures else "暂无镇柜藏品",
-            "items": star_figures[:3]
+            "items": star_figures
         },
         {
             "key": "new",
@@ -460,7 +477,7 @@ async def get_collector_cabinets(
             "count": len(new_figures),
             "companion_days": calc_avg_days(new_figures, 'holding_days'),
             "meta": f"{len(new_figures)} 体 · 30 天内新成员" if new_figures else "暂无新入库",
-            "items": new_figures[:3]
+            "items": new_figures
         },
         {
             "key": "fix",
@@ -471,7 +488,7 @@ async def get_collector_cabinets(
             "count": len(repair_figures),
             "companion_days": calc_avg_days(repair_figures, 'holding_days'),
             "meta": f"{len(repair_figures)} 体 · 补件/补色中" if repair_figures else "暂无待修复藏品",
-            "items": repair_figures[:3]
+            "items": repair_figures
         },
         {
             "key": "out",
@@ -482,7 +499,7 @@ async def get_collector_cabinets(
             "count": len(sold_figures),
             "companion_days": calc_avg_days(sold_figures, 'holding_days'),
             "meta": f"{len(sold_figures)} 体 · 找到新主人" if sold_figures else "暂无已出藏品",
-            "items": sold_figures[:3]
+            "items": sold_figures
         },
         {
             "key": "air",
@@ -493,7 +510,7 @@ async def get_collector_cabinets(
             "count": len(air_figures),
             "companion_days": 0,
             "meta": f"{len(air_figures)} 体 · 待付尾款" if air_figures else "暂无预定",
-            "items": air_figures[:3]
+            "items": air_figures
         },
         {
             "key": "dup",
@@ -504,7 +521,7 @@ async def get_collector_cabinets(
             "count": len(dup_figures),
             "companion_days": calc_total_days(dup_figures, 'holding_days'),
             "meta": f"{len(dup_figures)} 体 · 同款复购" if dup_figures else "暂无复数藏品",
-            "items": dup_figures[:3]
+            "items": dup_figures
         },
         {
             "key": "wait",
@@ -515,7 +532,7 @@ async def get_collector_cabinets(
             "count": len(wait_figures),
             "companion_days": 0,
             "meta": f"{len(wait_figures)} 体 · 等待出货" if wait_figures else "暂无待出荷",
-            "items": wait_figures[:3]
+            "items": wait_figures
         },
         {
             "key": "role",
@@ -526,7 +543,7 @@ async def get_collector_cabinets(
             "count": manufacturer_count,
             "companion_days": calc_total_days(role_figures, 'holding_days'),
             "meta": f"{manufacturer_count} 家 · 追厂狂魔" if manufacturer_count > 0 else "暂无本命厂商",
-            "items": role_figures[:3]
+            "items": role_figures
         }
     ]
 
@@ -535,103 +552,71 @@ async def get_collector_cabinets(
     }
 
 
-# ========== 出柜登记接口 ==========
+# ========== 出柜登记接口（软出柜） ==========
 
-class RemoveFigureRequest(BaseModel):
-    """出柜登记请求参数"""
-    figure_id: int
-    cabinet_key: str
+# 分类标识 → 中文展示名称映射
+CABINET_DISPLAY_NAMES = {
+    'star': '海景房专区',
+    'new': '最近入柜',
+    'fix': '修复工坊',
+    'air': '预定中',
+    'dup': '复数专区',
+    'wait': '待出荷',
+    'maker': '本命厂商'
+}
 
-
-@router.post("/api/v1/cabinets/remove-figure")
-async def remove_figure_from_cabinet(
-    request: RemoveFigureRequest,
+@router.post("/cabinets/figures/{figure_id}/exclude")
+async def exclude_figure_from_cabinet(
+    figure_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    将藏品从收藏柜移出（出柜登记）
+    将藏品从展示分类中排除（软出柜）
 
-    根据 cabinet_key 执行不同的移出逻辑：
-    - star (海景房专区): 移除 'star' 标签
-    - fix (修复工坊): 移除修复相关标签（待修复、缺件、断桩、待补色、蹭色）
-    - 其他分类: 暂不支持直接移出
+    说明：
+    - 不删除藏品，不产生交易流水
+    - 仅在 cabinet_figure_exclusions 表中记录排除关系
+    - 后续自动分类查询时通过 LEFT JOIN 排除表过滤
 
-    Args:
-        request: 包含 figure_id 和 cabinet_key 的请求体
+    Request body:
+    {
+        "cabinet_type": "star",       # 分类标识
+        "source_cabinet": "star",     # 触发移出的源分类（可选）
+        "exclude_reason": ""          # 移出原因（可选）
+    }
 
     Returns:
-        { success: bool, message: str }
+        { success: bool, message: str, exclusion_id: int }
     """
-    figure_id = request.figure_id
-    cabinet_key = request.cabinet_key
+    body = await request.json()
+    cabinet_type = body.get("cabinet_type")
+    source_cabinet = body.get("source_cabinet")
+    exclude_reason = body.get("exclude_reason")
 
-    # 验证藏品是否存在且属于当前用户
+    if not cabinet_type:
+        raise HTTPException(status_code=400, detail="cabinet_type 是必填参数")
 
-    # 检查该用户是否有该藏品的持仓记录
-    has_holding = db.query(AssetTransaction).filter(
-        AssetTransaction.figure_id == figure_id,
-        AssetTransaction.user_id == current_user.id,
-        AssetTransaction.transaction_type == 'buy',
-        AssetTransaction.is_active == True,
-        AssetTransaction.remaining_quantity > 0
-    ).first()
+    if cabinet_type not in CollectorExclusionService.SUPPORTED_CABINET_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的分类标识: {cabinet_type}，支持: {CollectorExclusionService.SUPPORTED_CABINET_TYPES}"
+        )
 
-    if not has_holding:
-        raise HTTPException(status_code=404, detail="未找到该藏品或无权操作")
-
-    # 根据 cabinet_key 执行不同的移出逻辑
-    if cabinet_key == 'star':
-        # 海景房专区：移除 star 标签
-        star_tag = db.query(Tag).filter(Tag.name == 'star').first()
-        if star_tag:
-            # 检查是否有关联
-            existing = db.execute(
-                text("SELECT 1 FROM figure_tag WHERE figure_id = :figure_id AND tag_id = :tag_id"),
-                {"figure_id": figure_id, "tag_id": star_tag.id}
-            ).fetchone()
-
-            if existing:
-                # 删除关联
-                db.execute(
-                    text("DELETE FROM figure_tag WHERE figure_id = :figure_id AND tag_id = :tag_id"),
-                    {"figure_id": figure_id, "tag_id": star_tag.id}
-                )
-                db.commit()
-                return {"success": True, "message": "已从海景房专区移出"}
-            else:
-                return {"success": True, "message": "该藏品不在海景房专区"}
-        else:
-            return {"success": True, "message": "无需移出"}
-
-    elif cabinet_key == 'fix':
-        # 修复工坊：移除修复相关标签
-        repair_tag_names = ['待修复', '缺件', '断桩', '待补色', '蹭色']
-        repair_tags = db.query(Tag).filter(Tag.name.in_(repair_tag_names)).all()
-
-        if repair_tags:
-            repair_tag_ids = [tag.id for tag in repair_tags]
-            # 删除所有修复相关标签的关联
-            db.execute(
-                text("""
-                    DELETE FROM figure_tag
-                    WHERE figure_id = :figure_id AND tag_id IN :tag_ids
-                """),
-                {"figure_id": figure_id, "tag_ids": tuple(repair_tag_ids)}
-            )
-            db.commit()
-            return {"success": True, "message": "已从修复工坊移出"}
-        else:
-            return {"success": True, "message": "无需移出"}
-
-    elif cabinet_key == 'new':
-        # 最近入柜：30天内自动计算，无法手动移出
-        return {"success": False, "message": "最近入柜分类由系统自动管理，无法手动移出"}
-
-    elif cabinet_key == 'out':
-        # 已出藏品：需要通过卖出流程
-        return {"success": False, "message": "已出藏品需要通过卖出订单流程处理"}
-
-    else:
-        # 其他分类暂不支持
-        return {"success": False, "message": f"暂不支持从 {cabinet_key} 分类移出"}
+    try:
+        exclusion = CollectorExclusionService.exclude_figure(
+            db=db,
+            user_id=current_user.id,
+            figure_id=figure_id,
+            cabinet_type=cabinet_type,
+            source_cabinet=source_cabinet,
+            exclude_reason=exclude_reason
+        )
+        return {
+            "success": True,
+            "message": f"已从{CABINET_DISPLAY_NAMES.get(cabinet_type, cabinet_type)}中移出",
+            "exclusion_id": exclusion.id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"出柜登记失败: {str(e)}")

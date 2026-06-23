@@ -88,7 +88,7 @@ import FavoriteRating from './components/FavoriteRating.vue'
 import FigureBasicInfo from './components/FigureBasicInfo.vue'
 import CollectionHistory from './components/CollectionHistory.vue'
 import DrawerFooter from './components/DrawerFooter.vue'
-import { getStatusInfo, generateHistoryList, isStarFigure } from './utils/figureFormatter'
+import { getStatusInfo, getStatusClass, getStatusLabel, generateHistoryList, isStarFigure } from './utils/figureFormatter'
 import axios from '@/axios'
 
 export default {
@@ -154,16 +154,24 @@ export default {
     /**
      * 从 figure.statuses 数组生成多状态标签列表
      * 兼容旧版单 status 字段
+     * 当 figure 无 statuses 字段时，从 cabinetKey 推导状态
      */
     figureStatuses() {
       const statuses = this.figureData.statuses || (this.figureData.status ? [this.figureData.status] : [])
-      const STATUS_MAP = {
-        'in': { text: '在柜', cls: 'st-in' },
-        'air_unpaid': { text: '空气谷', cls: 'st-air' },
-        'air_paid': { text: '待出荷', cls: 'st-air-paid' },
-        'out': { text: '已出', cls: 'st-out' }
+      if (statuses.length > 0) {
+        const STATUS_MAP = {
+          'in': { text: '在柜', cls: 'st-in' },
+          'air_unpaid': { text: '空气谷', cls: 'st-air' },
+          'air_paid': { text: '待出荷', cls: 'st-air-paid' },
+          'out': { text: '已出', cls: 'st-out' }
+        }
+        return statuses.map(s => STATUS_MAP[s] || { text: s, cls: 'st-in' })
       }
-      return statuses.map(s => STATUS_MAP[s] || { text: s, cls: 'st-in' })
+      // 从 cabinetKey 推导状态，使用 figureDetailConfig 中的常量
+      return [{
+        text: getStatusLabel(this.cabinetKey),
+        cls: getStatusClass(this.cabinetKey)
+      }]
     },
 
     historyList() {

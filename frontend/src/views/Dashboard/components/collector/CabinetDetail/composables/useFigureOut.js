@@ -11,7 +11,7 @@
  */
 
 import { ref, computed } from 'vue'
-import { removeFigureFromCabinet } from '../api/cabinetApi'
+import { excludeFigureFromCabinet } from '../api/cabinetApi'
 
 export default function useFigureOut(cabinetKey, cabinetName, cabinetIcon, fetchData) {
   // 出柜抽屉显示状态
@@ -46,7 +46,7 @@ export default function useFigureOut(cabinetKey, cabinetName, cabinetIcon, fetch
   }
 
   /**
-   * 处理出柜确认
+   * 处理出柜确认（软出柜）
    * @param {Object} payload - 出柜参数 { figureId, cabinetKey }
    */
   const handleOutConfirm = async (payload) => {
@@ -54,7 +54,7 @@ export default function useFigureOut(cabinetKey, cabinetName, cabinetIcon, fetch
 
     submitting.value = true
     try {
-      const result = await removeFigureFromCabinet(payload.figureId, payload.cabinetKey)
+      const result = await excludeFigureFromCabinet(payload.figureId, payload.cabinetKey)
 
       if (result.success) {
         // 关闭抽屉

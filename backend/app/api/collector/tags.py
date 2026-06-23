@@ -2,32 +2,25 @@
 tags.py - 收藏家看板标签云接口
 
 API端点：
-- GET /collector/tags: 获取多维分组筛选标签
+- GET /collector/tags: 获取标签云数据（系统标签+用户标签）
+- GET /collector/tags/figures?tag_name=xxx: 按标签筛选手办
 
 职责：
 - 展示分类标签（海景房、破发区、待补款、已出坑）
+- 展示用户自定义标签
 - 支持按标签筛选藏品
 """
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request, Response, Query, HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models.order import Order
-from app.models.figure import Figure
 from app.models.user import User
-from app.models.sold_order import SoldOrder
 from app.api.users import get_current_user
-from app.api.collector.dashboard import get_valid_orders, get_figures_with_valid_orders, check_token_refresh
+from app.api.collector.dashboard import check_token_refresh
+from app.services.collector_service.collector_tag_service import CollectorTagService
 
 router = APIRouter()
-
-
-def get_image_url(figure):
-    """从images列表中获取第一张图片URL"""
-    if figure.images and isinstance(figure.images, list) and len(figure.images) > 0:
-        return figure.images[0]
-    return ""
 
 
 @router.get("/tags")
@@ -39,57 +32,59 @@ async def get_collector_tags(
 ):
     """
     获取收藏家看板标签云数据
-    
-    返回：
-    - 标签列表（包含name、count）
-    - 标签包括：海景房、破发区、待补款、已出坑
+
+    返回系统标签（自动计算）和用户标签（手动添加）：
+    - system_tags: 海景房、破发区、待补款、已出坑
+    - user_tags: 用户自定义标签（来自 figure_tag 中间表）
     """
-    # 获取用户的所有有效订单
-    valid_orders = get_valid_orders(db, current_user.id)
-    
-    # 获取有有效订单的手办列表
-    figures = get_figures_with_valid_orders(db, valid_orders)
-    
-    # 获取已转卖的手办
-    sold_orders = db.query(SoldOrder).filter(
-        SoldOrder.user_id == current_user.id,
-        SoldOrder.is_active == True
-    ).all()
+    # 获取系统标签（自动计算）
+    system_tags = CollectorTagService.get_system_tags(db, current_user.id)
 
-    # 计算各类标签数量
-    # 1. 海景房（涨幅 >= 50%）
-    sea_view_count = 0
-    # 2. 破发区（涨幅 < 0%）
-    loss_count = 0
-    
-    for fig in figures:
-        cost_price = fig.average_purchase_price or fig.price or 0
-        current_price = fig.market_price or fig.price or 0
-        
-        if cost_price > 0:
-            profit_percentage = ((current_price - cost_price) / cost_price) * 100
-            if profit_percentage >= 50:
-                sea_view_count += 1
-            elif profit_percentage < 0:
-                loss_count += 1
+    # 获取用户标签（手动添加）
+    user_tags = CollectorTagService.get_user_tags(db, current_user.id)
 
-    # 3. 待补款
-    pending_payment_count = len([o for o in valid_orders if o.status == "待补款"])
-    
-    # 4. 已出坑（已转卖）
-    sold_count = len(sold_orders)
-
-    # 构建标签云数据
-    tags = [
-        {"name": "海景房", "count": sea_view_count},
-        {"name": "破发区", "count": loss_count},
-        {"name": "待补款", "count": pending_payment_count},
-        {"name": "已出坑", "count": sold_count}
-    ]
+    # 合并标签（前端区分展示）
+    all_tags = system_tags + user_tags
 
     # 检查token续期
     check_token_refresh(request, response)
 
     return {
-        "tags": tags
+        "tags": all_tags,
+        "system_tags": system_tags,
+        "user_tags": user_tags
     }
+
+
+@router.get("/tags/figures")
+async def get_tag_filtered_figures(
+    tag_name: str = Query(..., description="标签名称"),
+    request: Request = None,
+    response: Response = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    按标签筛选手办列表
+
+    支持系统标签和用户标签：
+    - 系统标签: 海景房、破发区、待补款、已出坑
+    - 用户标签: figure_tag 中间表中用户手动添加的任意标签
+
+    Args:
+        tag_name: 标签名称
+
+    Returns:
+        { figures: list, tag_name: str, total: int }
+    """
+    figures = CollectorTagService.get_figures_by_tag(db, current_user.id, tag_name)
+
+    if response:
+        check_token_refresh(request, response)
+
+    return {
+        "figures": figures,
+        "tag_name": tag_name,
+        "total": len(figures)
+    }
+

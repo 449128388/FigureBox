@@ -27,7 +27,7 @@
             v-for="(st, idx) in statusesList"
             :key="idx"
             class="status-badge"
-            :style="{ color: st.cls === 'st-in' ? '#7EB8A2' : st.cls === 'st-air' ? '#9B7ED8' : st.cls === 'st-air-paid' ? '#4A90D9' : '#999' }"
+            :style="{ color: st.cls === 'st-in' ? '#7EB8A2' : st.cls === 'st-air' ? '#9B7ED8' : st.cls === 'st-air-paid' ? '#4A90D9' : st.cls === 'st-fix' ? '#E6A23C' : '#999' }"
           >{{ st.text }}<template v-if="idx < statusesList.length - 1">、</template></span>
         </div>
       </div>

@@ -261,14 +261,13 @@ export default {
     },
 
     /**
-     * 处理出柜登记确认
+     * 处理出柜登记确认（软出柜）
      * @param {Object} payload - { figureId, cabinetKey }
      */
     async handleOutConfirm(payload) {
       try {
-        await axios.post('/api/v1/cabinets/remove-figure', {
-          figure_id: payload.figureId,
-          cabinet_key: payload.cabinetKey
+        await axios.post(`/collector/cabinets/figures/${payload.figureId}/exclude`, {
+          cabinet_type: payload.cabinetKey
         })
         ElMessage.success('出柜成功')
         this.outDrawerVisible = false

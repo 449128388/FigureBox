@@ -15,7 +15,7 @@
     <div class="section-title">收藏历程</div>
     <div class="timeline-mini">
       <div v-for="(item, index) in historyList" :key="index" class="tl-item">
-        <div class="tl-dot" :class="item.type === 'sell' ? 'dot-sell' : item.type === 'adjust' ? 'dot-adjust' : 'dot-buy'"></div>
+        <div class="tl-dot" :class="item.type === 'sell' ? 'dot-sell' : item.type === 'adjust' ? 'dot-adjust' : item.type === 'currency_change' ? (item.type_label === '尾款币种' ? 'dot-currency-change-balance' : 'dot-currency-change') : 'dot-buy'"></div>
         <div class="tl-date">{{ item.date }}</div>
         <!-- API 格式 -->
         <template v-if="item.type_label">
@@ -25,6 +25,15 @@
             运费 <strong>¥{{ formatPrice(item.fee_detail.shipping_fee) }}</strong>
             + 平台手续费 <strong>¥{{ formatPrice(item.fee_detail.platform_fee) }}</strong>
             合计支出 <strong>¥{{ formatPrice(item.fee_detail.total) }}</strong>
+            <span class="tl-balance"> · 库存 {{ item.balance }} 体</span>
+          </div>
+          <!-- 定金币种/尾款币种变更合并展示 -->
+          <div v-else-if="item.type === 'currency_change' && item.currency_change" class="tl-text">
+            <span class="tl-tag" :class="tagClass(item)">{{ item.type_label }}</span>
+            {{ item.quantity }}体 · {{ item.type_label === '尾款币种' ? '尾款金额' : '定金金额' }}
+            <strong>{{ item.currency_change.from_amount }} {{ item.currency_change.from_currency }}</strong>
+            →
+            <strong>{{ item.currency_change.to_amount }} {{ item.currency_change.to_currency }}</strong>
             <span class="tl-balance"> · 库存 {{ item.balance }} 体</span>
           </div>
           <div v-else class="tl-text">
@@ -60,6 +69,10 @@ export default {
     tagClass(item) {
       if (item.type === 'sell') return 'tag-sell'
       if (item.type === 'adjust') return 'tag-adjust'
+      if (item.type === 'currency_change') {
+        if (item.type_label === '尾款币种') return 'tag-currency-change-balance'
+        return 'tag-currency-change'
+      }
       if (item.type_label === '补仓') return 'tag-replenish'
       if (item.type_label === '定金') return 'tag-deposit'
       if (item.type_label === '尾款') return 'tag-balance'
@@ -140,6 +153,14 @@ export default {
   background: #D66A6A;
 }
 
+.dot-currency-change {
+  background: #7B1FA2;
+}
+
+.dot-currency-change-balance {
+  background: #00838F;
+}
+
 .tl-date {
   font-size: 12px;
   color: #999;
@@ -187,6 +208,16 @@ export default {
 .tag-replenish {
   background: #FFF3E0;
   color: #E65100;
+}
+
+.tag-currency-change {
+  background: #F3E5F5;
+  color: #7B1FA2;
+}
+
+.tag-currency-change-balance {
+  background: #E0F7FA;
+  color: #00838F;
 }
 
 .tag-adjust {

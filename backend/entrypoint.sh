@@ -9,6 +9,10 @@ echo "🚀 执行数据库迁移..."
 echo "→ 检查 cabinet_ratings 表..."
 python migrations/add_cabinet_rating_table.py
 
+# 执行展示分类排除表迁移
+echo "→ 检查 cabinet_figure_exclusions 表..."
+python migrations/add_cabinet_exclusion_table.py
+
 echo "✅ 数据库迁移完成"
 
 # 启动 uvicorn

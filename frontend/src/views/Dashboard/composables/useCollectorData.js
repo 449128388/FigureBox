@@ -5,6 +5,8 @@ import { ElMessage } from 'element-plus'
 export function useCollectorData() {
   const collectorData = ref(null)
   const loading = ref(false)
+  const tagFilterResults = ref(null)
+  const tagFilterName = ref('')
 
   // 获取收藏家模式数据（拆分后的4个独立接口）
   const fetchCollectorData = async () => {
@@ -32,6 +34,8 @@ export function useCollectorData() {
           { key: 'role', name: '本命厂商', description: '本命', icon: '🏭', icon_bg: '#E8F4F8', count: 0, meta: '暂无本命厂商', items: [] }
         ],
         tags: tagsRes.tags || [],
+        system_tags: tagsRes.system_tags || [],
+        user_tags: tagsRes.user_tags || [],
         activities: timelineRes.activities || []
       }
     } catch (error) {
@@ -110,9 +114,24 @@ export function useCollectorData() {
     ElMessage.info('隐私设置功能开发中')
   }
 
-  // 按标签筛选
-  const filterByTag = (tagName) => {
-    ElMessage.info(`按标签 ${tagName} 筛选`)
+  // 按标签筛选 - 调用后端接口获取匹配手办列表
+  const filterByTag = async (tagName) => {
+    try {
+      const res = await axios.get('/collector/tags/figures', {
+        params: { tag_name: tagName }
+      })
+      tagFilterName.value = tagName
+      tagFilterResults.value = res.figures || []
+      ElMessage.success(`找到 ${tagFilterResults.value.length} 个匹配"${tagName}"的手办`)
+    } catch (e) {
+      ElMessage.error('标签筛选失败: ' + (e.response?.data?.detail || e.message))
+    }
+  }
+
+  // 清除标签筛选结果
+  const clearTagFilter = () => {
+    tagFilterResults.value = null
+    tagFilterName.value = ''
   }
 
   // 处理动态流操作
@@ -130,6 +149,9 @@ export function useCollectorData() {
     sharePoster,
     privacySettings,
     filterByTag,
+    clearTagFilter,
+    tagFilterResults,
+    tagFilterName,
     handleActivityAction
   }
 }

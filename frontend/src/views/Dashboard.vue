@@ -185,6 +185,7 @@
         v-else-if="selectedCabinet"
         :cabinet="selectedCabinet"
         @back="handleCabinetBack"
+        @refresh="handleCabinetRefresh"
       />
       <!-- 收藏柜概览视图 -->
       <template v-else>
@@ -204,6 +205,40 @@
           :collector-data="collectorData"
           @filter-by-tag="filterByTag"
         />
+        
+        <!-- 标签筛选结果 -->
+        <div v-if="tagFilterResults" class="tag-filter-results">
+          <div class="filter-result-header">
+            <div class="filter-result-title">
+              标签筛选：<span class="filter-result-tag">#{{ tagFilterName }}</span>
+              <span class="filter-result-count">{{ tagFilterResults.length }} 个结果</span>
+            </div>
+            <button class="btn-clear-filter" @click="clearTagFilter">✕ 清除筛选</button>
+          </div>
+          <div v-if="tagFilterResults.length > 0" class="filter-results-grid">
+            <div
+              v-for="fig in tagFilterResults"
+              :key="fig.id"
+              class="figure-card"
+              @click="goToFigureDetail(fig.id)"
+            >
+              <div class="figure-img-wrap">
+                <div v-if="fig.image" class="figure-img-real">
+                  <img :src="fig.image" :alt="fig.name" />
+                </div>
+                <div v-else class="figure-img-placeholder">📦</div>
+              </div>
+              <div class="figure-info">
+                <div class="figure-name">{{ fig.name || '未知' }}</div>
+                <div class="figure-line">{{ fig.work }} · {{ fig.scale }} · {{ fig.manufacturer }}</div>
+                <div class="figure-line-gray" v-if="fig.transaction_date">入柜 {{ fig.transaction_date }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="filter-empty">
+            未找到匹配该标签的手办
+          </div>
+        </div>
         
         <ActivityFeed
           :collector-data="collectorData"
@@ -406,7 +441,7 @@ export default {
     const loading = ref(true)
 
     // 使用收藏家模式 composable
-    const { collectorData, loading: collectorLoading, fetchCollectorData, sharePoster, privacySettings, filterByTag, handleActivityAction } = useCollectorData()
+    const { collectorData, loading: collectorLoading, fetchCollectorData, sharePoster, privacySettings, filterByTag, clearTagFilter, tagFilterResults, tagFilterName, handleActivityAction } = useCollectorData()
 
     // 使用本命厂商 composable
     const {
@@ -720,8 +755,24 @@ export default {
     }
 
     // 本命厂商 - 出柜登记确认
-    const handleManufacturerOutConfirm = () => {
-      manufacturerOutDrawerVisible.value = false
+    const handleManufacturerOutConfirm = async (payload) => {
+      try {
+        // 本命厂商分类标识映射: role → maker
+        const cabinetType = payload.cabinetKey === 'role' ? 'maker' : (payload.cabinetKey || 'maker')
+        await axios.post(`/collector/cabinets/figures/${payload.figureId}/exclude`, {
+          cabinet_type: cabinetType
+        })
+        ElMessage.success('出柜成功')
+        manufacturerOutDrawerVisible.value = false
+        fetchManufacturers()
+      } catch (e) {
+        ElMessage.error('出柜失败: ' + (e.response?.data?.detail || e.message))
+      }
+    }
+
+    // 跳转到手办详情页
+    const goToFigureDetail = (figureId) => {
+      router.push({ name: 'FigureDetail', params: { id: figureId } })
     }
 
     // 本命厂商弹窗关闭
@@ -745,6 +796,18 @@ export default {
     const handleCabinetBack = () => {
       selectedCabinet.value = null
       fetchCollectorData()
+    }
+
+    // 收藏柜刷新（出柜登记后刷新数据）
+    const handleCabinetRefresh = async () => {
+      await fetchCollectorData()
+      // 刷新后用最新数据更新当前选中的收藏柜
+      const freshCabinet = collectorData.value?.cabinets?.find(
+        c => c.key === selectedCabinet.value?.key
+      )
+      if (freshCabinet) {
+        selectedCabinet.value = freshCabinet
+      }
     }
     
     // 显示年度消费上限对话框
@@ -902,6 +965,7 @@ export default {
       setMode,
       handleCabinetClick,
       handleCabinetBack,
+      handleCabinetRefresh,
       showAnnualLimitDialog,
       saveAnnualLimit,
       exportBill,
@@ -909,6 +973,9 @@ export default {
       sharePoster,
       privacySettings,
       filterByTag,
+      clearTagFilter,
+      tagFilterResults,
+      tagFilterName,
       handleActivityAction,
       sellAsset,
       addPosition,
@@ -964,6 +1031,7 @@ export default {
       handleManufacturerSellFigure,
       handleManufacturerDetailSell,
       handleManufacturerOutConfirm,
+      goToFigureDetail,
     }
   }
 }</script>
@@ -1124,6 +1192,151 @@ export default {
 /* 收藏家模式容器 */
 .collector-mode {
   padding: 20px;
+}
+
+/* 标签筛选结果中的手办卡片 */
+.filter-results-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.filter-results-grid .figure-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.filter-results-grid .figure-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.filter-results-grid .figure-img-wrap {
+  height: 160px;
+  background: #F0EEEB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.filter-results-grid .figure-img-placeholder {
+  width: 60px;
+  height: 60px;
+  background: #E0DCD7;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: #B0ABA5;
+}
+
+.filter-results-grid .figure-img-real {
+  width: 100%;
+  height: 100%;
+}
+
+.filter-results-grid .figure-img-real img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.filter-results-grid .figure-info {
+  padding: 12px;
+}
+
+.filter-results-grid .figure-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #1F1F1F;
+}
+
+.filter-results-grid .figure-line {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.filter-results-grid .figure-line-gray {
+  font-size: 12px;
+  color: #999;
+}
+
+/* 标签筛选结果 */
+.tag-filter-results {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.filter-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.filter-result-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-result-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 14px;
+  font-size: 14px;
+  background: #FDF6EE;
+  color: #C49A6C;
+  border: 1px solid #E8D5C0;
+}
+
+.filter-result-count {
+  font-size: 13px;
+  color: #999;
+}
+
+.btn-clear-filter {
+  padding: 5px 12px;
+  border: 1px solid #EBE8E4;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-filter:hover {
+  border-color: #D66A6A;
+  color: #D66A6A;
+}
+
+.filter-empty {
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  padding: 30px 0;
+}
+
+.filter-results-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
 }
 
 @media (max-width: 768px) {
