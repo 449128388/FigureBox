@@ -99,11 +99,13 @@ class ActivityFeedSeeder:
                     "figure_id": order.figure_id,
                     "figure_name": figure_name,
                     "order_id": order.id,
-                    "order_no": order.display_order_number or order.order_number or "",
+                    "order_no": order.order_number or order.display_order_number or "",
                     "amount": order.deposit or 0,
                     "paid_type": paid_type,
                     "status": status_text,
-                    "total_amount": (order.deposit or 0) + (order.balance or 0)
+                    "total_amount": (order.deposit or 0) + (order.balance or 0),
+                    "balance": order.balance or 0,
+                    "balance_currency": order.balance_currency or "CNY"
                 },
                 event_date=order.created_at.date() if order.created_at else datetime.now().date(),
                 created_at=order.created_at or datetime.now()
@@ -112,10 +114,9 @@ class ActivityFeedSeeder:
             self.stats["BUY"] += 1
 
     def _seed_sell_events(self):
-        """从 sold_orders 表回填 SELL 事件"""
+        """从 sold_orders 表回填 SELL 事件（所有数据预计算后写入 detail_data 快照）"""
         sold_orders = self.db.query(SoldOrder).filter(
-            SoldOrder.is_active == 1,
-            SoldOrder.status == "已完成"
+            SoldOrder.is_active == 1
         ).all()
 
         for so in sold_orders:
@@ -126,22 +127,47 @@ class ActivityFeedSeeder:
             figure_name = self._get_figure_name(so.figure_id)
             profit = so.net_profit or (so.sell_price - so.cost_price - abs(so.shipping_fee or 0) - abs(so.platform_fee or 0))
 
+            # 预计算收益率
+            cost_price = so.cost_price or 0
+            profit_rate = round((profit / abs(cost_price)) * 100, 2) if cost_price != 0 else 0.0
+
+            # 预计算持有天数
+            hold_days = 0
+            if so.created_at:
+                figure = self.db.query(Figure).filter(Figure.id == so.figure_id).first()
+                if figure and figure.purchase_date:
+                    out_date = so.created_at.date()
+                    hold_days = max((out_date - figure.purchase_date).days, 0)
+
+            # 根据订单状态生成不同的标题
+            status_labels = {
+                "待发货": "等待发货",
+                "已发货": "已发货",
+                "已完成": "交易完成",
+                "退款/纠纷": "退款/纠纷中"
+            }
+            status_label = status_labels.get(so.status, so.status)
+            event_title = f"「{figure_name}」已售出，售价 ¥{int(so.sell_price)}（{status_label}）"
+
             event = ActivityFeed(
                 user_id=so.user_id,
                 figure_id=so.figure_id,
                 event_type="SELL",
-                event_title=f"「{figure_name}」已售出，售价 ¥{int(so.sell_price)}",
+                event_title=event_title,
                 target_type="order",
                 target_id=so.id,
                 detail_data={
                     "figure_id": so.figure_id,
                     "figure_name": figure_name,
                     "sell_price": so.sell_price,
-                    "cost_price": so.cost_price,
+                    "cost_price": cost_price,
                     "profit": round(profit, 2),
-                    "buyer": "",
+                    "profit_rate": profit_rate,
+                    "buyer": so.buyer_phone or "",
                     "out_date": so.created_at.strftime("%Y-%m-%d") if so.created_at else "",
-                    "hold_days": 0
+                    "hold_days": hold_days,
+                    "order_no": so.order_number or so.display_order_number or "",
+                    "status": so.status
                 },
                 event_date=so.created_at.date() if so.created_at else datetime.now().date(),
                 created_at=so.created_at or datetime.now()

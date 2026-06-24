@@ -343,15 +343,19 @@ export function useOrderManagement() {
       if (isEditing.value) {
         // 编辑模式
         await orderStore.updateOrder(currentEditOrderId.value, formattedOrderData)
+        ElMessage.success('订单编辑成功')
       } else {
         // 添加模式
         await orderStore.createOrder(formattedOrderData)
+        ElMessage.success('订单添加成功')
       }
       
       showAddForm.value = false
       // 重置表单
       resetForm()
     } catch (error) {
+      const errorMsg = error.response?.data?.detail || error.message || '保存失败，请稍后重试'
+      ElMessage.error('保存失败: ' + errorMsg)
     }
   }
   

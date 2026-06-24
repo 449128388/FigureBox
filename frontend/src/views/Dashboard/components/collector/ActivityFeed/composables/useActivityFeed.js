@@ -8,7 +8,7 @@
 
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { fetchTimeline, fetchEventDetail } from '../api/activityApi.js'
+import { fetchTimeline, fetchEventDetail, INITIAL_PAGE_SIZE, LOAD_MORE_PAGE_SIZE } from '../api/activityApi.js'
 
 export function useActivityFeed() {
   /** 动态流分组数据 */
@@ -54,14 +54,14 @@ export function useActivityFeed() {
   }
 
   /**
-   * 获取格式化时间（从ISO字符串中提取 HH:mm）
+   * 获取格式化时间（从ISO字符串中提取 HH:mm:ss）
    */
   function formatTime(isoStr) {
     if (!isoStr) return ''
     try {
       const parts = isoStr.split('T')
       if (parts.length > 1) {
-        return parts[1].substring(0, 5)
+        return parts[1].substring(0, 8)
       }
       return ''
     } catch {
@@ -70,9 +70,52 @@ export function useActivityFeed() {
   }
 
   /**
-   * 加载动态流数据
+   * 格式化事件标题（为关键字段添加HTML颜色高亮）
+   *
+   * 规则：
+   * - 手办名称「...」→ highlight（主题色）
+   * - 价格 ¥数字 → price（红色）
+   * - 盈利文本 → profit（红色）
+   * - 亏损文本 → loss（绿色）
+   * - 标签 #tagname → tag-badge（红色）
+   * - 出柜分类 → highlight（主题色）
    */
-  async function loadActivities(eventType, append = false) {
+  function formatEventTitle(item) {
+    if (!item || !item.event_title) return ''
+    const type = item.event_type || ''
+    const detail = item.detail_data || {}
+    let title = item.event_title
+
+    // 1. 包裹手办名称（全部类型）
+    title = title.replace(/「([^」]*)」/g, '<span class="highlight">「$1」</span>')
+
+    // 2. 卖出事件：价格和盈亏
+    if (type === 'sell') {
+      title = title.replace(/¥(\d+(?:\.\d+)?)/g, '<span class="price">¥$1</span>')
+      title = title.replace(/(盈利\s*¥[\d.]+)/g, '<span class="profit">$1</span>')
+      title = title.replace(/(亏损\s*¥[\d.]+)/g, '<span class="loss">$1</span>')
+    }
+
+    // 3. 标签事件：#标签名 — 统一使用红色
+    if (type === 'tag_add') {
+      title = title.replace(/(#[^\s,、，」]+)/g, '<span class="tag-badge" style="background:#FFEBEE;color:#D66A6A">$1</span>')
+    }
+
+    // 4. 出柜事件：移出分类名称使用 highlight 高亮
+    if (type === 'out') {
+      title = title.replace(/已移出(.+)$/, '已移出<span class="highlight">$1</span>')
+    }
+
+    return title
+  }
+
+  /**
+   * 加载动态流数据
+   * @param {string} eventType - 事件类型
+   * @param {boolean} append - 是否追加模式
+   * @param {number} pageLimit - 每页条数（默认首次加载 20）
+   */
+  async function loadActivities(eventType, append = false, pageLimit = INITIAL_PAGE_SIZE) {
     loading.value = true
     try {
       if (!append) {
@@ -83,7 +126,7 @@ export function useActivityFeed() {
       const res = await fetchTimeline({
         event_type: currentFilter.value,
         offset: currentOffset.value,
-        limit: 20
+        limit: pageLimit
       })
 
       const newGroups = res.activities || []
@@ -96,7 +139,7 @@ export function useActivityFeed() {
       }
 
       hasMore.value = res.has_more || false
-      currentOffset.value += newGroups.length
+      currentOffset.value += pageLimit
     } catch (e) {
       ElMessage.error('加载动态流失败: ' + (e.response?.data?.detail || e.message))
     } finally {
@@ -127,10 +170,10 @@ export function useActivityFeed() {
   }
 
   /**
-   * 加载更多
+   * 加载更多（每次加载 10 条）
    */
   async function loadMore() {
-    await loadActivities(currentFilter.value, true)
+    await loadActivities(currentFilter.value, true, LOAD_MORE_PAGE_SIZE)
   }
 
   /**
@@ -176,6 +219,7 @@ export function useActivityFeed() {
     closeDetail,
     getDateLabel,
     getEventDotClass,
-    formatTime
+    formatTime,
+    formatEventTitle
   }
 }

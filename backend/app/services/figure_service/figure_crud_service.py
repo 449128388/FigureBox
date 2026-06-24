@@ -65,7 +65,8 @@ class FigureCrudService:
     def update_figure(
         db: Session,
         figure_id: int,
-        figure_data: Dict[str, Any]
+        figure_data: Dict[str, Any],
+        user_id: Optional[int] = None
     ) -> Optional[Figure]:
         """
         更新手办
@@ -74,6 +75,7 @@ class FigureCrudService:
             db: 数据库会话
             figure_id: 手办ID
             figure_data: 更新的数据字典
+            user_id: 用户ID，用于记录动态流事件
 
         Returns:
             更新后的Figure对象或None（不存在时）
@@ -88,6 +90,11 @@ class FigureCrudService:
 
         # 提取标签ID列表
         tag_ids = figure_data.pop('tag_ids', None)
+
+        # 记录旧标签ID集合（用于检测新增标签）
+        old_tag_ids = None
+        if tag_ids is not None:
+            old_tag_ids = set(tag.id for tag in db_figure.tags)
 
         # 将入手形式的英文转换为中文
         if 'purchase_type' in figure_data and figure_data['purchase_type']:
@@ -106,6 +113,31 @@ class FigureCrudService:
 
         db.commit()
         db.refresh(db_figure)
+
+        # 记录新增标签的动态流事件（TAG_ADD）- 合并为一条记录
+        if tag_ids is not None and old_tag_ids is not None and user_id:
+            new_tag_ids = set(tag_ids)
+            added_tag_ids = new_tag_ids - old_tag_ids
+            if added_tag_ids:
+                from app.services.collector_service.collector_activity_service import CollectorActivityService
+                added_tags = []
+                for tag_id in added_tag_ids:
+                    tag = db.query(Tag).filter(Tag.id == tag_id).first()
+                    if tag:
+                        added_tags.append({
+                            "id": tag.id,
+                            "name": tag.name,
+                            "color": getattr(tag, 'color', None)
+                        })
+                if added_tags:
+                    CollectorActivityService.record_batch_tag_add_events(
+                        db=db,
+                        user_id=user_id,
+                        figure_id=db_figure.id,
+                        figure_name=db_figure.name,
+                        tags=added_tags
+                    )
+
         return db_figure
 
     @staticmethod

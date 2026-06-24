@@ -95,7 +95,8 @@ class CollectorExclusionService:
                 figure_id=figure_id,
                 figure_name=figure_name,
                 from_cabinet=cabinet_name,
-                reason=exclude_reason
+                reason=exclude_reason,
+                target_id=exclusion.id
             )
         except Exception:
             db.rollback()

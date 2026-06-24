@@ -262,7 +262,7 @@ def update_figure(
         )
 
     # 更新手办
-    db_figure = FigureService.update_figure(db, figure_id, figure_data)
+    db_figure = FigureService.update_figure(db, figure_id, figure_data, user_id=current_user.id)
 
     if not db_figure:
         raise HTTPException(

@@ -10,12 +10,14 @@ from datetime import datetime
 
 from app.models.sold_order import SoldOrder
 from app.models.user import User
+from app.models.figure import Figure
 from app.schemas.sold_order import SoldOrderCreate, SoldOrderUpdate
 from .currency_service import CurrencyService
 from .sold_order_number_service import SoldOrderNumberService
 from app.services.sold_order_service.sold_order_transaction_service import SoldOrderTransactionService
 from app.services.sold_order_service.sold_order_inventory_service import SoldOrderInventoryService
 from app.services.sold_order_service.sold_order_figure_service import SoldOrderFigureService
+from app.services.collector_service.collector_activity_service import CollectorActivityService
 
 
 class SoldOrderCrudService:
@@ -191,6 +193,33 @@ class SoldOrderCrudService:
             db.commit()
             db.refresh(new_order)
 
+            # 记录动态流 SELL 事件
+            try:
+                figure = db.query(Figure).filter(Figure.id == new_order.figure_id).first()
+                figure_name = figure.name if figure else "未知"
+                hold_days = 0
+                if figure and figure.purchase_date and new_order.created_at:
+                    out_date = new_order.created_at.date()
+                    hold_days = max((out_date - figure.purchase_date).days, 0)
+                CollectorActivityService.record_sell_event(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=new_order.figure_id,
+                    figure_name=figure_name,
+                    sell_price=new_order.sell_price,
+                    cost_price=new_order.cost_price,
+                    profit=new_order.net_profit or 0,
+                    buyer=new_order.buyer_phone or "",
+                    out_date=new_order.created_at.strftime("%Y-%m-%d") if new_order.created_at else "",
+                    hold_days=hold_days,
+                    order_no=new_order.order_number or new_order.display_order_number or "",
+                    status=new_order.status or "",
+                    target_id=new_order.id
+                )
+            except Exception as e:
+                db.rollback()
+                raise e
+
             return new_order
 
         except Exception as e:
@@ -349,6 +378,31 @@ class SoldOrderCrudService:
 
         db.commit()
         db.refresh(order)
+
+        # 同步更新动态流 SELL 事件
+        try:
+            figure = db.query(Figure).filter(Figure.id == order.figure_id).first()
+            figure_name = figure.name if figure else "未知"
+            hold_days = 0
+            if figure and figure.purchase_date and order.created_at:
+                out_date = order.created_at.date()
+                hold_days = max((out_date - figure.purchase_date).days, 0)
+            CollectorActivityService.update_sell_event(
+                db=db,
+                target_id=order.id,
+                figure_name=figure_name,
+                sell_price=order.sell_price,
+                cost_price=order.cost_price,
+                profit=order.net_profit or 0,
+                buyer=order.buyer_phone or "",
+                out_date=order.updated_at.strftime("%Y-%m-%d") if order.updated_at else "",
+                hold_days=hold_days,
+                order_no=order.order_number or order.display_order_number or "",
+                status=order.status or ""
+            )
+        except Exception as e:
+            db.rollback()
+            raise e
 
         return order
 

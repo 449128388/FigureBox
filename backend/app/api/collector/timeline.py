@@ -39,7 +39,7 @@ async def get_collector_timeline(
 
     返回按日期倒序分组的动态流事件列表。
     """
-    groups = CollectorActivityService.get_event_groups(
+    groups, has_more = CollectorActivityService.get_event_groups(
         db=db,
         user_id=current_user.id,
         event_type=event_type if event_type != 'all' else None,
@@ -51,7 +51,7 @@ async def get_collector_timeline(
 
     return {
         "activities": groups,
-        "has_more": len(groups) >= limit
+        "has_more": has_more
     }
 
 

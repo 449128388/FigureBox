@@ -133,10 +133,11 @@ class FigureService:
     def update_figure(
         db: Session,
         figure_id: int,
-        figure_data: Dict[str, Any]
+        figure_data: Dict[str, Any],
+        user_id: Optional[int] = None
     ) -> Optional[Figure]:
         """更新手办"""
-        return FigureCrudService.update_figure(db, figure_id, figure_data)
+        return FigureCrudService.update_figure(db, figure_id, figure_data, user_id)
 
     @staticmethod
     def delete_figure(db: Session, figure_id: int) -> bool:

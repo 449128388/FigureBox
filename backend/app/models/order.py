@@ -41,8 +41,8 @@ class Order(Base):
     # 订单类型
     order_type = Column(String(20), default="定金预定", comment="订单类型：定金预定、全款预定、现货、补仓")
 
-    # 订单状态
-    status = Column(String(20), default="未支付", comment="订单状态：未支付、已支付、已取消、已完成")
+    # 尾款状态
+    status = Column(String(20), default="未支付", comment="尾款状态：未支付、已支付、已取消、已完成")
     
     # 店铺信息
     shop_name = Column(String(100), comment="购买店铺名称（如：淘宝店铺、会员购等）")

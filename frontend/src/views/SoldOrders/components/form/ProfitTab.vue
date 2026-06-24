@@ -81,8 +81,8 @@
 
     <!-- 盈亏状态指示器 -->
     <div class="profit-indicator">
-      <span :class="['indicator', { active: currentProfit > 0 }]">🟢 盈利</span>
-      <span :class="['indicator', { active: currentProfit < 0 }]">🔴 亏损</span>
+      <span :class="['indicator', { active: currentProfit > 0 }]">🔴 盈利</span>
+      <span :class="['indicator', { active: currentProfit < 0 }]">🟢 亏损</span>
       <span :class="['indicator', { active: currentProfit === 0 }]">⚪ 持平</span>
     </div>
   </div>

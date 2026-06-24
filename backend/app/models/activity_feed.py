@@ -19,7 +19,7 @@ activity_feed.py - 用户动态流模型
 - PRICE_UPDATE: 价格更新
 """
 
-from sqlalchemy import Column, BigInteger, Integer, String, DateTime, TIMESTAMP, Date, JSON, text
+from sqlalchemy import Column, BigInteger, Integer, String, DateTime, TIMESTAMP, Date, JSON, text, func
 from app.models.database import Base
 
 
@@ -50,3 +50,4 @@ class ActivityFeed(Base):
     event_date = Column(Date, nullable=False, comment="事件日期（用于按天分栏）")
     is_cancelled = Column(Integer, default=0, comment="是否已取消/回滚：0=正常，1=已取消")
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"), comment="创建时间")
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"), onupdate=func.now(), comment="更新时间")

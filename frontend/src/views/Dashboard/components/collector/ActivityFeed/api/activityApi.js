@@ -8,6 +8,11 @@
 
 import axios from '../../../../../../axios'
 
+/** 首次加载条数 */
+export const INITIAL_PAGE_SIZE = 20
+/** 每次加载更多条数 */
+export const LOAD_MORE_PAGE_SIZE = 10
+
 /**
  * 获取动态流列表（按日期分组）
  * @param {Object} params - 查询参数
@@ -17,7 +22,7 @@ import axios from '../../../../../../axios'
  * @returns {Promise<Object>} { activities: [], has_more: boolean }
  */
 export function fetchTimeline(params = {}) {
-  const defaults = { event_type: 'all', offset: 0, limit: 20 }
+  const defaults = { event_type: 'all', offset: 0, limit: INITIAL_PAGE_SIZE }
   return axios.get('/collector/timeline', { params: { ...defaults, ...params } })
 }
 

@@ -24,6 +24,7 @@ from datetime import date, datetime
 from typing import Optional, List, Dict
 
 from app.models.activity_feed import ActivityFeed
+from app.models.figure import Figure
 
 
 class CollectorActivityService:
@@ -66,7 +67,8 @@ class CollectorActivityService:
             target_id=target_id,
             detail_data=detail_data,
             event_date=now.date(),
-            created_at=now
+            created_at=now,
+            updated_at=now
         )
         db.add(feed)
         db.commit()
@@ -87,7 +89,9 @@ class CollectorActivityService:
         character: Optional[str] = None,
         scale: Optional[str] = None,
         maker: Optional[str] = None,
-        cover_image: Optional[str] = None
+        currency: Optional[str] = "CNY",
+        balance: Optional[float] = 0,
+        balance_currency: Optional[str] = "CNY"
     ) -> ActivityFeed:
         """记录买入事件"""
         title = f"入手「{figure_name}」，等待补款" if status == "等待补款" else f"入手「{figure_name}」"
@@ -102,7 +106,9 @@ class CollectorActivityService:
             "amount": amount,
             "paid_type": paid_type,
             "status": status,
-            "cover_image": cover_image or ""
+            "currency": currency or "CNY",
+            "balance": balance or 0,
+            "balance_currency": balance_currency or "CNY"
         }
         return CollectorActivityService.record_event(
             db=db,
@@ -189,11 +195,17 @@ class CollectorActivityService:
         sell_price: float,
         cost_price: float,
         profit: float,
+        profit_rate: Optional[float] = None,
         buyer: Optional[str] = None,
         out_date: Optional[str] = None,
-        hold_days: Optional[int] = None
+        hold_days: Optional[int] = None,
+        order_no: Optional[str] = None,
+        status: Optional[str] = None,
+        target_id: Optional[int] = None
     ) -> ActivityFeed:
-        """记录售出事件"""
+        """记录售出事件（所有数据一次性写入 detail_data 快照）"""
+        if profit_rate is None and cost_price and cost_price != 0:
+            profit_rate = round((profit / abs(cost_price)) * 100, 2)
         profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
         title = f"「{figure_name}」已售出，售价 ¥{int(sell_price)}（{profit_text}）"
         detail = {
@@ -202,9 +214,12 @@ class CollectorActivityService:
             "sell_price": sell_price,
             "cost_price": cost_price,
             "profit": profit,
+            "profit_rate": profit_rate or 0.0,
             "buyer": buyer or "",
             "out_date": out_date or "",
-            "hold_days": hold_days or 0
+            "hold_days": hold_days or 0,
+            "order_no": order_no or "",
+            "status": status or ""
         }
         return CollectorActivityService.record_event(
             db=db,
@@ -212,8 +227,115 @@ class CollectorActivityService:
             figure_id=figure_id,
             event_type="SELL",
             event_title=title,
+            target_type="order",
+            target_id=target_id,
             detail_data=detail
         )
+
+    @staticmethod
+    def update_sell_event(
+        db: Session,
+        target_id: int,
+        figure_name: str,
+        sell_price: float,
+        cost_price: float,
+        profit: float,
+        profit_rate: Optional[float] = None,
+        buyer: Optional[str] = None,
+        out_date: Optional[str] = None,
+        hold_days: Optional[int] = None,
+        order_no: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> bool:
+        """
+        更新已售出事件的 detail_data 快照和标题
+
+        通过 target_id（sold_order.id）查找对应的 SELL 事件进行原地更新，
+        无需重新创建记录。用于编辑已出售订单后同步更新动态流。
+
+        Returns:
+            bool: 是否找到并更新了记录
+        """
+        ev = db.query(ActivityFeed).filter(
+            ActivityFeed.event_type == "SELL",
+            ActivityFeed.target_id == target_id
+        ).first()
+        if not ev:
+            return False
+
+        if profit_rate is None and cost_price and cost_price != 0:
+            profit_rate = round((profit / abs(cost_price)) * 100, 2)
+        profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
+
+        ev.event_title = f"「{figure_name}」已售出，售价 ¥{int(sell_price)}（{profit_text}）"
+        ev.detail_data = {
+            "figure_id": ev.detail_data.get("figure_id") if ev.detail_data else None,
+            "figure_name": figure_name,
+            "sell_price": sell_price,
+            "cost_price": cost_price,
+            "profit": profit,
+            "profit_rate": profit_rate or 0.0,
+            "buyer": buyer or "",
+            "out_date": out_date or "",
+            "hold_days": hold_days or 0,
+            "order_no": order_no or "",
+            "status": status or ""
+        }
+        db.commit()
+        return True
+
+    @staticmethod
+    def update_buy_event(
+        db: Session,
+        target_id: int,
+        figure_name: str,
+        order_no: str,
+        amount: float,
+        paid_type: str,
+        status: str,
+        figure_id: Optional[int] = None,
+        character: Optional[str] = None,
+        scale: Optional[str] = None,
+        maker: Optional[str] = None,
+        currency: Optional[str] = "CNY",
+        balance: Optional[float] = 0,
+        balance_currency: Optional[str] = "CNY"
+    ) -> bool:
+        """
+        更新买入事件的 detail_data 快照和标题
+
+        通过 target_id（order.id）查找对应的 BUY 事件进行原地更新，
+        无需重新创建记录。用于编辑尾款订单后同步更新动态流。
+
+        Returns:
+            bool: 是否找到并更新了记录
+        """
+        ev = db.query(ActivityFeed).filter(
+            ActivityFeed.event_type == "BUY",
+            ActivityFeed.target_id == target_id
+        ).first()
+        if not ev:
+            return False
+
+        title = f"入手「{figure_name}」，等待补款" if status == "等待补款" else f"入手「{figure_name}」"
+        ev.event_title = title
+        ev.detail_data = {
+            "figure_id": figure_id or ev.detail_data.get("figure_id") if ev.detail_data else None,
+            "figure_name": figure_name,
+            "character": character or "",
+            "scale": scale or "",
+            "maker": maker or "",
+            "order_id": target_id,
+            "order_no": order_no,
+            "amount": amount,
+            "paid_type": paid_type,
+            "status": status,
+            "currency": currency or "CNY",
+            "balance": balance or 0,
+            "balance_currency": balance_currency or "CNY"
+        }
+        db.commit()
+        return True
 
     @staticmethod
     def record_out_event(
@@ -222,7 +344,8 @@ class CollectorActivityService:
         figure_id: int,
         figure_name: str,
         from_cabinet: str,
-        reason: Optional[str] = None
+        reason: Optional[str] = None,
+        target_id: Optional[int] = None
     ) -> ActivityFeed:
         """记录移出收藏柜事件"""
         title = f"「{figure_name}」已移出{from_cabinet}"
@@ -238,6 +361,8 @@ class CollectorActivityService:
             figure_id=figure_id,
             event_type="OUT",
             event_title=title,
+            target_type="cabinet_exclusion",
+            target_id=target_id,
             detail_data=detail
         )
 
@@ -252,13 +377,19 @@ class CollectorActivityService:
         tag_color: Optional[str] = None
     ) -> ActivityFeed:
         """记录添加标签事件"""
+        now = datetime.now()
         title = f"为「{figure_name}」添加标签 #{tag_name}"
         detail = {
             "figure_id": figure_id,
             "figure_name": figure_name,
-            "tag_name": tag_name,
-            "tag_id": tag_id,
-            "tag_color": tag_color or ""
+            "tags": [
+                {
+                    "tag_id": tag_id,
+                    "tag_name": tag_name,
+                    "tag_color": tag_color or ""
+                }
+            ],
+            "add_date": now.strftime("%Y-%m-%d %H:%M:%S")
         }
         return CollectorActivityService.record_event(
             db=db,
@@ -268,6 +399,62 @@ class CollectorActivityService:
             event_title=title,
             target_type="tag",
             target_id=tag_id,
+            detail_data=detail
+        )
+
+    @staticmethod
+    def record_batch_tag_add_events(
+        db: Session,
+        user_id: int,
+        figure_id: int,
+        figure_name: str,
+        tags: List[Dict]
+    ) -> ActivityFeed:
+        """
+        批量记录添加标签事件（合并为一条记录）
+
+        当在同一时间对单个手办新增多个标签时，将多条标签合并为一条 TAG_ADD 事件，
+        标题展示所有标签名称，detail_data 中 tags 字段包含所有标签的列表。
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            figure_id: 手办ID
+            figure_name: 手办名称
+            tags: 标签列表，每项包含 name/id/color
+
+        Returns:
+            ActivityFeed: 创建的事件记录
+        """
+        if not tags:
+            raise ValueError("tags cannot be empty")
+        now = datetime.now()
+        tag_names = [t["name"] for t in tags]
+        tag_names_str = "、".join(f"#{n}" for n in tag_names)
+        title = f"为「{figure_name}」添加标签 {tag_names_str}"
+        detail = {
+            "figure_id": figure_id,
+            "figure_name": figure_name,
+            "tags": [
+                {
+                    "tag_id": t["id"],
+                    "tag_name": t["name"],
+                    "tag_color": t.get("color", "")
+                }
+                for t in tags
+            ],
+            "add_date": now.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        # 使用第一个标签 ID 作为 target_id
+        first_tag_id = tags[0]["id"]
+        return CollectorActivityService.record_event(
+            db=db,
+            user_id=user_id,
+            figure_id=figure_id,
+            event_type="TAG_ADD",
+            event_title=title,
+            target_type="tag",
+            target_id=first_tag_id,
             detail_data=detail
         )
 
@@ -335,6 +522,7 @@ class CollectorActivityService:
             type_map = {
                 'buy': ['BUY', 'FULL_PAY', 'IN_STOCK'],
                 'sell': ['SELL'],
+                'out': ['OUT'],
                 'order': ['BUY', 'FULL_PAY', 'ORDER_CREATE', 'ORDER_CANCEL'],
                 'tag': ['TAG_ADD', 'FIX'],
                 'price': ['PRICE_UPDATE']
@@ -353,20 +541,29 @@ class CollectorActivityService:
         event_type: Optional[str] = None,
         offset: int = 0,
         limit: int = 20
-    ) -> List[Dict]:
+    ) -> tuple:
         """
         获取按日期分组的事件列表
+        内部查询 limit+1 条用于判断 has_more
 
         Returns:
-            list[dict]: [{ date: str, label: str, items: [...] }, ...]
+            tuple: (groups, has_more)
+            groups: list[dict] 按日期分组的事件列表
+            has_more: bool 是否还有更多数据
         """
+        # 查询 limit+1 条，用来判断是否还有更多数据
         events = CollectorActivityService.get_events(
             db=db,
             user_id=user_id,
             event_type=event_type,
             offset=offset,
-            limit=limit
+            limit=limit + 1
         )
+
+        # 判断是否有更多数据
+        has_more = len(events) > limit
+        if has_more:
+            events = events[:-1]  # 移除多余的1条
 
         # 按日期分组
         groups = {}
@@ -388,7 +585,7 @@ class CollectorActivityService:
                 "items": [CollectorActivityService._format_event(ev) for ev in groups[d]]
             })
 
-        return result
+        return result, has_more
 
     @staticmethod
     def get_event_detail(db: Session, event_id: int) -> Optional[Dict]:
@@ -400,12 +597,33 @@ class CollectorActivityService:
             event_id: 事件ID
 
         Returns:
-            dict: 事件详情
+            dict: 事件详情（包含 figure_image 字段）
         """
         ev = db.query(ActivityFeed).filter(ActivityFeed.id == event_id).first()
         if not ev:
             return None
-        return CollectorActivityService._format_event(ev)
+
+        result = CollectorActivityService._format_event(ev)
+
+        # 获取手办图片和信息
+        figure_image = ""
+        figure_work = ""
+        figure_scale = ""
+        figure_manufacturer = ""
+        if ev.figure_id:
+            figure = db.query(Figure).filter(Figure.id == ev.figure_id).first()
+            if figure:
+                if figure.images and isinstance(figure.images, list) and len(figure.images) > 0:
+                    figure_image = figure.images[0]
+                figure_work = figure.work or ""
+                figure_scale = figure.scale or ""
+                figure_manufacturer = figure.manufacturer or ""
+        result["figure_image"] = figure_image
+        result["figure_work"] = figure_work
+        result["figure_scale"] = figure_scale
+        result["figure_manufacturer"] = figure_manufacturer
+
+        return result
 
     # ========== 私有方法 ==========
 
