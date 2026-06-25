@@ -138,8 +138,8 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import OrderHeader from './Orders/components/OrderHeader.vue'
 import OrderStatusTabs from './Orders/components/OrderStatusTabs.vue'
 import OrderItem from './Orders/components/OrderItem.vue'
@@ -206,6 +206,7 @@ const {
 
 // 路由
 const router = useRouter()
+const route = useRoute()
 
 // 导航到个人资料页面
 const navigateToProfile = () => {
@@ -215,6 +216,17 @@ const navigateToProfile = () => {
 // 生命周期
 onMounted(() => {
   initializeData()
+})
+
+// 处理从动态流跳转过来的编辑订单请求
+watch(filteredOrders, (orders) => {
+  const editOrderId = route.query.editOrderId
+  if (editOrderId && orders.length > 0) {
+    const order = orders.find(o => o.id === Number(editOrderId))
+    if (order) {
+      handleEditOrder(order)
+    }
+  }
 })
 </script>
 

@@ -12,12 +12,11 @@ export function useCollectorData() {
   const fetchCollectorData = async () => {
     loading.value = true
     try {
-      // 并行请求4个独立接口
-      const [summaryRes, cabinetsRes, tagsRes, timelineRes] = await Promise.all([
+      // 并行请求3个独立接口（动态流由 ActivityFeed 组件独立加载）
+      const [summaryRes, cabinetsRes, tagsRes] = await Promise.all([
         axios.get('/collector/summary'),
         axios.get('/collector/cabinets'),
-        axios.get('/collector/tags'),
-        axios.get('/collector/timeline')
+        axios.get('/collector/tags')
       ])
 
       // 合并数据为统一格式
@@ -35,70 +34,12 @@ export function useCollectorData() {
         ],
         tags: tagsRes.tags || [],
         system_tags: tagsRes.system_tags || [],
-        user_tags: tagsRes.user_tags || [],
-        activities: timelineRes.activities || []
+        user_tags: tagsRes.user_tags || []
       }
     } catch (error) {
-      // 生成模拟数据
-      collectorData.value = {
-        summary: {
-          total_collection: 86,
-          unique_works: 12,
-          unique_manufacturers: 8,
-          this_month_count: 3,
-          recent_figures: '初音韶华 / 蕾姆婚纱 / 桐宫美月',
-          total_sold_count: 8,
-          total_companion_days: 1024
-        },
-        valuable_items: [
-          {
-            id: 1,
-            name: "初音韶华",
-            image: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=anime%20figure%20Hatsune%20Miku%20with%20colorful%20hair%20and%20modern%20outfit&image_size=square",
-            profit: 1200,
-            status: "海景房"
-          },
-          {
-            id: 2,
-            name: "蕾姆婚纱",
-            image: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=anime%20figure%20Rem%20in%20wedding%20dress%20blue%20hair&image_size=square",
-            profit: 800,
-            status: "小赚"
-          },
-          {
-            id: 3,
-            name: "Saber",
-            image: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=anime%20figure%20Saber%20from%20Fate%20series%20in%20blue%20dress&image_size=square",
-            profit: -200,
-            status: "破发"
-          },
-          {
-            id: 4,
-            name: "艾米莉亚",
-            image: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=anime%20figure%20Emilia%20with%20silver%20hair%20and%20blue%20dress&image_size=square",
-            status: "已转卖",
-            sold_profit: 500
-          }
-        ],
-        tags: [
-          {"name": "海景房", "count": 3},
-          {"name": "破发区", "count": 5},
-          {"name": "待补款", "count": 2},
-          {"name": "已出坑", "count": 8}
-        ],
-        activities: [
-          {
-            "date": "2026-03-15",
-            "content": "入手初音韶华 180天，估值上涨150%",
-            "actions": ["生成分享卡片", "查看详情"]
-          },
-          {
-            "date": "2026-02-20",
-            "content": "蕾姆婚纱补款完成，等待发货",
-            "actions": ["查看详情"]
-          }
-        ]
-      }
+      console.error('获取收藏家数据失败:', error)
+      ElMessage.error('获取收藏家数据失败: ' + (error.response?.data?.detail || error.message))
+      collectorData.value = null
     } finally {
       loading.value = false
     }

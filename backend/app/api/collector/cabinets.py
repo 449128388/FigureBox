@@ -41,6 +41,10 @@ from app.services.collector_service.collector_exclusion_service import Collector
 
 router = APIRouter()
 
+# 每个分类返回的最大 items 数量（前端橱窗卡片展示用）
+# count 仍返回全量总数，items 截取前 N 条
+CABINET_ITEMS_LIMIT = 20
+
 
 def get_image_url(figure):
     """从images列表中获取第一张图片URL"""
@@ -442,7 +446,7 @@ async def get_collector_cabinets(
             "stock": len(trans_list)
         })
 
-    # ====== 计算各分类陪伴天数 ======
+    # ====== 构建8个分类 ======
     def calc_total_days(items, field='holding_days'):
         """计算items中某个字段的总和"""
         return sum(item.get(field, 0) or 0 for item in items)
@@ -455,7 +459,11 @@ async def get_collector_cabinets(
             return 0
         return round(total / count)
 
-    # ====== 构建8个分类 ======
+    def sliced_items(items):
+        """截取前 N 条，减少响应体大小"""
+        return items[:CABINET_ITEMS_LIMIT]
+
+    # ====== 构建8个分类（items 截取前20条，count 返回全量） ======
     cabinets = [
         {
             "key": "star",
@@ -464,9 +472,9 @@ async def get_collector_cabinets(
             "icon": "🖼️",
             "icon_bg": "#E8F4F8",
             "count": len(star_figures),
-            "companion_days": calc_total_days(star_figures, 'holding_days'),
+            "companion_days": calc_total_days(sliced_items(star_figures), 'holding_days'),
             "meta": f"{len(star_figures)} 体 · 入柜 180+ 天" if star_figures else "暂无镇柜藏品",
-            "items": star_figures
+            "items": sliced_items(star_figures)
         },
         {
             "key": "new",
@@ -475,9 +483,9 @@ async def get_collector_cabinets(
             "icon": "✨",
             "icon_bg": "#F0F5E8",
             "count": len(new_figures),
-            "companion_days": calc_avg_days(new_figures, 'holding_days'),
+            "companion_days": calc_avg_days(sliced_items(new_figures), 'holding_days'),
             "meta": f"{len(new_figures)} 体 · 30 天内新成员" if new_figures else "暂无新入库",
-            "items": new_figures
+            "items": sliced_items(new_figures)
         },
         {
             "key": "fix",
@@ -486,9 +494,9 @@ async def get_collector_cabinets(
             "icon": "🔧",
             "icon_bg": "#FDF6EE",
             "count": len(repair_figures),
-            "companion_days": calc_avg_days(repair_figures, 'holding_days'),
+            "companion_days": calc_avg_days(sliced_items(repair_figures), 'holding_days'),
             "meta": f"{len(repair_figures)} 体 · 补件/补色中" if repair_figures else "暂无待修复藏品",
-            "items": repair_figures
+            "items": sliced_items(repair_figures)
         },
         {
             "key": "out",
@@ -497,9 +505,9 @@ async def get_collector_cabinets(
             "icon": "📦",
             "icon_bg": "#F5F5F5",
             "count": len(sold_figures),
-            "companion_days": calc_avg_days(sold_figures, 'holding_days'),
+            "companion_days": calc_avg_days(sliced_items(sold_figures), 'holding_days'),
             "meta": f"{len(sold_figures)} 体 · 找到新主人" if sold_figures else "暂无已出藏品",
-            "items": sold_figures
+            "items": sliced_items(sold_figures)
         },
         {
             "key": "air",
@@ -510,7 +518,7 @@ async def get_collector_cabinets(
             "count": len(air_figures),
             "companion_days": 0,
             "meta": f"{len(air_figures)} 体 · 待付尾款" if air_figures else "暂无预定",
-            "items": air_figures
+            "items": sliced_items(air_figures)
         },
         {
             "key": "dup",
@@ -519,9 +527,9 @@ async def get_collector_cabinets(
             "icon": "👯",
             "icon_bg": "#FFF2F0",
             "count": len(dup_figures),
-            "companion_days": calc_total_days(dup_figures, 'holding_days'),
+            "companion_days": calc_total_days(sliced_items(dup_figures), 'holding_days'),
             "meta": f"{len(dup_figures)} 体 · 同款复购" if dup_figures else "暂无复数藏品",
-            "items": dup_figures
+            "items": sliced_items(dup_figures)
         },
         {
             "key": "wait",
@@ -532,7 +540,7 @@ async def get_collector_cabinets(
             "count": len(wait_figures),
             "companion_days": 0,
             "meta": f"{len(wait_figures)} 体 · 等待出货" if wait_figures else "暂无待出荷",
-            "items": wait_figures
+            "items": sliced_items(wait_figures)
         },
         {
             "key": "role",
@@ -541,9 +549,9 @@ async def get_collector_cabinets(
             "icon": "🏭",
             "icon_bg": "#E8F4F8",
             "count": manufacturer_count,
-            "companion_days": calc_total_days(role_figures, 'holding_days'),
+            "companion_days": calc_total_days(sliced_items(role_figures), 'holding_days'),
             "meta": f"{manufacturer_count} 家 · 追厂狂魔" if manufacturer_count > 0 else "暂无本命厂商",
-            "items": role_figures
+            "items": sliced_items(role_figures)
         }
     ]
 

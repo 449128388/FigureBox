@@ -51,7 +51,7 @@
           <span v-if="group.label" class="date-label">· {{ group.label }}</span>
         </div>
         <div class="feed-timeline">
-          <div v-for="item in group.items" :key="item.id" class="feed-item">
+          <div v-for="(item, index) in group.items" :key="item.id" class="feed-item">
             <div class="feed-dot" :class="getEventDotClass(item.event_type)"></div>
             <div class="feed-content">
               <div class="feed-title" v-html="formatEventTitle(item)"></div>
@@ -112,6 +112,10 @@
             <div class="detail-row"><span class="detail-row-label">待补尾款</span><span class="detail-row-value buy-detail-value">{{ balanceCurrencySymbol }}{{ detailData.balance || 0 }}</span></div>
             <div class="detail-row"><span class="detail-row-label">当前状态</span><span class="detail-row-value status status-wait">🟡 {{ detailData.status }}</span></div>
           </div>
+          <div v-if="detailData.status === '等待补款'" class="detail-actions">
+            <button class="detail-btn" @click="navigateToOrders">查看订单详情</button>
+            <button class="detail-btn detail-btn-primary" @click="navigateToOrdersAndEdit(detailData.order_id)">去补款</button>
+          </div>
         </template>
 
         <!-- SELL 事件 -->
@@ -140,12 +144,41 @@
         <!-- FULL_PAY 事件 -->
         <template v-if="eventDetail.event_type === 'full_pay'">
           <div class="detail-section">
-            <div class="detail-section-title">付款信息</div>
-            <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value">{{ detailData.order_no }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">本次支付</span><span class="detail-row-value accent">¥{{ detailData.paid_amount }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">累计支付</span><span class="detail-row-value">¥{{ detailData.total_paid }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">支付时间</span><span class="detail-row-value">{{ detailData.pay_date }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">当前状态</span><span class="detail-row-value status status-wait">🟡 {{ detailData.status }}</span></div>
+            <div class="detail-section-title">付款信息（补款后）</div>
+            <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value buy-detail-value">{{ detailData.order_no }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">定金金额</span><span class="detail-row-value buy-detail-value">{{ currencySymbol }}{{ detailData.deposit_paid || 0 }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">本次尾款</span><span class="detail-row-value buy-detail-value">{{ currencySymbol }}{{ detailData.paid_amount }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">累计支付</span><span class="detail-row-value buy-detail-value">{{ currencySymbol }}{{ detailData.total_paid }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">支付时间</span><span class="detail-row-value buy-detail-value">{{ detailData.pay_date }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">当前状态</span><span class="detail-row-value status status-done">🟢 {{ detailData.status }}</span></div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-title">订单进度追踪</div>
+            <div class="status-timeline">
+              <div class="status-timeline-item">
+                <div class="status-timeline-dot active"></div>
+                <div class="status-timeline-text active">定金已付</div>
+                <div class="status-timeline-time">{{ eventDetail.created_at?.replace('T', ' ') }}</div>
+              </div>
+              <div class="status-timeline-item">
+                <div class="status-timeline-dot current"></div>
+                <div class="status-timeline-text current">尾款已付清</div>
+                <div class="status-timeline-time">{{ detailData.pay_date }}</div>
+              </div>
+              <div class="status-timeline-item">
+                <div class="status-timeline-dot"></div>
+                <div class="status-timeline-text">工厂出荷</div>
+                <div class="status-timeline-time">{{ detailData.due_date ? '预计 ' + detailData.due_date : '待确认' }}</div>
+              </div>
+              <div class="status-timeline-item">
+                <div class="status-timeline-dot"></div>
+                <div class="status-timeline-text">入库</div>
+                <div class="status-timeline-time">待确认</div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-actions">
+            <button class="detail-btn" @click="navigateToOrders">查看订单详情</button>
           </div>
         </template>
 
@@ -153,10 +186,14 @@
         <template v-if="eventDetail.event_type === 'in_stock'">
           <div class="detail-section">
             <div class="detail-section-title">入库信息</div>
-            <div class="detail-row"><span class="detail-row-label">入库日期</span><span class="detail-row-value">{{ detailData.in_date }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value">{{ detailData.order_no }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">入库成本</span><span class="detail-row-value accent">¥{{ detailData.cost }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">入柜位置</span><span class="detail-row-value">{{ detailData.cabinet }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">入库日期</span><span class="detail-row-value buy-detail-value">{{ detailData.in_date }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value buy-detail-value">{{ detailData.order_no }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">入库成本</span><span class="detail-row-value buy-detail-value">{{ currencySymbol }}{{ detailData.cost }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">入柜位置</span><span class="detail-row-value buy-detail-value">{{ figureCabinets || detailData.cabinet || '未分类' }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">当前状态</span><span class="detail-row-value status status-done">🟢 {{ detailData.status }}</span></div>
+          </div>
+          <div class="detail-actions">
+            <button class="detail-btn" @click="navigateToFigureDetail(detailData.figure_id)">查看手办详情</button>
           </div>
         </template>
 
@@ -185,11 +222,14 @@
         <template v-if="eventDetail.event_type === 'order_cancel'">
           <div class="detail-section">
             <div class="detail-section-title">订单信息</div>
-            <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value">{{ detailData.order_no }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">取消时间</span><span class="detail-row-value">{{ detailData.cancel_date }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">取消原因</span><span class="detail-row-value">{{ detailData.cancel_reason }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">退款金额</span><span class="detail-row-value green">¥{{ detailData.refund_amount }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">当前状态</span><span class="detail-row-value status status-cancel">⚪ 已取消</span></div>
+            <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value buy-detail-value">{{ detailData.order_no }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">取消时间</span><span class="detail-row-value buy-detail-value">{{ eventDetail.created_at?.replace('T', ' ') }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">取消原因</span><span class="detail-row-value buy-detail-value">{{ detailData.cancel_reason || '未填写' }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">退款金额</span><span class="detail-row-value buy-detail-value">¥{{ detailData.refund_amount || 0 }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">当前状态</span><span class="detail-row-value status status-cancel">⚪ {{ detailData.status || '已取消' }}</span></div>
+          </div>
+          <div class="detail-actions">
+            <button class="detail-btn" @click="navigateToFigureDetail(detailData.figure_id)">查看手办详情</button>
           </div>
         </template>
 
@@ -197,11 +237,14 @@
         <template v-if="eventDetail.event_type === 'price_update'">
           <div class="detail-section">
             <div class="detail-section-title">价格变动</div>
-            <div class="detail-row"><span class="detail-row-label">更新日期</span><span class="detail-row-value">{{ detailData.update_date }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">原市场价</span><span class="detail-row-value">¥{{ detailData.old_price }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">新市场价</span><span class="detail-row-value accent">¥{{ detailData.new_price }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">变动金额</span><span :class="['detail-row-value', (detailData.change || 0) >= 0 ? 'green' : 'red']">{{ (detailData.change || 0) >= 0 ? '+' : '' }}¥{{ detailData.change }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">变动幅度</span><span :class="['detail-row-value', (detailData.change || 0) >= 0 ? 'green' : 'red']">{{ (detailData.change || 0) >= 0 ? '📈' : '📉' }} {{ detailData.change_rate }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">更新日期</span><span class="detail-row-value buy-detail-value">{{ detailData.update_date }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">原市场价</span><span class="detail-row-value buy-detail-value">{{ getCurrencySymbol(detailData.old_currency) }}{{ detailData.old_price }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">新市场价</span><span class="detail-row-value buy-detail-value">{{ getCurrencySymbol(detailData.new_currency) }}{{ detailData.new_price }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">变动金额</span><span :class="['detail-row-value', (detailData.change || 0) >= 0 ? 'red' : 'green']">{{ (detailData.change || 0) >= 0 ? '+' : '' }}¥{{ detailData.change }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">变动幅度</span><span :class="['detail-row-value', (detailData.change || 0) >= 0 ? 'red' : 'green']">{{ (detailData.change || 0) >= 0 ? '📈' : '📉' }} {{ detailData.change_rate }}</span></div>
+          </div>
+          <div class="detail-actions">
+            <button class="detail-btn" @click="navigateToFigureDetail(detailData.figure_id)">查看手办详情</button>
           </div>
         </template>
 
@@ -260,7 +303,7 @@ export default {
     })
     const showFigureCard = computed(() => {
       const type = feed.eventDetail.value?.event_type
-      return ['buy', 'sell', 'full_pay', 'in_stock', 'out', 'tag_add'].includes(type)
+      return ['buy', 'sell', 'full_pay', 'in_stock', 'out', 'tag_add', 'order_cancel', 'price_update'].includes(type)
     })
     const detailData = computed(() => {
       return feed.eventDetail.value?.detail_data || {}
@@ -294,6 +337,21 @@ export default {
       return map[detailData.value?.balance_currency] || '¥'
     })
 
+    // IN_STOCK 事件：实时计算手办所在藏品柜（来自后端接口）
+    const figureCabinets = computed(() => {
+      const cabs = feed.eventDetail.value?.figure_cabinets
+      if (cabs && Array.isArray(cabs) && cabs.length > 0) {
+        return cabs.join(' / ')
+      }
+      return ''
+    })
+
+    // 获取货币符号
+    function getCurrencySymbol(currency) {
+      const map = { 'CNY': '¥', 'JPY': 'JP ¥', 'USD': '$', 'EUR': '€', 'GBP': '£', 'HKD': 'HK$', 'TWD': 'NT$', 'KRW': '₩' }
+      return map[currency] || currency || '¥'
+    }
+
     // 导航方法
     function navigateToSoldOrders() {
       router.push('/sell')
@@ -302,6 +360,16 @@ export default {
     function navigateToFigureDetail(figureId) {
       if (figureId) {
         router.push(`/figures/${figureId}`)
+      }
+    }
+
+    function navigateToOrders() {
+      router.push('/orders')
+    }
+
+    function navigateToOrdersAndEdit(orderId) {
+      if (orderId) {
+        router.push(`/orders?editOrderId=${orderId}`)
       }
     }
 
@@ -317,8 +385,12 @@ export default {
       figureManufacturer,
       currencySymbol,
       balanceCurrencySymbol,
+      figureCabinets,
+      getCurrencySymbol,
       navigateToSoldOrders,
-      navigateToFigureDetail
+      navigateToFigureDetail,
+      navigateToOrders,
+      navigateToOrdersAndEdit
     }
   }
 }
@@ -641,7 +713,7 @@ export default {
   border-radius: 16px;
   width: 92%;
   max-width: 600px;
-  max-height: 85vh;
+  max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
   animation: modalIn 0.25s ease;
@@ -830,6 +902,73 @@ export default {
 .status-cancel {
   background: #F5F5F5;
   color: #999;
+}
+
+/* Status Timeline */
+.status-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.status-timeline::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #EBE8E4;
+  border-radius: 1px;
+}
+
+.status-timeline-item {
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.status-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.status-timeline-dot {
+  position: absolute;
+  left: -22px;
+  top: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #EBE8E4;
+  border: 2px solid #fff;
+}
+
+.status-timeline-dot.active {
+  background: #C49A6C;
+}
+
+.status-timeline-dot.current {
+  background: #7EB8A2;
+  box-shadow: 0 0 0 2px #C8E6D5;
+}
+
+.status-timeline-text {
+  font-size: 13px;
+  color: #666;
+}
+
+.status-timeline-text.active {
+  color: #1F1F1F;
+  font-weight: 500;
+}
+
+.status-timeline-text.current {
+  color: #7EB8A2;
+  font-weight: 600;
+}
+
+.status-timeline-time {
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
 }
 
 /* Profit Card */

@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动态流 - 同一物品状态变化演示</title>
+<style>
+  :root {
+    --bg: #F7F5F2;
+    --card-bg: #FFFFFF;
+    --text-primary: #1F1F1F;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border: #EBE8E4;
+    --accent: #C49A6C;
+    --accent-light: #FDF6EE;
+    --accent-border: #E8D5C0;
+    --blue: #4A90E2;
+    --green: #7EB8A2;
+    --green-light: #E8F5E9;
+    --orange: #E6A23C;
+    --orange-light: #FFF8E1;
+    --red: #D66A6A;
+    --purple: #9B7ED8;
+    --cyan: #00BCD4;
+    --radius: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-hover: 0 4px 16px rgba(0,0,0,0.08);
+    --shadow-sheet: 0 -4px 24px rgba(0,0,0,0.12);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--text-primary); line-height: 1.5;
+    min-height: 100vh;
+  }
+  .container { max-width: 640px; margin: 0 auto; padding: 24px; }
+
+  /* Header */
+  .header {
+    background: var(--card-bg); border-bottom: 1px solid var(--border);
+    padding: 16px 24px; display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .back-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; color: var(--text-secondary); transition: all 0.2s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .header-title { font-size: 18px; font-weight: 600; }
+  .header-meta { font-size: 13px; color: var(--text-tertiary); margin-left: 8px; }
+
+  /* Explanation Card */
+  .explain-card {
+    background: linear-gradient(135deg, var(--accent-light) 0%, #fff 100%);
+    border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px;
+    border: 1px solid var(--accent-border); font-size: 13px; color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  .explain-card strong { color: var(--accent); }
+  .explain-card code {
+    background: #fff; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border);
+    font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: var(--red);
+  }
+
+  /* Feed Card */
+  .feed-card {
+    background: var(--card-bg); border-radius: var(--radius);
+    padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px;
+  }
+  .feed-header {
+    font-size: 15px; font-weight: 600; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .feed-header::before { content: "💬"; font-size: 16px; }
+
+  /* Date Group */
+  .feed-group { margin-bottom: 20px; }
+  .feed-group:last-child { margin-bottom: 0; }
+  .feed-date {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-tertiary); margin-bottom: 12px; padding-left: 4px;
+  }
+  .feed-date .date-icon { font-size: 14px; }
+  .feed-date .date-label { color: var(--text-secondary); font-weight: 500; }
+
+  /* Timeline */
+  .feed-timeline {
+    position: relative; padding-left: 28px;
+  }
+  .feed-timeline::before {
+    content: ""; position: absolute; left: 8px; top: 4px; bottom: 0;
+    width: 2px; background: linear-gradient(180deg, var(--accent-border) 0%, transparent 100%);
+    border-radius: 1px;
+  }
+
+  /* Feed Item */
+  .feed-item {
+    position: relative; padding-bottom: 16px;
+  }
+  .feed-item:last-child { padding-bottom: 0; }
+  .feed-item.same-figure {
+    background: linear-gradient(90deg, rgba(196,154,108,0.04) 0%, transparent 100%);
+    border-radius: 8px; margin-left: -4px; padding-left: 4px;
+  }
+  .feed-dot {
+    position: absolute; left: -24px; top: 4px;
+    width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--accent-border); z-index: 1;
+  }
+  .feed-dot.buy { background: var(--blue); box-shadow: 0 0 0 2px #BBDEFB; }
+  .feed-dot.full_pay { background: var(--green); box-shadow: 0 0 0 2px #C8E6D5; }
+  .feed-dot.in_stock { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-border); }
+  .feed-dot.sell { background: var(--red); box-shadow: 0 0 0 2px #FFCDD2; }
+
+  .feed-content {
+    background: #FAFAFA; border-radius: 10px; padding: 12px 14px;
+    border: 1px solid var(--border); transition: all 0.2s;
+  }
+  .feed-content:hover { border-color: var(--accent-border); background: #FDFBF9; }
+  .feed-title {
+    font-size: 14px; color: var(--text-primary); line-height: 1.6;
+  }
+  .feed-title .highlight { color: var(--accent); font-weight: 600; }
+  .feed-title .price { color: var(--green); font-weight: 600; }
+  .feed-title .status { color: var(--orange); font-weight: 600; }
+  .feed-meta {
+    display: flex; align-items: center; gap: 10px; margin-top: 8px;
+  }
+  .feed-detail-btn {
+    padding: 4px 12px; border: 1px solid var(--border); background: #fff;
+    border-radius: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
+    transition: all 0.2s;
+  }
+  .feed-detail-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .feed-time {
+    font-size: 12px; color: var(--text-tertiary);
+  }
+  .feed-figure-tag {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 6px;
+    background: var(--accent-light); color: var(--accent); margin-left: 6px; vertical-align: middle;
+  }
+
+  /* Same Figure Link */
+  .same-figure-link {
+    position: absolute; left: -20px; top: 16px; bottom: -8px;
+    width: 2px; border-left: 2px dashed var(--accent-border);
+    z-index: 0;
+  }
+
+  /* Bottom Sheet */
+  .sheet-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); z-index: 200;
+    display: none; align-items: flex-end; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .sheet-overlay.show { display: flex; }
+  .sheet {
+    background: var(--card-bg); border-radius: 20px 20px 0 0;
+    width: 100%; max-width: 640px; max-height: 85vh; overflow-y: auto;
+    box-shadow: var(--shadow-sheet); animation: sheetUp 0.3s ease;
+  }
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .sheet-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--card-bg); z-index: 1; border-radius: 20px 20px 0 0;
+  }
+  .sheet-title { font-size: 16px; font-weight: 600; }
+  .sheet-close {
+    width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px; color: var(--text-tertiary); transition: all 0.2s;
+  }
+  .sheet-close:hover { border-color: var(--red); color: var(--red); }
+  .sheet-body { padding: 20px; }
+
+  /* Detail Components */
+  .detail-figure-card {
+    display: flex; gap: 14px; padding: 14px; background: #FAFAFA;
+    border-radius: 10px; border: 1px solid var(--border); margin-bottom: 20px;
+  }
+  .detail-figure-img {
+    width: 72px; height: 72px; background: #F0EEEB; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 32px;
+    color: #B0ABA5; flex-shrink: 0;
+  }
+  .detail-figure-info { flex: 1; }
+  .detail-figure-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .detail-figure-line { font-size: 13px; color: var(--text-secondary); margin-bottom: 2px; }
+
+  .detail-section { margin-bottom: 20px; }
+  .detail-section-title {
+    font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .detail-section-title::before {
+    content: ""; display: inline-block; width: 3px; height: 14px;
+    background: var(--accent); border-radius: 2px;
+  }
+  .detail-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-row-label { color: var(--text-secondary); }
+  .detail-row-value { color: var(--text-primary); font-weight: 500; }
+  .detail-row-value.accent { color: var(--accent); }
+  .detail-row-value.green { color: var(--green); }
+  .detail-row-value.red { color: var(--red); }
+  .detail-row-value.status {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 10px; font-size: 12px;
+  }
+  .status-wait { background: var(--orange-light); color: var(--orange); }
+  .status-done { background: var(--green-light); color: var(--green); }
+  .status-paid { background: var(--blue-light); color: var(--blue); }
+
+  /* Status Timeline */
+  .status-timeline {
+    position: relative; padding-left: 24px;
+  }
+  .status-timeline::before {
+    content: ""; position: absolute; left: 5px; top: 0; bottom: 0;
+    width: 2px; background: var(--border); border-radius: 1px;
+  }
+  .status-timeline-item {
+    position: relative; padding-bottom: 16px;
+  }
+  .status-timeline-item:last-child { padding-bottom: 0; }
+  .status-timeline-dot {
+    position: absolute; left: -22px; top: 2px;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--border);
+    border: 2px solid #fff;
+  }
+  .status-timeline-dot.active { background: var(--accent); }
+  .status-timeline-dot.current { background: var(--green); box-shadow: 0 0 0 2px #C8E6D5; }
+  .status-timeline-text { font-size: 13px; color: var(--text-secondary); }
+  .status-timeline-text.active { color: var(--text-primary); font-weight: 500; }
+  .status-timeline-text.current { color: var(--green); font-weight: 600; }
+  .status-timeline-time { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+  .detail-actions {
+    display: flex; gap: 10px; padding-top: 10px;
+  }
+  .detail-btn {
+    flex: 1; padding: 10px 0; text-align: center; border: 1px solid var(--border);
+    background: #fff; border-radius: 8px; font-size: 14px; color: var(--text-secondary);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .detail-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .detail-btn-primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  .detail-btn-primary:hover { background: #B08A5C; border-color: #B08A5C; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--text-primary); color: #fff; padding: 10px 20px; border-radius: 8px;
+    font-size: 14px; z-index: 300; opacity: 0; transition: all 0.3s ease; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 768px) {
+    .container { padding: 16px; }
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="header">
+  <div class="back-btn" onclick="goBack()">←</div>
+  <div>
+    <div class="header-title">动态流</div>
+    <span class="header-meta">状态变化演示</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Explanation -->
+  <div class="explain-card">
+    <strong>💡 数据设计说明：</strong><br>
+    <code>activity_feed</code> 表采用 <strong>Append-only（只追加）</strong> 设计。<br>
+    「测试2号」的买入和补款是两条独立记录，不修改历史。<br>
+    时间轴按日期分组，同一天同一手办的事件用虚线关联展示。
+  </div>
+
+  <!-- Activity Feed -->
+  <div class="feed-card">
+    <div class="feed-header">动态流</div>
+    <div id="feedContent"></div>
+  </div>
+
+</div>
+
+<!-- Bottom Sheet -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-header">
+      <div class="sheet-title" id="sheetTitle">详情</div>
+      <div class="sheet-close" onclick="closeSheet()">×</div>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== Demo Data ====================
+// 核心：同一个 figure_id=201 有两条记录，分别记录不同时间的状态
+const activities = [
+  {
+    id: 1002,
+    event_type: 'full_pay',
+    event_title: '「<span class="highlight">测试2号</span>」尾款已付清，<span class="status">等待出荷</span>',
+    target_type: 'order',
+    target_id: 501,
+    figure_id: 201,        // ← 同一个手办
+    detail_data: {
+      figure_id: 201, figure_name: '测试2号', character: '原创', scale: '1/7', maker: 'Native',
+      order_id: 501, order_no: 'ORD-20260623-001',
+      deposit_paid: 200, final_paid: 1080, total_paid: 1280,
+      status: '已付清待出荷', pay_date: '2026-06-24', pay_time: '11:29:53',
+      // 进度追踪：当前状态
+      progress: [
+        { step: '定金已付', date: '2026-06-23 17:33:26', done: true },
+        { step: '尾款已付清', date: '2026-06-24 11:29:53', done: true, current: true },
+        { step: '工厂出荷', date: '预计 2026-08', done: false },
+        { step: '入库', date: '待确认', done: false }
+      ]
+    },
+    event_date: '2026-06-24',
+    created_at: '2026-06-24T11:29:53'
+  },
+  {
+    id: 1001,
+    event_type: 'buy',
+    event_title: '入手<span class="highlight">「测试2号」</span>，等待补款',
+    target_type: 'figure',
+    target_id: 201,
+    figure_id: 201,        // ← 同一个手办
+    detail_data: {
+      figure_id: 201, figure_name: '测试2号', character: '原创', scale: '1/7', maker: 'Native',
+      order_id: 501, order_no: 'ORD-20260623-001', amount: 200, paid_type: '定金',
+      status: '等待补款', total_amount: 1280, cover_image: ''
+    },
+    event_date: '2026-06-23',
+    created_at: '2026-06-23T17:33:26'
+  },
+  // 其他手办的事件（用于对比）
+  {
+    id: 1003,
+    event_type: 'buy',
+    event_title: '入手<span class="highlight">「测试商品1号」</span>，等待补款',
+    target_type: 'figure',
+    target_id: 202,
+    figure_id: 202,
+    detail_data: {
+      figure_id: 202, figure_name: '测试商品1号', character: '原创', scale: '1/6', maker: 'ALTER',
+      order_id: 502, order_no: 'ORD-20260617-002', amount: 300, paid_type: '定金',
+      status: '等待补款', total_amount: 1500
+    },
+    event_date: '2026-06-17',
+    created_at: '2026-06-17T10:15:00'
+  },
+  {
+    id: 1004,
+    event_type: 'in_stock',
+    event_title: '「<span class="highlight">纯白精灵</span>」已入库，入柜登记完成',
+    target_type: 'figure',
+    target_id: 106,
+    figure_id: 106,
+    detail_data: {
+      figure_id: 106, figure_name: '纯白精灵', character: '原创', scale: '1/5', maker: 'Native',
+      in_date: '2026-06-15', order_no: 'ORD-20250701-005', cost: 1500, cabinet: '海景房专区'
+    },
+    event_date: '2026-06-15',
+    created_at: '2026-06-15T11:00:00'
+  }
+];
+
+// ==================== Date Formatting ====================
+function getDateLabel(dateStr) {
+  const today = '2026-06-24';
+  if (dateStr === today) return '今天';
+  const yesterday = '2026-06-23';
+  if (dateStr === yesterday) return '昨天';
+  return '';
+}
+
+// ==================== Group & Render ====================
+function renderFeed() {
+  const container = document.getElementById('feedContent');
+
+  // Group by date
+  const groups = {};
+  activities.forEach(item => {
+    if (!groups[item.event_date]) groups[item.event_date] = [];
+    groups[item.event_date].push(item);
+  });
+
+  // Track same figure across dates for visual linking
+  const figureFirstSeen = {};
+  const figureLastSeen = {};
+  Object.keys(groups).sort().forEach(date => {
+    groups[date].forEach(item => {
+      const fid = item.figure_id;
+      if (!figureFirstSeen[fid]) figureFirstSeen[fid] = date;
+      figureLastSeen[fid] = date;
+    });
+  });
+
+  let html = '';
+  Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(date => {
+    const label = getDateLabel(date);
+    const items = groups[date];
+
+    html += `
+      <div class="feed-group">
+        <div class="feed-date">
+          <span class="date-icon">🗓️</span>
+          <span>${date}</span>
+          ${label ? `<span class="date-label">· ${label}</span>` : ''}
+        </div>
+        <div class="feed-timeline">
+          ${items.map((item, idx) => renderFeedItem(item, idx, items.length, figureFirstSeen, figureLastSeen)).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function renderFeedItem(item, idx, totalInGroup, firstSeen, lastSeen) {
+  const timeStr = item.created_at.split('T')[1];
+  const fid = item.figure_id;
+
+  // Check if this figure has multiple events (跨天 or 当天)
+  const hasMultiple = Object.values(firstSeen).filter(d => d === item.event_date).length > 0
+    && (firstSeen[fid] !== lastSeen[fid] || activities.filter(a => a.figure_id === fid && a.event_date === item.event_date).length > 1);
+
+  const isFirstOfFigure = activities.filter(a => a.figure_id === fid).sort((a,b) => b.created_at.localeCompare(a.created_at))[0].id === item.id;
+  const isLastOfFigure = activities.filter(a => a.figure_id === fid).sort((a,b) => a.created_at.localeCompare(b.created_at))[0].id === item.id;
+
+  // Same figure tag for visual grouping
+  const sameFigureTag = hasMultiple ? `<span class="feed-figure-tag">同一手办</span>` : '';
+
+  return `
+    <div class="feed-item ${hasMultiple && !isFirstOfFigure ? 'same-figure' : ''}">
+      <div class="feed-dot ${item.event_type}"></div>
+      <div class="feed-content">
+        <div class="feed-title">${item.event_title}${sameFigureTag}</div>
+        <div class="feed-meta">
+          <button class="feed-detail-btn" onclick="showDetail(${item.id})">查看详情</button>
+          <span class="feed-time">${timeStr}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ==================== Detail Modal ====================
+function showDetail(id) {
+  const item = activities.find(a => a.id === id);
+  if (!item) return;
+
+  const d = item.detail_data;
+  let bodyHtml = '';
+
+  // Figure Card
+  bodyHtml += `
+    <div class="detail-figure-card">
+      <div class="detail-figure-img">🧸</div>
+      <div class="detail-figure-info">
+        <div class="detail-figure-name">${d.figure_name}</div>
+        <div class="detail-figure-line">${d.character || '原创'} · ${d.scale || ''} · ${d.maker || ''}</div>
+      </div>
+    </div>
+  `;
+
+  // Type-specific detail
+  if (item.event_type === 'buy') {
+    bodyHtml += `
+      <div class="detail-section">
+        <div class="detail-section-title">订单信息（买入时）</div>
+        <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value">${d.order_no}</span></div>
+        <div class="detail-row"><span class="detail-row-label">下单时间</span><span class="detail-row-value">${item.created_at.replace('T', ' ')}</span></div>
+        <div class="detail-row"><span class="detail-row-label">支付类型</span><span class="detail-row-value">${d.paid_type}</span></div>
+        <div class="detail-row"><span class="detail-row-label">已付定金</span><span class="detail-row-value accent">¥${d.amount}</span></div>
+        <div class="detail-row"><span class="detail-row-label">订单总价</span><span class="detail-row-value">¥${d.total_amount}</span></div>
+        <div class="detail-row"><span class="detail-row-label">待补金额</span><span class="detail-row-value red">¥${d.total_amount - d.amount}</span></div>
+        <div class="detail-row"><span class="detail-row-label">当时状态</span><span class="detail-row-value status status-wait">🟡 ${d.status}</span></div>
+      </div>
+      <div class="detail-actions">
+        <button class="detail-btn" onclick="showToast('跳转订单详情')">查看订单详情</button>
+        <button class="detail-btn detail-btn-primary" onclick="showToast('跳转补款')">去补款</button>
+      </div>
+    `;
+  } else if (item.event_type === 'full_pay') {
+    bodyHtml += `
+      <div class="detail-section">
+        <div class="detail-section-title">付款信息（补款后）</div>
+        <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value">${d.order_no}</span></div>
+        <div class="detail-row"><span class="detail-row-label">定金金额</span><span class="detail-row-value">¥${d.deposit_paid}</span></div>
+        <div class="detail-row"><span class="detail-row-label">本次尾款</span><span class="detail-row-value accent">¥${d.final_paid}</span></div>
+        <div class="detail-row"><span class="detail-row-label">累计支付</span><span class="detail-row-value green">¥${d.total_paid}</span></div>
+        <div class="detail-row"><span class="detail-row-label">支付时间</span><span class="detail-row-value">${d.pay_date} ${d.pay_time}</span></div>
+        <div class="detail-row"><span class="detail-row-label">当前状态</span><span class="detail-row-value status status-done">🟢 ${d.status}</span></div>
+      </div>
+      <div class="detail-section">
+        <div class="detail-section-title">订单进度追踪</div>
+        <div class="status-timeline">
+          ${d.progress.map((p, i) => `
+            <div class="status-timeline-item">
+              <div class="status-timeline-dot ${p.done ? 'active' : ''} ${p.current ? 'current' : ''}"></div>
+              <div class="status-timeline-text ${p.done ? 'active' : ''} ${p.current ? 'current' : ''}">${p.step}</div>
+              <div class="status-timeline-time">${p.date}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="detail-actions">
+        <button class="detail-btn" onclick="showToast('跳转订单详情')">查看订单详情</button>
+        <button class="detail-btn detail-btn-primary" onclick="showToast('查看物流')">查看物流</button>
+      </div>
+    `;
+  } else if (item.event_type === 'in_stock') {
+    bodyHtml += `
+      <div class="detail-section">
+        <div class="detail-section-title">入库信息</div>
+        <div class="detail-row"><span class="detail-row-label">入库日期</span><span class="detail-row-value">${d.in_date}</span></div>
+        <div class="detail-row"><span class="detail-row-label">订单编号</span><span class="detail-row-value">${d.order_no}</span></div>
+        <div class="detail-row"><span class="detail-row-label">入库成本</span><span class="detail-row-value accent">¥${d.cost}</span></div>
+        <div class="detail-row"><span class="detail-row-label">入柜位置</span><span class="detail-row-value">${d.cabinet}</span></div>
+      </div>
+    `;
+  }
+
+  document.getElementById('sheetTitle').textContent = d.figure_name;
+  document.getElementById('sheetBody').innerHTML = bodyHtml;
+  document.getElementById('sheetOverlay').classList.add('show');
+}
+
+function closeSheet(e) {
+  if (!e || e.target === document.getElementById('sheetOverlay')) {
+    document.getElementById('sheetOverlay').classList.remove('show');
+  }
+}
+
+// ==================== Utilities ====================
+function goBack() {
+  window.history.back();
+}
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ==================== Init ====================
+renderFeed();
+</script>
+
+</body>
+</html>

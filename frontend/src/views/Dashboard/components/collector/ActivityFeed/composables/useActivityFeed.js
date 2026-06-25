@@ -106,6 +106,12 @@ export function useActivityFeed() {
       title = title.replace(/已移出(.+)$/, '已移出<span class="highlight">$1</span>')
     }
 
+    // 5. BUY 事件：金额数字高亮
+    if (type === 'buy') {
+      // 金额数字带币种符号（如 $800.0、¥900.0、JP ¥800.0）
+      title = title.replace(/((?:JP\s+)?[¥$€£])(\d+(?:\.\d+)?)/g, '<span class="price">$1$2</span>')
+    }
+
     return title
   }
 

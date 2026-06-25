@@ -96,6 +96,10 @@ class FigureCrudService:
         if tag_ids is not None:
             old_tag_ids = set(tag.id for tag in db_figure.tags)
 
+        # 记录旧市场价信息（用于检测价格变动）
+        old_market_price = db_figure.market_price
+        old_market_currency = db_figure.market_currency
+
         # 将入手形式的英文转换为中文
         if 'purchase_type' in figure_data and figure_data['purchase_type']:
             figure_data['purchase_type'] = FigureQueryService.convert_purchase_type_to_chinese(
@@ -114,29 +118,45 @@ class FigureCrudService:
         db.commit()
         db.refresh(db_figure)
 
-        # 记录新增标签的动态流事件（TAG_ADD）- 合并为一条记录
-        if tag_ids is not None and old_tag_ids is not None and user_id:
-            new_tag_ids = set(tag_ids)
-            added_tag_ids = new_tag_ids - old_tag_ids
-            if added_tag_ids:
+        # 记录标签快照到动态流（TAG_ADD）- append-only，记录全部当前标签
+        if tag_ids is not None and user_id:
+            from app.services.collector_service.collector_activity_service import CollectorActivityService
+            all_tags = []
+            for tag_id in tag_ids:
+                tag = db.query(Tag).filter(Tag.id == tag_id).first()
+                if tag:
+                    all_tags.append({
+                        "id": tag.id,
+                        "name": tag.name,
+                        "color": getattr(tag, 'color', None)
+                    })
+            if all_tags:
+                CollectorActivityService.record_tag_snapshot_event(
+                    db=db,
+                    user_id=user_id,
+                    figure_id=db_figure.id,
+                    figure_name=db_figure.name,
+                    tags=all_tags
+                )
+
+        # 记录市场价变动到动态流（PRICE_UPDATE）- 价格或币种任一变化均触发
+        if user_id and ('market_price' in figure_data or 'market_currency' in figure_data):
+            new_price = db_figure.market_price or 0
+            new_currency = db_figure.market_currency or "CNY"
+            price_changed = new_price != (old_market_price or 0)
+            currency_changed = new_currency != (old_market_currency or "CNY")
+            if price_changed or currency_changed:
                 from app.services.collector_service.collector_activity_service import CollectorActivityService
-                added_tags = []
-                for tag_id in added_tag_ids:
-                    tag = db.query(Tag).filter(Tag.id == tag_id).first()
-                    if tag:
-                        added_tags.append({
-                            "id": tag.id,
-                            "name": tag.name,
-                            "color": getattr(tag, 'color', None)
-                        })
-                if added_tags:
-                    CollectorActivityService.record_batch_tag_add_events(
-                        db=db,
-                        user_id=user_id,
-                        figure_id=db_figure.id,
-                        figure_name=db_figure.name,
-                        tags=added_tags
-                    )
+                CollectorActivityService.record_price_update_event(
+                    db=db,
+                    user_id=user_id,
+                    figure_id=db_figure.id,
+                    figure_name=db_figure.name,
+                    old_price=old_market_price or 0,
+                    new_price=new_price,
+                    old_currency=old_market_currency or "CNY",
+                    new_currency=new_currency
+                )
 
         return db_figure
 

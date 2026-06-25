@@ -85,7 +85,7 @@ class OrderCrudService:
         # - "未支付"：记录资金流水（有约定的定金/尾款金额）
         # - "已完成"：同时记录资金流水+资产交易（已拿到货物，有完整资金流动）
         # - "已支付"：只记录资金流水（有资金流出但未到货）
-        # - "已取消"：只记录资金流水（已支付过定金/尾款，订单已取消）
+        # - "已取消"：只记录定金资金流水，不创建尾款记录
         try:
             from app.models.asset import OrderTransaction
             now = datetime.now()
@@ -115,8 +115,8 @@ class OrderCrudService:
                     db.add(deposit_txn)
 
                 # 创建尾款资金流水记录（独立记录，便于追踪变更）
-                # 未支付订单仅记录定金，不记录尾款
-                if db_order.status != "未支付" and db_order.balance and db_order.balance > 0:
+                # 未支付、已取消状态仅记录定金，不记录尾款
+                if db_order.status != "未支付" and db_order.status != "已取消" and db_order.balance and db_order.balance > 0:
                     balance_txn = OrderTransaction(
                         user_id=current_user.id,
                         figure_id=order_data.figure_id,
@@ -176,37 +176,47 @@ class OrderCrudService:
             db.rollback()
             print(f"创建交易记录失败: {e}")
 
-        # 记录动态流 BUY 事件
+        # 记录动态流事件
         try:
             from app.services.collector_service.collector_activity_service import CollectorActivityService
-            # 状态映射
-            status_map = {
-                "未支付": "等待补款",
-                "已支付": "等待补款",
-                "已完成": "已付清",
-                "已取消": "已取消"
-            }
-            feed_status = status_map.get(db_order.status, db_order.status)
-            paid_type = "定金" if db_order.order_type == "定金预定" else "全款"
-            total_amount = (db_order.deposit or 0) + (db_order.balance or 0)
+            if db_order.status == "已取消":
+                CollectorActivityService.record_order_cancel_event(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=db_order.figure_id,
+                    figure_name=db_figure.name,
+                    order_id=db_order.id,
+                    order_no=db_order.order_number or db_order.display_order_number or "",
+                    cancel_reason=db_order.remarks
+                )
+            else:
+                # 状态映射
+                status_map = {
+                    "未支付": "等待补款",
+                    "已支付": "等待补款",
+                    "已完成": "已付清"
+                }
+                feed_status = status_map.get(db_order.status, db_order.status)
+                paid_type = "定金" if db_order.order_type == "定金预定" else "全款"
+                total_amount = (db_order.deposit or 0) + (db_order.balance or 0)
 
-            CollectorActivityService.record_buy_event(
-                db=db,
-                user_id=current_user.id,
-                figure_id=db_order.figure_id,
-                figure_name=db_figure.name,
-                order_id=db_order.id,
-                order_no=db_order.order_number or db_order.display_order_number or "",
-                amount=db_order.deposit or 0,
-                paid_type=paid_type,
-                status=feed_status,
-                character=db_figure.work,
-                scale=db_figure.scale,
-                maker=db_figure.manufacturer,
-                currency=db_order.deposit_currency or "CNY",
-                balance=db_order.balance or 0,
-                balance_currency=db_order.balance_currency or "CNY"
-            )
+                CollectorActivityService.record_buy_event(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=db_order.figure_id,
+                    figure_name=db_figure.name,
+                    order_id=db_order.id,
+                    order_no=db_order.order_number or db_order.display_order_number or "",
+                    amount=db_order.deposit or 0,
+                    paid_type=paid_type,
+                    status=feed_status,
+                    character=db_figure.work,
+                    scale=db_figure.scale,
+                    maker=db_figure.manufacturer,
+                    currency=db_order.deposit_currency or "CNY",
+                    balance=db_order.balance or 0,
+                    balance_currency=db_order.balance_currency or "CNY"
+                )
         except Exception as e:
             print(f"记录动态流事件失败: {e}")
 
@@ -256,6 +266,7 @@ class OrderCrudService:
         old_deposit_currency = db_order.deposit_currency
         old_balance = db_order.balance
         old_balance_currency = db_order.balance_currency
+        old_status = db_order.status
 
         for key, value in order_data.dict(exclude_unset=True).items():
             setattr(db_order, key, value)
@@ -284,42 +295,49 @@ class OrderCrudService:
         # - "未支付"：记录资金流水（有约定的定金/尾款金额）
         # - "已完成"：同时记录资金流水+资产交易（已拿到货物，有完整资金流动）
         # - "已支付"：只记录资金流水（有资金流出但未到货）
-        # - "已取消"：只记录资金流水（已支付过定金/尾款，订单已取消）
+        # - "已取消"：只记录定金资金流水，不创建尾款记录
         try:
             if db_order.status in ("未支付", "已完成", "已支付", "已取消"):
                 from app.models.asset import OrderTransaction as OrderTransactionModel
-                # 检查是否已有初始资金流水记录
-                existing_txn = db.query(OrderTransactionModel).filter(
+                now = datetime.now()
+
+                # 分别检查定金和尾款记录，缺失的部分单独补充，避免因为已有某类记录而跳过所有记录
+                # 定金资金流水记录
+                existing_deposit = db.query(OrderTransactionModel).filter(
                     OrderTransactionModel.order_id == db_order.id,
+                    OrderTransactionModel.transaction_type == "deposit",
                     OrderTransactionModel.is_active == True
                 ).first()
+                if not existing_deposit and db_order.deposit and db_order.deposit > 0:
+                    deposit_txn = OrderTransactionModel(
+                        user_id=current_user.id,
+                        figure_id=db_order.figure_id,
+                        order_id=db_order.id,
+                        transaction_type="deposit",
+                        direction="out",
+                        quantity=1,
+                        unit_price=db_order.deposit,
+                        total_amount=db_order.deposit,
+                        currency=db_order.deposit_currency or "CNY",
+                        platform=db_order.shop_name,
+                        transaction_date=now,
+                        created_at=now,
+                        updated_at=now,
+                        notes=f"订单 #{db_order.id} 定金",
+                        transaction_subtype="initial",
+                        changed_field="deposit"
+                    )
+                    db.add(deposit_txn)
 
-                if not existing_txn:
-                    now = datetime.now()
-                    # 创建定金资金流水记录
-                    if db_order.deposit and db_order.deposit > 0:
-                        deposit_txn = OrderTransactionModel(
-                            user_id=current_user.id,
-                            figure_id=db_order.figure_id,
-                            order_id=db_order.id,
-                            transaction_type="deposit",
-                            direction="out",
-                            quantity=1,
-                            unit_price=db_order.deposit,
-                            total_amount=db_order.deposit,
-                            currency=db_order.deposit_currency or "CNY",
-                            platform=db_order.shop_name,
-                            transaction_date=now,
-                            created_at=now,
-                            updated_at=now,
-                            notes=f"订单 #{db_order.id} 定金",
-                            transaction_subtype="initial",
-                            changed_field="deposit"
-                        )
-                        db.add(deposit_txn)
-
-                    # 创建尾款资金流水记录
-                    if db_order.balance and db_order.balance > 0:
+                # 尾款资金流水记录
+                # - "未支付"、"已取消" 状态不创建尾款记录
+                if db_order.status != "未支付" and db_order.status != "已取消":
+                    existing_balance = db.query(OrderTransactionModel).filter(
+                        OrderTransactionModel.order_id == db_order.id,
+                        OrderTransactionModel.transaction_type == "balance",
+                        OrderTransactionModel.is_active == True
+                    ).first()
+                    if not existing_balance and db_order.balance and db_order.balance > 0:
                         balance_txn = OrderTransactionModel(
                             user_id=current_user.id,
                             figure_id=db_order.figure_id,
@@ -455,37 +473,83 @@ class OrderCrudService:
         except Exception as e:
             print(f"更新平均入手价格失败: {e}")
 
-        # 同步更新动态流 BUY 事件
+        # 同步更新动态流事件
         try:
             from app.services.collector_service.collector_activity_service import CollectorActivityService
-            # 状态映射
-            status_map = {
-                "未支付": "等待补款",
-                "已支付": "等待补款",
-                "已完成": "已付清",
-                "已取消": "已取消"
-            }
-            feed_status = status_map.get(db_order.status, db_order.status)
-            paid_type = "定金" if db_order.order_type == "定金预定" else "全款"
 
             figure = db.query(Figure).filter(Figure.id == db_order.figure_id).first()
             figure_name = figure.name if figure else ""
-            CollectorActivityService.update_buy_event(
-                db=db,
-                target_id=db_order.id,
-                figure_name=figure_name,
-                order_no=db_order.order_number or db_order.display_order_number or "",
-                amount=db_order.deposit or 0,
-                paid_type=paid_type,
-                status=feed_status,
-                figure_id=db_order.figure_id,
-                character=figure.work if figure else None,
-                scale=figure.scale if figure else None,
-                maker=figure.manufacturer if figure else None,
-                currency=db_order.deposit_currency or "CNY",
-                balance=db_order.balance or 0,
-                balance_currency=db_order.balance_currency or "CNY"
-            )
+
+            # 状态为"已支付"时记录尾款付清事件（FULL_PAY）
+            if db_order.status == "已支付":
+                total_paid = (db_order.deposit or 0) + (db_order.balance or 0)
+                CollectorActivityService.record_full_pay_event(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=db_order.figure_id,
+                    figure_name=figure_name,
+                    order_id=db_order.id,
+                    order_no=db_order.order_number or db_order.display_order_number or "",
+                    paid_amount=db_order.balance or 0,
+                    total_paid=total_paid,
+                    pay_date=datetime.now().strftime("%Y-%m-%d"),
+                    deposit_paid=db_order.deposit or 0,
+                    character=figure.work if figure else None,
+                    scale=figure.scale if figure else None,
+                    maker=figure.manufacturer if figure else None,
+                    due_date=db_order.due_date.strftime("%Y-%m-%d") if db_order.due_date else ""
+                )
+            elif db_order.status == "已完成":
+                CollectorActivityService.record_in_stock_event(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=db_order.figure_id,
+                    figure_name=figure_name,
+                    in_date=datetime.now().strftime("%Y-%m-%d"),
+                    order_no=db_order.order_number or db_order.display_order_number or "",
+                    cost=(db_order.deposit or 0) + (db_order.balance or 0),
+                    target_id=db_order.id,
+                    target_type="order"
+                )
+            elif db_order.status == "已取消":
+                CollectorActivityService.record_order_cancel_event(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=db_order.figure_id,
+                    figure_name=figure_name,
+                    order_id=db_order.id,
+                    order_no=db_order.order_number or db_order.display_order_number or "",
+                    cancel_reason=db_order.remarks
+                )
+            else:
+                # 其他状态记录 BUY 事件变更
+                status_map = {
+                    "未支付": "等待补款"
+                }
+                feed_status = status_map.get(db_order.status, db_order.status)
+                paid_type = "定金" if db_order.order_type == "定金预定" else "全款"
+
+                CollectorActivityService.record_buy_update_event(
+                    db=db,
+                    user_id=current_user.id,
+                    figure_id=db_order.figure_id,
+                    figure_name=figure_name,
+                    order_id=db_order.id,
+                    order_no=db_order.order_number or db_order.display_order_number or "",
+                    amount=db_order.deposit or 0,
+                    paid_type=paid_type,
+                    status=feed_status,
+                    character=figure.work if figure else None,
+                    scale=figure.scale if figure else None,
+                    maker=figure.manufacturer if figure else None,
+                    currency=db_order.deposit_currency or "CNY",
+                    balance=db_order.balance or 0,
+                    balance_currency=db_order.balance_currency or "CNY",
+                    old_deposit=old_deposit,
+                    old_deposit_currency=old_deposit_currency,
+                    old_balance=old_balance,
+                    old_balance_currency=old_balance_currency
+                )
         except Exception as e:
             print(f"更新动态流事件失败: {e}")
 

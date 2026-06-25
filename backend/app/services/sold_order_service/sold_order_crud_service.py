@@ -387,9 +387,10 @@ class SoldOrderCrudService:
             if figure and figure.purchase_date and order.created_at:
                 out_date = order.created_at.date()
                 hold_days = max((out_date - figure.purchase_date).days, 0)
-            CollectorActivityService.update_sell_event(
+            CollectorActivityService.record_sell_update_event(
                 db=db,
-                target_id=order.id,
+                user_id=current_user.id,
+                figure_id=order.figure_id,
                 figure_name=figure_name,
                 sell_price=order.sell_price,
                 cost_price=order.cost_price,
@@ -398,7 +399,8 @@ class SoldOrderCrudService:
                 out_date=order.updated_at.strftime("%Y-%m-%d") if order.updated_at else "",
                 hold_days=hold_days,
                 order_no=order.order_number or order.display_order_number or "",
-                status=order.status or ""
+                status=order.status or "",
+                target_id=order.id
             )
         except Exception as e:
             db.rollback()

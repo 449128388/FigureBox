@@ -36,7 +36,7 @@ class ActivityFeed(Base):
     user_id = Column(Integer, nullable=False, comment="用户ID")
     figure_id = Column(Integer, nullable=False, comment="手办ID")
 
-    event_type = Column(String(32), nullable=False, comment="事件类型：BUY/FULL_PAY/IN_STOCK/SELL/OUT/TAG_ADD/FIX/ORDER_CREATE/ORDER_CANCEL/PRICE_UPDATE")
+    event_type = Column(String(32), nullable=False, comment="事件类型：BUY: 入手（创建订单）/FULL_PAY: 尾款已付清/IN_STOCK: 手办到库/SELL: 已售出/OUT: 移出收藏柜/TAG_ADD: 添加标签/FIX: 待修复标记/ORDER_CREATE: 创建订单/ORDER_CANCEL: 取消订单/PRICE_UPDATE: 价格更新")
     event_title = Column(String(255), nullable=False, comment="展示标题，如：入手「蜜姬」，等待补款")
 
     # 关联对象（多态关联）

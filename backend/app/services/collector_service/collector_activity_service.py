@@ -20,11 +20,20 @@ collector_activity_service.py - 收藏家模式动态流服务
 """
 
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict
+from sqlalchemy import func, text
 
 from app.models.activity_feed import ActivityFeed
 from app.models.figure import Figure
+
+# 汇率配置：相对人民币的汇率（与 asset_core_calculations.py 保持一致）
+PRICE_EXCHANGE_RATES = {
+    'CNY': 1.0,
+    'JPY': 1/23,
+    'USD': 7.0,
+    'EUR': 8.0
+}
 
 
 class CollectorActivityService:
@@ -131,19 +140,29 @@ class CollectorActivityService:
         order_no: str,
         paid_amount: float,
         total_paid: float,
-        pay_date: str
+        pay_date: str,
+        deposit_paid: Optional[float] = None,
+        character: Optional[str] = None,
+        scale: Optional[str] = None,
+        maker: Optional[str] = None,
+        due_date: Optional[str] = None
     ) -> ActivityFeed:
         """记录尾款付清事件"""
         title = f"「{figure_name}」尾款已付清，等待出荷"
         detail = {
             "figure_id": figure_id,
             "figure_name": figure_name,
+            "character": character or "",
+            "scale": scale or "",
+            "maker": maker or "",
             "order_id": order_id,
             "order_no": order_no,
+            "deposit_paid": deposit_paid or 0,
             "paid_amount": paid_amount,
             "total_paid": total_paid,
-            "status": "已付清待出荷",
-            "pay_date": pay_date
+            "status": "等待出荷",
+            "pay_date": pay_date,
+            "due_date": due_date or ""
         }
         return CollectorActivityService.record_event(
             db=db,
@@ -165,7 +184,9 @@ class CollectorActivityService:
         in_date: str,
         order_no: Optional[str] = None,
         cost: Optional[float] = None,
-        cabinet: Optional[str] = None
+        cabinet: Optional[str] = None,
+        target_id: Optional[int] = None,
+        target_type: Optional[str] = None
     ) -> ActivityFeed:
         """记录手办到库事件"""
         title = f"「{figure_name}」已入库，入柜登记完成"
@@ -175,7 +196,8 @@ class CollectorActivityService:
             "in_date": in_date,
             "order_no": order_no or "",
             "cost": cost or 0,
-            "cabinet": cabinet or ""
+            "cabinet": cabinet or "",
+            "status": "完成入库"
         }
         return CollectorActivityService.record_event(
             db=db,
@@ -183,6 +205,8 @@ class CollectorActivityService:
             figure_id=figure_id,
             event_type="IN_STOCK",
             event_title=title,
+            target_type=target_type or "",
+            target_id=target_id or 0,
             detail_data=detail
         )
 
@@ -233,9 +257,10 @@ class CollectorActivityService:
         )
 
     @staticmethod
-    def update_sell_event(
+    def record_sell_update_event(
         db: Session,
-        target_id: int,
+        user_id: int,
+        figure_id: int,
         figure_name: str,
         sell_price: float,
         cost_price: float,
@@ -245,31 +270,24 @@ class CollectorActivityService:
         out_date: Optional[str] = None,
         hold_days: Optional[int] = None,
         order_no: Optional[str] = None,
-        status: Optional[str] = None
-    ) -> bool:
+        status: Optional[str] = None,
+        target_id: Optional[int] = None
+    ) -> ActivityFeed:
         """
-        更新已售出事件的 detail_data 快照和标题
+        记录售出事件更新（追加新记录，不修改历史）
 
-        通过 target_id（sold_order.id）查找对应的 SELL 事件进行原地更新，
-        无需重新创建记录。用于编辑已出售订单后同步更新动态流。
+        Append-only 设计：编辑已出售订单后创建一条新的 SELL 事件记录，
+        保留原始 SELL 事件作为历史快照。
 
         Returns:
-            bool: 是否找到并更新了记录
+            ActivityFeed: 创建的事件记录
         """
-        ev = db.query(ActivityFeed).filter(
-            ActivityFeed.event_type == "SELL",
-            ActivityFeed.target_id == target_id
-        ).first()
-        if not ev:
-            return False
-
         if profit_rate is None and cost_price and cost_price != 0:
             profit_rate = round((profit / abs(cost_price)) * 100, 2)
         profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
-
-        ev.event_title = f"「{figure_name}」已售出，售价 ¥{int(sell_price)}（{profit_text}）"
-        ev.detail_data = {
-            "figure_id": ev.detail_data.get("figure_id") if ev.detail_data else None,
+        title = f"「{figure_name}」已售出，售价 ¥{int(sell_price)}（{profit_text}）"
+        detail = {
+            "figure_id": figure_id,
             "figure_name": figure_name,
             "sell_price": sell_price,
             "cost_price": cost_price,
@@ -281,51 +299,104 @@ class CollectorActivityService:
             "order_no": order_no or "",
             "status": status or ""
         }
-        db.commit()
-        return True
+        return CollectorActivityService.record_event(
+            db=db,
+            user_id=user_id,
+            figure_id=figure_id,
+            event_type="SELL",
+            event_title=title,
+            target_type="order",
+            target_id=target_id,
+            detail_data=detail
+        )
 
     @staticmethod
-    def update_buy_event(
+    def _get_currency_symbol(currency: str) -> str:
+        """获取货币符号"""
+        symbols = {
+            'CNY': '¥', 'JPY': 'JP ¥', 'USD': '$', 'EUR': '€',
+            'GBP': '£', 'HKD': 'HK$', 'TWD': 'NT$', 'KRW': '₩'
+        }
+        return symbols.get(currency, currency)
+
+    @staticmethod
+    def record_buy_update_event(
         db: Session,
-        target_id: int,
+        user_id: int,
+        figure_id: int,
         figure_name: str,
+        order_id: int,
         order_no: str,
         amount: float,
         paid_type: str,
         status: str,
-        figure_id: Optional[int] = None,
         character: Optional[str] = None,
         scale: Optional[str] = None,
         maker: Optional[str] = None,
         currency: Optional[str] = "CNY",
         balance: Optional[float] = 0,
-        balance_currency: Optional[str] = "CNY"
-    ) -> bool:
+        balance_currency: Optional[str] = "CNY",
+        old_deposit: Optional[float] = None,
+        old_deposit_currency: Optional[str] = None,
+        old_balance: Optional[float] = None,
+        old_balance_currency: Optional[str] = None
+    ) -> ActivityFeed:
         """
-        更新买入事件的 detail_data 快照和标题
+        记录买入事件更新（追加新记录，不修改历史）
 
-        通过 target_id（order.id）查找对应的 BUY 事件进行原地更新，
-        无需重新创建记录。用于编辑尾款订单后同步更新动态流。
+        Append-only 设计：编辑订单后创建一条新的 BUY 事件记录，
+        保留原始 BUY 事件作为历史快照。自动检测定金/尾款金额和币种变更，
+        在 event_title 中描述具体变更内容。
 
         Returns:
-            bool: 是否找到并更新了记录
+            ActivityFeed: 创建的事件记录
         """
-        ev = db.query(ActivityFeed).filter(
-            ActivityFeed.event_type == "BUY",
-            ActivityFeed.target_id == target_id
-        ).first()
-        if not ev:
-            return False
+        # 检测变更类型并生成标题（支持多字段组合变更）
+        deposit_desc = None
+        balance_desc = None
 
-        title = f"入手「{figure_name}」，等待补款" if status == "等待补款" else f"入手「{figure_name}」"
-        ev.event_title = title
-        ev.detail_data = {
-            "figure_id": figure_id or ev.detail_data.get("figure_id") if ev.detail_data else None,
+        # 检测定金相关变更（金额或币种任一变化）
+        if old_deposit is not None and old_deposit_currency is not None:
+            old_amt = old_deposit or 0
+            new_amt = amount or 0
+            old_cur = old_deposit_currency or "CNY"
+            new_cur = currency or "CNY"
+            if old_amt != new_amt or old_cur != new_cur:
+                old_sym = CollectorActivityService._get_currency_symbol(old_cur)
+                new_sym = CollectorActivityService._get_currency_symbol(new_cur)
+                deposit_desc = f"定金 {old_sym}{old_amt} 修改为 {new_sym}{new_amt}"
+
+        # 检测尾款相关变更（金额或币种任一变化）
+        if old_balance is not None and old_balance_currency is not None:
+            old_bal = old_balance or 0
+            new_bal = balance or 0
+            old_bcur = old_balance_currency or "CNY"
+            new_bcur = balance_currency or "CNY"
+            if old_bal != new_bal or old_bcur != new_bcur:
+                old_bsym = CollectorActivityService._get_currency_symbol(old_bcur)
+                new_bsym = CollectorActivityService._get_currency_symbol(new_bcur)
+                balance_desc = f"尾款 {old_bsym}{old_bal} 修改为 {new_bsym}{new_bal}"
+
+        # 组合标题
+        title = None
+        if deposit_desc and balance_desc:
+            title = f"「{figure_name}」订单定金和尾款发生变动，{deposit_desc}, {balance_desc}"
+        elif deposit_desc:
+            title = f"「{figure_name}」定金发生变动，{deposit_desc}"
+        elif balance_desc:
+            title = f"「{figure_name}」尾款发生变动，{balance_desc}"
+
+        # 无变更时使用默认标题
+        if title is None:
+            title = f"入手「{figure_name}」，等待补款" if status == "等待补款" else f"入手「{figure_name}」"
+
+        detail = {
+            "figure_id": figure_id,
             "figure_name": figure_name,
             "character": character or "",
             "scale": scale or "",
             "maker": maker or "",
-            "order_id": target_id,
+            "order_id": order_id,
             "order_no": order_no,
             "amount": amount,
             "paid_type": paid_type,
@@ -334,8 +405,118 @@ class CollectorActivityService:
             "balance": balance or 0,
             "balance_currency": balance_currency or "CNY"
         }
-        db.commit()
-        return True
+        return CollectorActivityService.record_event(
+            db=db,
+            user_id=user_id,
+            figure_id=figure_id,
+            event_type="BUY",
+            event_title=title,
+            target_type="order",
+            target_id=order_id,
+            detail_data=detail
+        )
+
+    @staticmethod
+    def record_price_update_event(
+        db: Session,
+        user_id: int,
+        figure_id: int,
+        figure_name: str,
+        old_price: float,
+        new_price: float,
+        old_currency: Optional[str] = "CNY",
+        new_currency: Optional[str] = "CNY"
+    ) -> ActivityFeed:
+        """记录市场价变动事件"""
+        old_sym = CollectorActivityService._get_currency_symbol(old_currency or "CNY")
+        new_sym = CollectorActivityService._get_currency_symbol(new_currency or "CNY")
+
+        # 统一折算为人民币计算变动金额和幅度
+        old_cny = old_price * PRICE_EXCHANGE_RATES.get(old_currency or "CNY", 1.0)
+        new_cny = new_price * PRICE_EXCHANGE_RATES.get(new_currency or "CNY", 1.0)
+        change = round(new_cny - old_cny, 2)
+        change_rate = ""
+        if old_cny and old_cny != 0:
+            rate = round((change / old_cny) * 100, 2)
+            change_rate = f"{rate:+.2f}%"
+
+        title = f"「{figure_name}」市场价更新：{old_sym}{old_price} → {new_sym}{new_price}"
+        now = datetime.now()
+        detail = {
+            "figure_id": figure_id,
+            "figure_name": figure_name,
+            "old_price": old_price,
+            "new_price": new_price,
+            "change": change,
+            "change_rate": change_rate,
+            "old_currency": old_currency or "CNY",
+            "new_currency": new_currency or "CNY",
+            "update_date": now.strftime("%Y-%m-%d")
+        }
+        return CollectorActivityService.record_event(
+            db=db,
+            user_id=user_id,
+            figure_id=figure_id,
+            event_type="PRICE_UPDATE",
+            event_title=title,
+            target_type="figure",
+            target_id=figure_id,
+            detail_data=detail
+        )
+
+    @staticmethod
+    def record_tag_snapshot_event(
+        db: Session,
+        user_id: int,
+        figure_id: int,
+        figure_name: str,
+        tags: List[Dict]
+    ) -> ActivityFeed:
+        """
+        记录手办标签全量快照事件（追加新记录，不修改历史）
+
+        每次手办标签变更时记录当前全部标签作为快照，而非仅记录增量差异。
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            figure_id: 手办ID
+            figure_name: 手办名称
+            tags: 标签列表，每项包含 id/name/color
+
+        Returns:
+            ActivityFeed: 创建的事件记录
+        """
+        if not tags:
+            raise ValueError("tags cannot be empty")
+        now = datetime.now()
+        tag_names = [t["name"] for t in tags]
+        tag_names_str = "、".join(f"#{n}" for n in tag_names)
+        title = f"为「{figure_name}」添加标签 {tag_names_str}"
+        detail = {
+            "figure_id": figure_id,
+            "figure_name": figure_name,
+            "tags": [
+                {
+                    "tag_id": t["id"],
+                    "tag_name": t["name"],
+                    "tag_color": t.get("color", "")
+                }
+                for t in tags
+            ],
+            "add_date": now.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        first_tag_id = tags[0]["id"]
+        return CollectorActivityService.record_event(
+            db=db,
+            user_id=user_id,
+            figure_id=figure_id,
+            event_type="TAG_ADD",
+            event_title=title,
+            target_type="tag",
+            target_id=first_tag_id,
+            detail_data=detail
+        )
 
     @staticmethod
     def record_out_event(
@@ -477,7 +658,8 @@ class CollectorActivityService:
             "order_id": order_id,
             "order_no": order_no,
             "cancel_reason": cancel_reason or "",
-            "refund_amount": refund_amount or 0
+            "refund_amount": refund_amount or 0,
+            "status": "取消订单"
         }
         return CollectorActivityService.record_event(
             db=db,
@@ -623,9 +805,118 @@ class CollectorActivityService:
         result["figure_scale"] = figure_scale
         result["figure_manufacturer"] = figure_manufacturer
 
+        # IN_STOCK 事件：实时计算手办当前所属藏品柜
+        if ev.event_type == "IN_STOCK" and ev.figure_id:
+            cabinets = CollectorActivityService._get_figure_cabinets(
+                db=db, user_id=ev.user_id, figure_id=ev.figure_id
+            )
+            result["figure_cabinets"] = cabinets
+
         return result
 
     # ========== 私有方法 ==========
+
+    @staticmethod
+    def _get_figure_cabinets(db: Session, user_id: int, figure_id: int) -> List[str]:
+        """
+        实时计算手办当前所属的藏品柜列表
+
+        根据 cabinets.py 中的业务规则判断手办属于哪些收藏柜分类。
+        Returns:
+            List[str]: 藏品柜展示名称列表，如 ["最近入柜", "海景房专区"]
+        """
+        from app.models.asset import AssetTransaction
+        from app.models.order import Order
+        from app.models.sold_order import SoldOrder
+        from app.models.tag import Tag
+
+        now = datetime.now()
+        cabinets = []
+
+        # 1. 海景房专区：持有 > 180 天 + 仍在库
+        active_holdings = db.query(AssetTransaction).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id == figure_id,
+            AssetTransaction.transaction_type == 'buy',
+            AssetTransaction.is_active == True,
+            AssetTransaction.remaining_quantity > 0
+        ).order_by(AssetTransaction.transaction_date.asc()).all()
+        if active_holdings:
+            first_buy = active_holdings[0]
+            if first_buy.transaction_date:
+                holding_days = (now - first_buy.transaction_date).days
+                if holding_days > 180:
+                    cabinets.append("海景房专区")
+
+        # 2. 最近入柜：30天内入库
+        thirty_days_ago = now - timedelta(days=30)
+        recent_buy = db.query(AssetTransaction).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id == figure_id,
+            AssetTransaction.transaction_type == 'buy',
+            AssetTransaction.transaction_date >= thirty_days_ago,
+            AssetTransaction.is_active == True
+        ).first()
+        if recent_buy:
+            cabinets.append("最近入柜")
+
+        # 3. 修复工坊：有关联修复标签
+        repair_tag_names = ['待修复', '缺件', '断桩', '待补色', '蹭色']
+        repair_tags = db.query(Tag).filter(Tag.name.in_(repair_tag_names)).all()
+        repair_tag_ids = [t.id for t in repair_tags]
+        if repair_tag_ids:
+            from app.models.tag import figure_tag
+            link = db.execute(
+                text("SELECT 1 FROM figure_tag WHERE figure_id = :fid AND tag_id IN :tids"),
+                {"fid": figure_id, "tids": tuple(repair_tag_ids)}
+            ).first()
+            if link:
+                cabinets.append("修复工坊")
+
+        # 4. 已出藏品：有卖出记录
+        sold = db.query(SoldOrder).filter(
+            SoldOrder.user_id == user_id,
+            SoldOrder.figure_id == figure_id,
+            SoldOrder.is_active == True
+        ).first()
+        if sold:
+            cabinets.append("已出藏品")
+
+        # 5. 预定中：有未支付/已支付的定金预定订单
+        air_order = db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.figure_id == figure_id,
+            Order.order_type == '定金预定',
+            Order.status.in_(['未支付', '已支付']),
+            Order.is_active == 1
+        ).first()
+        if air_order:
+            cabinets.append("预定中")
+
+        # 6. 复数专区：库存 >= 2
+        total_stock = db.query(
+            func.coalesce(func.sum(AssetTransaction.remaining_quantity), 0)
+        ).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id == figure_id,
+            AssetTransaction.transaction_type == 'buy',
+            AssetTransaction.is_active == True,
+            AssetTransaction.remaining_quantity > 0
+        ).scalar() or 0
+        if total_stock >= 2:
+            cabinets.append("复数专区")
+
+        # 7. 待出荷：有已完成订单
+        wait_order = db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.figure_id == figure_id,
+            Order.status == '已完成',
+            Order.is_active == 1
+        ).first()
+        if wait_order:
+            cabinets.append("待出荷")
+
+        return cabinets
 
     @staticmethod
     def _get_date_label(event_date: date, today: date) -> str:
