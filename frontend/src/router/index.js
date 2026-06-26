@@ -8,6 +8,7 @@ import Orders from '../views/Orders.vue'
 import SoldOrders from '../views/SoldOrders.vue'
 import Profile from '../views/Profile.vue'
 import Dashboard from '../views/Dashboard.vue'
+import ShareProfile from '../views/ShareProfile.vue'
 
 const routes = [
   {
@@ -64,6 +65,12 @@ const routes = [
     name: 'Dashboard',
     component: Dashboard,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/share/:userId',
+    name: 'ShareProfile',
+    component: ShareProfile,
+    meta: { requiresAuth: false }
   }
 ]
 

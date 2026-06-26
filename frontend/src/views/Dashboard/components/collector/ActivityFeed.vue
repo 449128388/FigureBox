@@ -127,13 +127,15 @@
           </div>
           <div class="detail-section">
             <div class="detail-section-title">交易信息</div>
-            <div class="detail-row"><span class="detail-row-label">订单号</span><span class="detail-row-value">{{ detailData.order_no || '-' }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">订单号</span><span class="detail-row-value buy-detail-value">{{ detailData.order_no || '-' }}</span></div>
             <div class="detail-row"><span class="detail-row-label">卖出价格</span><span class="detail-row-value accent">¥{{ detailData.sell_price }}</span></div>
             <div class="detail-row"><span class="detail-row-label">成本价格</span><span class="detail-row-value">¥{{ detailData.cost_price }}</span></div>
             <div class="detail-row"><span class="detail-row-label">净利润</span><span :class="['detail-row-value', (detailData.profit || 0) >= 0 ? 'red' : 'green']">{{ (detailData.profit || 0) >= 0 ? '+' : '' }}¥{{ detailData.profit }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">卖出日期</span><span class="detail-row-value">{{ detailData.out_date }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">买家</span><span class="detail-row-value">{{ detailData.buyer || '-' }}</span></div>
-            <div class="detail-row"><span class="detail-row-label">持有天数</span><span class="detail-row-value">{{ detailData.hold_days }} 天</span></div>
+            <div class="detail-row"><span class="detail-row-label">卖出日期</span><span class="detail-row-value buy-detail-value">{{ detailData.out_date }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">买家</span><span class="detail-row-value buy-detail-value">{{ detailData.buyer || '-' }}</span></div>
+            <div class="detail-row"><span class="detail-row-label">持有天数</span><span class="detail-row-value buy-detail-value">{{ detailData.hold_days }} 天</span></div>
+            <div class="detail-row" v-if="detailData.tracking_number"><span class="detail-row-label">快递单号</span><span class="detail-row-value buy-detail-value">{{ detailData.tracking_number }}</span></div>
+            <div class="detail-row" v-if="detailData.logistics_company"><span class="detail-row-label">物流公司</span><span class="detail-row-value buy-detail-value">{{ detailData.logistics_company }}</span></div>
           </div>
           <div class="detail-actions">
             <button class="detail-btn" @click="navigateToSoldOrders">查看资金流水</button>
@@ -287,9 +289,12 @@ export default {
     const filterOptions = [
       { value: 'all', label: '全部动态', color: '#C49A6C' },
       { value: 'buy', label: '买入', color: '#4A90E2' },
+      { value: 'full_pay', label: '尾款付清', color: '#4A90E2' },
+      { value: 'in_stock', label: '入库', color: '#C49A6C' },
       { value: 'sell', label: '卖出', color: '#D66A6A' },
       { value: 'out', label: '出柜', color: '#999' },
       { value: 'order', label: '订单', color: '#00BCD4' },
+      { value: 'order_cancel', label: '取消', color: '#999' },
       { value: 'tag', label: '标签', color: '#9B7ED8' },
       { value: 'price', label: '价格', color: '#7EB8A2' }
     ]

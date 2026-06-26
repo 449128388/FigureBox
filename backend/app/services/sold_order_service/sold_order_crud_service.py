@@ -214,7 +214,10 @@ class SoldOrderCrudService:
                     hold_days=hold_days,
                     order_no=new_order.order_number or new_order.display_order_number or "",
                     status=new_order.status or "",
-                    target_id=new_order.id
+                    target_id=new_order.id,
+                    tracking_number=new_order.tracking_number or "",
+                    logistics_company=new_order.logistics_company or "",
+                    refund_amount=0
                 )
             except Exception as e:
                 db.rollback()
@@ -400,7 +403,10 @@ class SoldOrderCrudService:
                 hold_days=hold_days,
                 order_no=order.order_number or order.display_order_number or "",
                 status=order.status or "",
-                target_id=order.id
+                target_id=order.id,
+                tracking_number=order.tracking_number or "",
+                logistics_company=order.logistics_company or "",
+                refund_amount=0
             )
         except Exception as e:
             db.rollback()

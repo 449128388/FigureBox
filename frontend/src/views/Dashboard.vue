@@ -190,8 +190,8 @@
       <!-- 收藏柜概览视图 -->
       <template v-else>
         <CollectorHeader
-          @share-poster="sharePoster"
-          @privacy-settings="privacySettings"
+          @share-poster="showPosterModal = true"
+          @privacy-settings="showPrivacyModal = true"
         />
         
         <CollectorOverview :collector-data="collectorData" />
@@ -350,6 +350,10 @@
       :order="selectedPayBalanceOrder"
       @success="handlePayBalanceSuccess"
     />
+
+    <!-- 收藏家模式弹窗 -->
+    <SharePoster v-model:visible="showPosterModal" :collectorData="collectorData" />
+    <PrivacySettings v-model:visible="showPrivacyModal" />
   </div>
 </template>
 
@@ -368,6 +372,8 @@ import CollectionCabinets from './Dashboard/components/collector/CollectionCabin
 import CabinetDetail from './Dashboard/components/collector/CabinetDetail/CabinetDetail.vue'
 import TagCloud from './Dashboard/components/collector/TagCloud.vue'
 import ActivityFeed from './Dashboard/components/collector/ActivityFeed.vue'
+import SharePoster from './Dashboard/components/collector/SharePoster/SharePoster.vue'
+import PrivacySettings from './Dashboard/components/collector/PrivacySettings/PrivacySettings.vue'
 
 // 导入本命厂商组件
 import ManufacturerListView from './Dashboard/components/collector/ManufacturerList/ManufacturerList.vue'
@@ -417,6 +423,8 @@ export default {
       CabinetDetail,
       TagCloud,
       ActivityFeed,
+      SharePoster,
+      PrivacySettings,
       // 本命厂商组件
       ManufacturerListView,
       ManufacturerDetailView,
@@ -440,8 +448,12 @@ export default {
     const dashboardData = ref(null)
     const loading = ref(true)
 
+    // 收藏家模式弹窗状态
+    const showPosterModal = ref(false)
+    const showPrivacyModal = ref(false)
+
     // 使用收藏家模式 composable
-    const { collectorData, loading: collectorLoading, fetchCollectorData, sharePoster, privacySettings, filterByTag, clearTagFilter, tagFilterResults, tagFilterName, handleActivityAction } = useCollectorData()
+    const { collectorData, loading: collectorLoading, fetchCollectorData, filterByTag, clearTagFilter, tagFilterResults, tagFilterName, handleActivityAction } = useCollectorData()
 
     // 使用本命厂商 composable
     const {
@@ -970,8 +982,8 @@ export default {
       saveAnnualLimit,
       exportBill,
       fetchCollectorData,
-      sharePoster,
-      privacySettings,
+      showPosterModal,
+      showPrivacyModal,
       filterByTag,
       clearTagFilter,
       tagFilterResults,

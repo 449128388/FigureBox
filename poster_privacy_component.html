@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分享海报 & 隐私设置 - 手办收藏管理</title>
+<style>
+  :root {
+    --bg: #F7F5F2;
+    --card-bg: #FFFFFF;
+    --text-primary: #1F1F1F;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border: #EBE8E4;
+    --accent: #C49A6C;
+    --accent-light: #FDF6EE;
+    --accent-border: #E8D5C0;
+    --accent-dark: #B08A5C;
+    --blue: #4A90E2;
+    --green: #7EB8A2;
+    --green-light: #E8F5E9;
+    --orange: #E6A23C;
+    --orange-light: #FFF8E1;
+    --red: #D66A6A;
+    --red-light: #FFEBEE;
+    --purple: #9B7ED8;
+    --purple-light: #F3E5F5;
+    --cyan: #00BCD4;
+    --cyan-light: #E0F7FA;
+    --radius: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-hover: 0 4px 16px rgba(0,0,0,0.08);
+    --shadow-modal: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--text-primary); line-height: 1.5;
+    min-height: 100vh;
+  }
+  .container { max-width: 640px; margin: 0 auto; padding: 24px; }
+
+  /* ===== Header ===== */
+  .header {
+    background: var(--card-bg); border-bottom: 1px solid var(--border);
+    padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .back-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; color: var(--text-secondary);
+    transition: all 0.2s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .header-title { font-size: 18px; font-weight: 600; }
+  .header-meta { font-size: 13px; color: var(--text-tertiary); margin-left: 8px; }
+
+  /* ===== Hero Card ===== */
+  .hero-card {
+    background: var(--card-bg); border-radius: var(--radius);
+    padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .hero-left { display: flex; align-items: center; gap: 14px; }
+  .hero-avatar {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #D4A574 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+  .hero-info {}
+  .hero-name { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+  .hero-desc { font-size: 13px; color: var(--text-tertiary); }
+  .hero-actions { display: flex; gap: 10px; }
+  .hero-btn {
+    padding: 7px 14px; border: 1px solid var(--border); background: #fff;
+    border-radius: 8px; font-size: 13px; color: var(--text-secondary); cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center; gap: 5px;
+  }
+  .hero-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .hero-btn-primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  .hero-btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+
+  /* ===== Stat Cards ===== */
+  .stat-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--card-bg); border-radius: var(--radius); padding: 20px 14px;
+    box-shadow: var(--shadow); text-align: center; transition: all 0.2s; cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: var(--accent-border); }
+  .stat-icon {
+    width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .stat-icon.total { background: var(--accent-light); }
+  .stat-icon.new { background: var(--green-light); }
+  .stat-icon.out { background: var(--red-light); }
+  .stat-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 700; }
+  .stat-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; }
+
+  /* ===== Modal Overlay ===== */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 200;
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--card-bg); border-radius: var(--radius); width: 100%; max-width: 480px;
+    max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-modal);
+    animation: modalIn 0.3s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .modal-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--card-bg); z-index: 1;
+  }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-close {
+    width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px; color: var(--text-tertiary); transition: all 0.2s;
+  }
+  .modal-close:hover { border-color: var(--red); color: var(--red); }
+  .modal-body { padding: 20px; }
+  .modal-footer {
+    padding: 12px 20px 20px; display: flex; justify-content: flex-end; gap: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ===== Poster Generator ===== */
+  .poster-template-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;
+  }
+  .poster-template-card {
+    border: 2px solid var(--border); border-radius: 10px; padding: 12px;
+    cursor: pointer; transition: all 0.2s; text-align: center;
+    background: #FAFAFA;
+  }
+  .poster-template-card:hover { border-color: var(--accent-border); }
+  .poster-template-card.selected { border-color: var(--accent); background: var(--accent-light); }
+  .poster-template-preview {
+    height: 80px; background: #F0EEEB; border-radius: 6px; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+    position: relative; overflow: hidden;
+  }
+  .poster-template-name { font-size: 13px; font-weight: 500; }
+  .poster-template-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+  /* Poster Preview Canvas */
+  .poster-preview-area {
+    background: #F5F5F5; border-radius: 10px; padding: 20px; margin-bottom: 20px;
+    display: flex; justify-content: center;
+  }
+  .poster-canvas {
+    width: 280px; min-height: 420px; background: #fff; border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 24px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .poster-canvas.overview {
+    background: linear-gradient(180deg, #FDF6EE 0%, #fff 60%);
+  }
+  .poster-canvas.gallery {
+    background: linear-gradient(180deg, #E8F5E9 0%, #fff 60%);
+  }
+  .poster-canvas.minimal {
+    background: linear-gradient(180deg, #F3E5F5 0%, #fff 60%);
+  }
+  .poster-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .poster-subtitle { font-size: 12px; color: var(--text-tertiary); margin-bottom: 20px; }
+  .poster-stats-row {
+    display: flex; gap: 16px; margin-bottom: 20px;
+  }
+  .poster-stat-box {
+    background: rgba(255,255,255,0.8); border-radius: 10px; padding: 12px 16px;
+    border: 1px solid var(--border); min-width: 80px;
+  }
+  .poster-stat-num { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .poster-stat-label { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .poster-figure-list {
+    font-size: 12px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 16px;
+    text-align: left; width: 100%;
+  }
+  .poster-qr {
+    width: 64px; height: 64px; background: #F0EEEB; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 28px;
+    margin-bottom: 8px;
+  }
+  .poster-qr-text { font-size: 10px; color: var(--text-tertiary); }
+  .poster-footer { font-size: 11px; color: var(--text-tertiary); margin-top: auto; padding-top: 16px; }
+  .poster-big-num { font-size: 48px; font-weight: 700; color: var(--accent); margin: 20px 0; }
+  .poster-big-label { font-size: 14px; color: var(--text-secondary); }
+  .poster-data-row { font-size: 14px; color: var(--text-secondary); margin: 8px 0; }
+  .poster-data-row span { font-weight: 600; color: var(--text-primary); }
+  .poster-gallery-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 16px; width: 100%;
+  }
+  .poster-gallery-item {
+    aspect-ratio: 1; background: #F0EEEB; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .poster-gallery-feature {
+    width: 100%; height: 100px; background: #F0EEEB; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 40px; margin-bottom: 8px;
+  }
+
+  /* Share Actions */
+  .share-actions {
+    display: flex; gap: 10px; margin-bottom: 16px;
+  }
+  .share-btn {
+    flex: 1; padding: 10px 0; text-align: center; border: 1px solid var(--border);
+    background: #fff; border-radius: 8px; font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .share-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .share-btn-primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  .share-btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+
+  /* ===== Privacy Settings ===== */
+  .privacy-section {
+    background: var(--card-bg); border-radius: var(--radius); padding: 20px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  .privacy-section-title {
+    font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .privacy-section-title::before {
+    content: ""; display: inline-block; width: 3px; height: 14px;
+    background: var(--accent); border-radius: 2px;
+  }
+  .privacy-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+  }
+  .privacy-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .privacy-item-left { flex: 1; }
+  .privacy-item-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+  .privacy-item-desc { font-size: 12px; color: var(--text-tertiary); }
+  .privacy-item-right { display: flex; align-items: center; gap: 10px; }
+  .privacy-item-value { font-size: 13px; color: var(--text-secondary); }
+  .privacy-item-arrow { font-size: 14px; color: var(--text-tertiary); }
+
+  /* Switch */
+  .switch { cursor: pointer; }
+  .switch-track {
+    width: 44px; height: 24px; border-radius: 12px;
+    background: #E0E0E0; position: relative; transition: background 0.3s;
+  }
+  .switch[data-on="true"] .switch-track { background: var(--accent); }
+  .switch-thumb {
+    width: 20px; height: 20px; border-radius: 50%; background: #fff;
+    position: absolute; top: 2px; left: 2px;
+    transition: transform 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .switch[data-on="true"] .switch-thumb { transform: translateX(20px); }
+
+  /* Selector Modal */
+  .selector-option {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s;
+  }
+  .selector-option:last-child { border-bottom: none; }
+  .selector-option:hover { background: #FAFAFA; }
+  .selector-radio {
+    width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .selector-radio.selected { border-color: var(--accent); }
+  .selector-radio.selected::after {
+    content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+  }
+  .selector-text { flex: 1; }
+  .selector-title { font-size: 14px; color: var(--text-primary); }
+  .selector-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+  /* Save Button */
+  .save-btn {
+    width: 100%; padding: 12px 0; text-align: center;
+    background: var(--accent); border: none; border-radius: 8px;
+    font-size: 15px; font-weight: 600; color: #fff; cursor: pointer;
+    transition: background 0.2s; margin-top: 8px;
+  }
+  .save-btn:hover { background: var(--accent-dark); }
+  .save-btn:disabled { background: #E0E0E0; cursor: not-allowed; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--text-primary); color: #fff; padding: 10px 20px; border-radius: 8px;
+    font-size: 14px; z-index: 300; opacity: 0; transition: all 0.3s ease; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 768px) {
+    .container { padding: 16px; }
+    .poster-template-grid { grid-template-columns: repeat(3, 1fr); }
+    .stat-grid { grid-template-columns: repeat(3, 1fr); }
+    .hero-actions { flex-direction: column; gap: 6px; }
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<div class="header">
+  <div class="header-left">
+    <div class="back-btn" onclick="goBack()">←</div>
+    <div>
+      <div class="header-title">我的塑料资产</div>
+      <span class="header-meta">藏品陈列室 · 以热爱为尺，不以涨跌为度</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Hero Card -->
+  <div class="hero-card">
+    <div class="hero-left">
+      <div class="hero-avatar">🧸</div>
+      <div class="hero-info">
+        <div class="hero-name">我的塑料资产</div>
+        <div class="hero-desc">藏品陈列室 · 以热爱为尺，不以涨跌为度</div>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button class="hero-btn" onclick="openPosterModal()">
+        <span>📤</span> 分享海报
+      </button>
+      <button class="hero-btn" onclick="openPrivacyModal()">
+        <span>🔒</span> 隐私设置
+      </button>
+    </div>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-icon total">🧸</div>
+      <div class="stat-label">藏品总数</div>
+      <div class="stat-value">7 体</div>
+      <div class="stat-sub">覆盖 3 个作品 / 2 个厂商</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon new">🆕</div>
+      <div class="stat-label">本月新入柜</div>
+      <div class="stat-value" style="color:var(--green);">+3 体</div>
+      <div class="stat-sub">测试商品1号 / 桐宫美月 写实版 / 测试数据1号</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon out">📦</div>
+      <div class="stat-label">已出藏品</div>
+      <div class="stat-value">5 体</div>
+      <div class="stat-sub">陪伴时长 88 天</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== MODAL: Share Poster ==================== -->
+<div class="modal-overlay" id="posterModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📤 分享海报</div>
+      <div class="modal-close" onclick="closePosterModal()">×</div>
+    </div>
+    <div class="modal-body" id="posterStep1">
+      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:14px;">选择海报模板</div>
+      <div class="poster-template-grid">
+        <div class="poster-template-card selected" data-template="overview" onclick="selectTemplate(this)">
+          <div class="poster-template-preview" style="background:linear-gradient(135deg,#FDF6EE,#fff);">📊</div>
+          <div class="poster-template-name">资产概览</div>
+          <div class="poster-template-desc">统计数据为主</div>
+        </div>
+        <div class="poster-template-card" data-template="gallery" onclick="selectTemplate(this)">
+          <div class="poster-template-preview" style="background:linear-gradient(135deg,#E8F5E9,#fff);">🖼️</div>
+          <div class="poster-template-name">藏品陈列</div>
+          <div class="poster-template-desc">手办拼图展示</div>
+        </div>
+        <div class="poster-template-card" data-template="minimal" onclick="selectTemplate(this)">
+          <div class="poster-template-preview" style="background:linear-gradient(135deg,#F3E5F5,#fff);">✨</div>
+          <div class="poster-template-name">极简数据</div>
+          <div class="poster-template-desc">大数字极简风</div>
+        </div>
+      </div>
+      <div class="share-actions">
+        <button class="share-btn share-btn-primary" onclick="generatePoster()">生成海报</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Preview -->
+    <div class="modal-body hidden" id="posterStep2">
+      <div class="poster-preview-area">
+        <div class="poster-canvas overview" id="posterCanvas">
+          <!-- Dynamic content -->
+        </div>
+      </div>
+      <div class="share-actions">
+        <button class="share-btn" onclick="showToast('已保存到相册')">💾 保存图片</button>
+        <button class="share-btn" onclick="showToast('链接已复制')">🔗 复制链接</button>
+      </div>
+      <div class="share-actions">
+        <button class="share-btn" onclick="showToast('分享到微信')">💬 微信</button>
+        <button class="share-btn" onclick="showToast('分享到微博')">📝 微博</button>
+        <button class="share-btn" onclick="showToast('分享到小红书')">📕 小红书</button>
+      </div>
+      <div style="text-align:center;margin-top:10px;">
+        <button class="share-btn" style="width:auto;padding:6px 16px;" onclick="backToPosterStep1()">← 重新选择模板</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: Privacy Settings ==================== -->
+<div class="modal-overlay" id="privacyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔒 隐私设置</div>
+      <div class="modal-close" onclick="closePrivacyModal()">×</div>
+    </div>
+    <div class="modal-body" style="padding:0;">
+
+      <!-- Access Permission -->
+      <div class="privacy-section" style="border-radius:0;box-shadow:none;margin-bottom:0;border-bottom:8px solid var(--bg);">
+        <div class="privacy-section-title">访问权限</div>
+        <div class="privacy-item" style="cursor:pointer;" onclick="openSelector('home_visibility')">
+          <div class="privacy-item-left">
+            <div class="privacy-item-title">个人主页可见性</div>
+            <div class="privacy-item-desc">控制谁可以访问你的收藏主页</div>
+          </div>
+          <div class="privacy-item-right">
+            <span class="privacy-item-value" id="homeVisibilityValue">公开</span>
+            <span class="privacy-item-arrow">›</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Display -->
+      <div class="privacy-section" style="border-radius:0;box-shadow:none;margin-bottom:0;border-bottom:8px solid var(--bg);">
+        <div class="privacy-section-title">数据展示</div>
+        <div class="privacy-item">
+          <div class="privacy-item-left">
+            <div class="privacy-item-title">藏品总数</div>
+            <div class="privacy-item-desc">是否对外展示藏品统计数量</div>
+          </div>
+          <div class="privacy-item-right">
+            <div class="switch" data-on="true" onclick="toggleSwitch(this, 'show_total')">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="privacy-item-left">
+            <div class="privacy-item-title">具体藏品列表</div>
+            <div class="privacy-item-desc">是否展示手办明细信息</div>
+          </div>
+          <div class="privacy-item-right">
+            <div class="switch" data-on="false" onclick="toggleSwitch(this, 'show_figures')">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="privacy-item-left">
+            <div class="privacy-item-title">资产金额</div>
+            <div class="privacy-item-desc">包含成本价、市值、盈亏等敏感数据</div>
+          </div>
+          <div class="privacy-item-right">
+            <div class="switch" data-on="false" onclick="toggleSwitch(this, 'show_asset')">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="privacy-item-left">
+            <div class="privacy-item-title">本命厂商</div>
+            <div class="privacy-item-desc">是否展示厂商偏好信息</div>
+          </div>
+          <div class="privacy-item-right">
+            <div class="switch" data-on="true" onclick="toggleSwitch(this, 'show_makers')">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="privacy-item-left">
+            <div class="privacy-item-title">动态流</div>
+            <div class="privacy-item-desc">买入/卖出等操作记录是否对外展示</div>
+          </div>
+          <div class="privacy-item-right">
+            <div class="switch" data-on="false" onclick="toggleSwitch(this, 'show_feed')">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Share Settings -->
+      <div class="privacy-section" style="border-radius:0;box-shadow:none;margin-bottom:0;">
+        <div class="privacy-section-title">分享设置</div>
+        <div class="privacy-item" style="cursor:pointer;" onclick="openSelector('poster_level')">
+          <div class="privacy-item-left">
+            <div class="privacy-item-title">海报展示数据</div>
+            <div class="privacy-item-desc">控制分享海报中展示的内容粒度</div>
+          </div>
+          <div class="privacy-item-right">
+            <span class="privacy-item-value" id="posterLevelValue">仅统计</span>
+            <span class="privacy-item-arrow">›</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer" style="border-top:none;padding-top:0;">
+      <button class="save-btn" onclick="savePrivacy()">保存设置</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: Selector ==================== -->
+<div class="modal-overlay" id="selectorModal">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-header">
+      <div class="modal-title" id="selectorTitle">选择</div>
+      <div class="modal-close" onclick="closeSelector()">×</div>
+    </div>
+    <div class="modal-body" style="padding:0;" id="selectorBody"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== Data ====================
+let selectedTemplate = 'overview';
+
+let privacySettings = {
+  home_visibility: 'public',   // public / friends_only / private
+  show_total: true,
+  show_figures: false,
+  show_asset: false,
+  show_makers: true,
+  show_feed: false,
+  poster_level: 'stats_only'   // full / stats_only / names_only
+};
+
+const selectorData = {
+  home_visibility: {
+    title: '个人主页可见性',
+    options: [
+      { value: 'public', label: '公开', desc: '任何人都可以查看你的收藏主页' },
+      { value: 'friends_only', label: '仅好友', desc: '仅互相关注的用户可以查看' },
+      { value: 'private', label: '私密', desc: '仅自己可见' }
+    ]
+  },
+  poster_level: {
+    title: '海报展示数据',
+    options: [
+      { value: 'full', label: '完整数据', desc: '展示统计、藏品名、金额等全部信息' },
+      { value: 'stats_only', label: '仅统计', desc: '只展示藏品数量等统计数据，不展示具体名称' },
+      { value: 'names_only', label: '仅藏品名', desc: '只展示藏品名称，不展示金额等敏感数据' }
+    ]
+  }
+};
+
+let currentSelectorKey = null;
+
+// ==================== Poster Modal ====================
+function openPosterModal() {
+  document.getElementById('posterModal').classList.add('show');
+  backToPosterStep1();
+}
+function closePosterModal() {
+  document.getElementById('posterModal').classList.remove('show');
+}
+function selectTemplate(el) {
+  document.querySelectorAll('.poster-template-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTemplate = el.dataset.template;
+}
+function backToPosterStep1() {
+  document.getElementById('posterStep1').classList.remove('hidden');
+  document.getElementById('posterStep2').classList.add('hidden');
+}
+
+function generatePoster() {
+  document.getElementById('posterStep1').classList.add('hidden');
+  document.getElementById('posterStep2').classList.remove('hidden');
+  renderPosterCanvas();
+}
+
+function renderPosterCanvas() {
+  const canvas = document.getElementById('posterCanvas');
+  canvas.className = 'poster-canvas ' + selectedTemplate;
+
+  // 根据隐私设置过滤数据
+  const showStats = privacySettings.show_total;
+  const showNames = privacySettings.poster_level !== 'stats_only';
+  const showAmount = privacySettings.poster_level === 'full' && privacySettings.show_asset;
+
+  let html = '';
+
+  if (selectedTemplate === 'overview') {
+    html = `
+      <div class="poster-title">我的塑料资产</div>
+      <div class="poster-subtitle">以热爱为尺，不以涨跌为度</div>
+      <div class="poster-stats-row">
+        <div class="poster-stat-box">
+          <div class="poster-stat-num">${showStats ? '7' : '--'}</div>
+          <div class="poster-stat-label">藏品</div>
+        </div>
+        <div class="poster-stat-box">
+          <div class="poster-stat-num">${showStats ? '5' : '--'}</div>
+          <div class="poster-stat-label">已出</div>
+        </div>
+      </div>
+      ${showNames ? `
+      <div class="poster-figure-list">
+        <div style="font-weight:600;margin-bottom:6px;">本月新入柜 +3 体</div>
+        <div>· 测试商品1号</div>
+        <div>· 桐宫美月 写实版</div>
+        <div>· 测试数据1号</div>
+      </div>` : ''}
+      ${showAmount ? `<div style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px;">总资产价值 ¥12,800</div>` : ''}
+      <div class="poster-qr">📱</div>
+      <div class="poster-qr-text">扫码查看我的收藏</div>
+      <div class="poster-footer">—— 手办收藏家 · 小李 ——</div>
+    `;
+  } else if (selectedTemplate === 'gallery') {
+    html = `
+      <div class="poster-title">我的收藏柜</div>
+      <div class="poster-subtitle">7 体藏品 · 2 个本命厂商</div>
+      <div class="poster-gallery-grid">
+        <div class="poster-gallery-item">🧸</div>
+        <div class="poster-gallery-item">🎀</div>
+        <div class="poster-gallery-item">🎵</div>
+        <div class="poster-gallery-item">👹</div>
+        <div class="poster-gallery-item">🌸</div>
+        <div class="poster-gallery-item">🎂</div>
+      </div>
+      ${showNames ? `
+      <div class="poster-gallery-feature">🧸</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;">蜜姬</div>
+      <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px;">陪伴 392 天</div>
+      ` : ''}
+      <div class="poster-qr">📱</div>
+      <div class="poster-qr-text">扫码查看我的收藏</div>
+      <div class="poster-footer">—— 手办收藏家 · 小李 ——</div>
+    `;
+  } else if (selectedTemplate === 'minimal') {
+    html = `
+      <div class="poster-title" style="margin-top:30px;">我的塑料资产</div>
+      <div class="poster-big-num">${showStats ? '7' : '--'}</div>
+      <div class="poster-big-label">藏品总数</div>
+      <div style="margin-top:30px;">
+        <div class="poster-data-row">+3 体 <span>本月新入柜</span></div>
+        <div class="poster-data-row">5 体 <span>已出藏品</span></div>
+        <div class="poster-data-row">88 天 <span>平均陪伴时长</span></div>
+        ${showAmount ? `<div class="poster-data-row">¥12,800 <span>总资产价值</span></div>` : ''}
+      </div>
+      <div class="poster-qr" style="margin-top:30px;">📱</div>
+      <div class="poster-qr-text">扫码查看我的收藏</div>
+      <div class="poster-footer">—— 手办收藏家 · 小李 ——</div>
+    `;
+  }
+
+  canvas.innerHTML = html;
+}
+
+// ==================== Privacy Modal ====================
+function openPrivacyModal() {
+  document.getElementById('privacyModal').classList.add('show');
+  refreshPrivacyUI();
+}
+function closePrivacyModal() {
+  document.getElementById('privacyModal').classList.remove('show');
+}
+
+function refreshPrivacyUI() {
+  // Update visibility text
+  const visMap = { public: '公开', friends_only: '仅好友', private: '私密' };
+  document.getElementById('homeVisibilityValue').textContent = visMap[privacySettings.home_visibility];
+
+  // Update poster level text
+  const levelMap = { full: '完整数据', stats_only: '仅统计', names_only: '仅藏品名' };
+  document.getElementById('posterLevelValue').textContent = levelMap[privacySettings.poster_level];
+
+  // Update switches
+  document.querySelectorAll('.switch').forEach(sw => {
+    const key = sw.dataset.key || sw.getAttribute('onclick').match(/'(\w+)'/)[1];
+    if (privacySettings[key] !== undefined) {
+      sw.setAttribute('data-on', privacySettings[key].toString());
+    }
+  });
+}
+
+function toggleSwitch(el, key) {
+  const current = el.getAttribute('data-on') === 'true';
+  el.setAttribute('data-on', (!current).toString());
+  privacySettings[key] = !current;
+}
+
+// ==================== Selector Modal ====================
+function openSelector(key) {
+  currentSelectorKey = key;
+  const data = selectorData[key];
+  if (!data) return;
+
+  document.getElementById('selectorTitle').textContent = data.title;
+
+  let html = '';
+  data.options.forEach(opt => {
+    const selected = privacySettings[key] === opt.value ? 'selected' : '';
+    html += `
+      <div class="selector-option" onclick="selectOption('${opt.value}')">
+        <div class="selector-radio ${selected}"></div>
+        <div class="selector-text">
+          <div class="selector-title">${opt.label}</div>
+          <div class="selector-desc">${opt.desc}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  document.getElementById('selectorBody').innerHTML = html;
+  document.getElementById('selectorModal').classList.add('show');
+}
+
+function selectOption(value) {
+  if (currentSelectorKey) {
+    privacySettings[currentSelectorKey] = value;
+    refreshPrivacyUI();
+  }
+  closeSelector();
+}
+
+function closeSelector() {
+  document.getElementById('selectorModal').classList.remove('show');
+  currentSelectorKey = null;
+}
+
+function savePrivacy() {
+  showToast('隐私设置已保存');
+  closePrivacyModal();
+  console.log('Saved privacy settings:', privacySettings);
+}
+
+// ==================== Utilities ====================
+function goBack() {
+  window.history.back();
+}
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('show');
+    }
+  });
+});
+</script>
+
+</body>
+</html>

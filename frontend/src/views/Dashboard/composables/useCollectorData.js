@@ -45,16 +45,6 @@ export function useCollectorData() {
     }
   }
 
-  // 分享海报
-  const sharePoster = () => {
-    ElMessage.info('分享海报功能开发中')
-  }
-
-  // 隐私设置
-  const privacySettings = () => {
-    ElMessage.info('隐私设置功能开发中')
-  }
-
   // 按标签筛选 - 调用后端接口获取匹配手办列表
   const filterByTag = async (tagName) => {
     try {
@@ -87,8 +77,6 @@ export function useCollectorData() {
     collectorData,
     loading,
     fetchCollectorData,
-    sharePoster,
-    privacySettings,
     filterByTag,
     clearTagFilter,
     tagFilterResults,

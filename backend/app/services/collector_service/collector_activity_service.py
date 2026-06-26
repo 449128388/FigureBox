@@ -225,13 +225,33 @@ class CollectorActivityService:
         hold_days: Optional[int] = None,
         order_no: Optional[str] = None,
         status: Optional[str] = None,
-        target_id: Optional[int] = None
+        target_id: Optional[int] = None,
+        tracking_number: Optional[str] = None,
+        logistics_company: Optional[str] = None,
+        refund_amount: Optional[float] = None
     ) -> ActivityFeed:
         """记录售出事件（所有数据一次性写入 detail_data 快照）"""
         if profit_rate is None and cost_price and cost_price != 0:
             profit_rate = round((profit / abs(cost_price)) * 100, 2)
-        profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
-        title = f"「{figure_name}」已售出，售价 ¥{int(sell_price)}（{profit_text}）"
+
+        # 根据状态生成标题
+        if status == "待发货":
+            profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
+            title = f"「{figure_name}」已完成售出，当前待安排寄出，售价 ¥{sell_price}（{profit_text}）"
+        elif status == "已发货":
+            tn = tracking_number or "暂无"
+            lc = logistics_company or "暂无"
+            title = f"「{figure_name}」已完成售出，当前已安排寄出，快递单号 {tn} (物流公司 {lc})"
+        elif status == "已完成":
+            profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
+            title = f"「{figure_name}」订单交易完成，买家已签收，售价 ¥{sell_price}（{profit_text}）"
+        elif status == "退款/纠纷":
+            refund = refund_amount or sell_price
+            title = f"「{figure_name}」订单产生售后争议，已完成退款，退款金额 ¥{refund}"
+        else:
+            profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
+            title = f"「{figure_name}」已售出，售价 ¥{int(sell_price)}（{profit_text}）"
+
         detail = {
             "figure_id": figure_id,
             "figure_name": figure_name,
@@ -243,7 +263,10 @@ class CollectorActivityService:
             "out_date": out_date or "",
             "hold_days": hold_days or 0,
             "order_no": order_no or "",
-            "status": status or ""
+            "status": status or "",
+            "tracking_number": tracking_number or "",
+            "logistics_company": logistics_company or "",
+            "refund_amount": refund_amount or 0
         }
         return CollectorActivityService.record_event(
             db=db,
@@ -271,7 +294,10 @@ class CollectorActivityService:
         hold_days: Optional[int] = None,
         order_no: Optional[str] = None,
         status: Optional[str] = None,
-        target_id: Optional[int] = None
+        target_id: Optional[int] = None,
+        tracking_number: Optional[str] = None,
+        logistics_company: Optional[str] = None,
+        refund_amount: Optional[float] = None
     ) -> ActivityFeed:
         """
         记录售出事件更新（追加新记录，不修改历史）
@@ -284,8 +310,25 @@ class CollectorActivityService:
         """
         if profit_rate is None and cost_price and cost_price != 0:
             profit_rate = round((profit / abs(cost_price)) * 100, 2)
-        profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
-        title = f"「{figure_name}」已售出，售价 ¥{int(sell_price)}（{profit_text}）"
+
+        # 根据状态生成标题
+        if status == "待发货":
+            profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
+            title = f"「{figure_name}」已完成售出，当前待安排寄出，售价 ¥{sell_price}（{profit_text}）"
+        elif status == "已发货":
+            tn = tracking_number or "暂无"
+            lc = logistics_company or "暂无"
+            title = f"「{figure_name}」已完成售出，当前已安排寄出，快递单号 {tn} (物流公司 {lc})"
+        elif status == "已完成":
+            profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
+            title = f"「{figure_name}」订单交易完成，买家已签收，售价 ¥{sell_price}（{profit_text}）"
+        elif status == "退款/纠纷":
+            refund = refund_amount or sell_price
+            title = f"「{figure_name}」订单产生售后争议，已完成退款，退款金额 ¥{refund}"
+        else:
+            profit_text = f"盈利 ¥{profit}" if profit >= 0 else f"亏损 ¥{abs(profit)}"
+            title = f"「{figure_name}」已售出，售价 ¥{int(sell_price)}（{profit_text}）"
+
         detail = {
             "figure_id": figure_id,
             "figure_name": figure_name,
@@ -297,7 +340,10 @@ class CollectorActivityService:
             "out_date": out_date or "",
             "hold_days": hold_days or 0,
             "order_no": order_no or "",
-            "status": status or ""
+            "status": status or "",
+            "tracking_number": tracking_number or "",
+            "logistics_company": logistics_company or "",
+            "refund_amount": refund_amount or 0
         }
         return CollectorActivityService.record_event(
             db=db,
@@ -702,10 +748,13 @@ class CollectorActivityService:
         if event_type and event_type != 'all':
             # 支持分类筛选
             type_map = {
-                'buy': ['BUY', 'FULL_PAY', 'IN_STOCK'],
+                'buy': ['BUY'],
+                'full_pay': ['FULL_PAY'],
+                'in_stock': ['IN_STOCK'],
                 'sell': ['SELL'],
                 'out': ['OUT'],
                 'order': ['BUY', 'FULL_PAY', 'ORDER_CREATE', 'ORDER_CANCEL'],
+                'order_cancel': ['ORDER_CANCEL'],
                 'tag': ['TAG_ADD', 'FIX'],
                 'price': ['PRICE_UPDATE']
             }

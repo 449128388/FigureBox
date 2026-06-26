@@ -28,7 +28,7 @@ router = APIRouter()
 async def get_collector_timeline(
     request: Request,
     response: Response,
-    event_type: str = Query('all', description="事件类型筛选：all/buy/sell/order/tag/price"),
+    event_type: str = Query('all', description="事件类型筛选：all/buy/full_pay/in_stock/sell/out/order/order_cancel/tag/price"),
     offset: int = Query(0, description="分页偏移"),
     limit: int = Query(20, description="每页条数"),
     db: Session = Depends(get_db),
