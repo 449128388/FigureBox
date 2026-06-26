@@ -81,7 +81,7 @@
           </div>
           <div class="privacy-item">
             <div class="privacy-item-left">
-              <div class="privacy-item-title">资产金额</div>
+              <div class="privacy-item-title">主页资产金额</div>
               <div class="privacy-item-desc">包含成本价、市值、盈亏等敏感数据</div>
             </div>
             <div class="privacy-item-right">
@@ -140,11 +140,15 @@
             v-for="opt in selectorOptions"
             :key="opt.value"
             class="selector-option"
+            :class="{ 'is-disabled': opt.disabled }"
             @click="selectOption(opt.value)"
           >
             <div class="selector-radio" :class="{ selected: opt.value === settings[selectorKey] }"></div>
             <div class="selector-text">
-              <div class="selector-title">{{ opt.label }}</div>
+              <div class="selector-title-row">
+                <span class="selector-title">{{ opt.label }}</span>
+                <span v-if="opt.disabled && opt.disabledTip" class="selector-tip">{{ opt.disabledTip }}</span>
+              </div>
               <div class="selector-desc">{{ opt.desc }}</div>
             </div>
           </div>
@@ -156,6 +160,7 @@
 
 <script>
 import { ref, computed, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { usePrivacy } from './composables/usePrivacy.js'
 
 export default {
@@ -163,7 +168,7 @@ export default {
   props: {
     visible: Boolean
   },
-  emits: ['update:visible'],
+  emits: ['update:visible', 'saved'],
   setup(props, { emit }) {
     const { loading, saving, settings, loadSettings, saveSettings, updateField, getSelector, getOptionLabel } = usePrivacy()
 
@@ -201,15 +206,23 @@ export default {
     }
 
     function selectOption(value) {
-      if (selectorKey.value) {
-        updateField(selectorKey.value, value)
+      if (!selectorKey.value) return
+      const opts = selectorOptions.value || []
+      const opt = opts.find(o => o.value === value)
+      if (opt && opt.disabled) {
+        ElMessage.info((opt.disabledTip || '该选项暂未开放') + '，暂不可选')
+        return
       }
+      updateField(selectorKey.value, value)
       closeSelector()
     }
 
     async function handleSave() {
       const ok = await saveSettings()
-      if (ok) close()
+      if (ok) {
+        emit('saved')
+        close()
+      }
     }
 
     return {
@@ -299,6 +312,18 @@ export default {
 }
 .selector-option:last-child { border-bottom: none; }
 .selector-option:hover { background: #FAFAFA; }
+.selector-option.is-disabled { cursor: not-allowed; opacity: 0.55; }
+.selector-option.is-disabled:hover { background: transparent; }
+.selector-title-row { display: flex; align-items: center; gap: 8px; }
+.selector-tip {
+  display: inline-block;
+  font-size: 11px;
+  color: #fff;
+  background: #B8B8B8;
+  padding: 1px 6px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
 .selector-radio {
   width: 18px; height: 18px; border-radius: 50%; border: 2px solid #EBE8E4;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;

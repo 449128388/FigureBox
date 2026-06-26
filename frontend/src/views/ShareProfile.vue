@@ -1,10 +1,12 @@
 <!--
   ShareProfile.vue - 收藏家分享主页（无需登录，复用收藏家组件）
 
-  根据隐私设置展示不同级别的数据：
-  - 公开 + 完整数据：展示完整收藏家主页（复用 CollectorOverview、CollectionCabinets 等）
-  - 公开 + 仅统计：只展示统计卡片和提示
-  - 私密：提示用户主页已设为私密
+  数据展示规则（纯由「数据展示」开关驱动，与「海报展示数据」无关）：
+  - show_total → 展示 CollectorOverview（统计数据）
+  - show_figures → 展示 CollectionCabinets（收藏柜）
+  - show_tags → 展示 TagCloud（标签云）
+  - show_feed → 展示 ActivityFeed（动态流）
+  - 全部关闭 → 提示未公开
 -->
 <template>
   <div class="share-page" v-if="!loading">
@@ -24,58 +26,27 @@
 
     <!-- 公开数据 — 复用收藏家组件 -->
     <div v-else-if="profileData" class="profile-wrapper">
-      <div class="share-header">
-        <div class="share-header-left">
-          <div class="share-avatar">🧸</div>
-          <div class="share-info">
-            <div class="share-nickname">{{ profileData.nickname }}</div>
-            <div class="share-subtitle">手办收藏家</div>
+      <div class="profile-hero">
+        <div class="profile-left">
+          <div class="avatar">🧸</div>
+          <div class="profile-info">
+            <div class="profile-title">{{ profileData.nickname }} 的塑料资产</div>
+            <div class="profile-sub">藏品陈列室 · 以热爱为尺，不以涨跌为度</div>
           </div>
         </div>
-        <div class="share-badge" v-if="profileData.from_poster">📸 来自海报</div>
+        <div v-if="profileData.from_poster" class="share-badge">📸 来自海报</div>
       </div>
 
-      <!-- 仅统计模式 - 简化展示 -->
-      <div v-if="profileData.summary_only" class="share-stats">
-        <div class="share-stat-card" v-if="profileData.summary?.total_collection !== undefined">
-          <div class="share-stat-value">{{ profileData.summary.total_collection }}</div>
-          <div class="share-stat-label">藏品总数</div>
-        </div>
-        <div class="share-stat-card" v-if="profileData.summary?.this_month_count !== undefined">
-          <div class="share-stat-value green">+{{ profileData.summary.this_month_count }}</div>
-          <div class="share-stat-label">本月新入柜</div>
-        </div>
-        <div class="share-stat-card" v-if="profileData.summary?.total_sold_count !== undefined">
-          <div class="share-stat-value">{{ profileData.summary.total_sold_count }}</div>
-          <div class="share-stat-label">已出藏品</div>
-        </div>
-      </div>
-      <div v-if="profileData.summary_only" class="share-notice">
-        <span class="share-notice-icon">📊</span> 该用户未公开藏品明细
-      </div>
+      <!-- 按「数据展示」各开关独立控制对应模块 -->
+      <CollectorOverview v-if="profileData.show_total" :collector-data="profileData" />
+      <CollectionCabinets v-if="profileData.show_figures" :collector-data="profileData" />
+      <TagCloud v-if="profileData.show_tags" :collector-data="profileData" />
+      <ActivityFeed v-if="profileData.show_feed" :collector-data="profileData" />
 
-      <!-- 仅藏品名模式 -->
-      <div v-if="profileData.names_only" class="share-stats">
-        <div class="share-stat-card">
-          <div class="share-stat-value">{{ profileData.summary?.total_collection ?? '--' }}</div>
-          <div class="share-stat-label">藏品总数</div>
-        </div>
-        <div class="share-stat-card">
-          <div class="share-stat-value">{{ profileData.summary?.total_sold_count ?? '--' }}</div>
-          <div class="share-stat-label">已出藏品</div>
-        </div>
+      <!-- 所有数据展示开关均关闭时提示 -->
+      <div v-if="!profileData.show_total && !profileData.show_figures && !profileData.show_tags && !profileData.show_feed" class="share-notice">
+        <span class="share-notice-icon">🔒</span> 该用户未公开任何数据
       </div>
-      <div v-if="profileData.names_only" class="share-notice names-only">
-        <span class="share-notice-icon">🏷️</span> 该用户仅公开藏品名称
-      </div>
-
-      <!-- 完整数据模式 - 复用收藏家组件 -->
-      <template v-if="!profileData.summary_only && !profileData.names_only">
-        <CollectorOverview :collector-data="profileData" />
-        <CollectionCabinets :collector-data="profileData" />
-        <TagCloud :collector-data="profileData" />
-        <ActivityFeed :collector-data="profileData" />
-      </template>
     </div>
 
     <!-- 加载中 -->
@@ -159,7 +130,9 @@ export default {
           ...profile,
           summary: {},
           cabinets: [],
-          tags: { tags: [], system_tags: [], user_tags: [] },
+          tags: [],
+          system_tags: [],
+          user_tags: [],
           activities: []
         }
 
@@ -167,7 +140,12 @@ export default {
           const key = promiseMap[i].key
           if (key === 'summary') merged.summary = results[i] || {}
           else if (key === 'cabinets') merged.cabinets = results[i] || []
-          else if (key === 'tags') merged.tags = results[i] || { tags: [], system_tags: [], user_tags: [] }
+          else if (key === 'tags') {
+            const t = results[i] || {}
+            merged.tags = t.tags || []
+            merged.system_tags = t.system_tags || []
+            merged.user_tags = t.user_tags || []
+          }
           else if (key === 'activities') merged.activities = results[i] || []
         }
 
@@ -207,48 +185,33 @@ export default {
 .private-icon { font-size: 48px; margin-bottom: 16px; }
 .private-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1F1F1F; }
 .private-desc { font-size: 14px; color: #999; }
-.profile-wrapper { max-width: 900px; margin: 0 auto; }
+.profile-wrapper { max-width: 1200px; margin: 0 auto; }
 
-.share-header {
+.profile-hero {
   background: #fff;
   border-radius: 12px;
-  padding: 20px 24px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
-.share-header-left { display: flex; align-items: center; gap: 14px; }
-.share-avatar {
-  width: 52px; height: 52px; border-radius: 50%;
+.profile-left { display: flex; align-items: center; gap: 16px; }
+.avatar {
+  width: 56px; height: 56px; border-radius: 50%;
   background: linear-gradient(135deg, #E8D5C0, #C49A6C);
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px;
+  font-size: 24px; color: #fff; flex-shrink: 0;
 }
-.share-nickname { font-size: 18px; font-weight: 700; color: #1F1F1F; }
-.share-subtitle { font-size: 13px; color: #999; margin-top: 2px; }
+.profile-info { display: flex; flex-direction: column; gap: 2px; }
+.profile-title { font-size: 20px; font-weight: 600; color: #1F1F1F; }
+.profile-sub { font-size: 13px; color: #999; }
+
 .share-badge {
   font-size: 12px; color: #C49A6C; background: #FDF6EE;
   padding: 4px 12px; border-radius: 12px; border: 1px solid #E8D5C0;
 }
-
-.share-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.share-stat-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px 12px;
-  text-align: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-.share-stat-value { font-size: 24px; font-weight: 700; color: #C49A6C; margin-bottom: 4px; }
-.share-stat-value.green { color: #7EB8A2; }
-.share-stat-label { font-size: 13px; color: #999; }
 
 .share-notice {
   background: #FDF6EE;
@@ -261,7 +224,6 @@ export default {
   margin-bottom: 20px;
 }
 .share-notice-icon { margin-right: 6px; }
-.share-notice.names-only { background: #E8F5E9; border-color: #C8E6D5; color: #7EB8A2; }
 
 .loading-spinner {
   width: 36px; height: 36px;

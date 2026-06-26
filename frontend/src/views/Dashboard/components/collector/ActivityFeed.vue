@@ -22,8 +22,8 @@
       <el-icon><ChatDotRound /></el-icon> 动态流
     </div>
 
-    <!-- 筛选器 -->
-    <div class="filter-bar">
+    <!-- 筛选器（分享页模式禁用：筛选会触发需要登录的 API） -->
+    <div v-if="!hasExternalActivities" class="filter-bar">
       <button
         v-for="opt in filterOptions"
         :key="opt.value"
@@ -54,10 +54,13 @@
           <div v-for="(item, index) in group.items" :key="item.id" class="feed-item">
             <div class="feed-dot" :class="getEventDotClass(item.event_type)"></div>
             <div class="feed-content">
-              <div class="feed-title" v-html="formatEventTitle(item)"></div>
+              <div class="feed-title">
+                <span v-if="hasExternalActivities" class="feed-time-inline">{{ formatTime(item.created_at) }}</span>
+                <span v-html="formatEventTitle(item, showAsset)"></span>
+              </div>
               <div class="feed-meta">
-                <button class="feed-detail-btn" @click="showDetail(item.id)">查看详情</button>
-                <span class="feed-time">{{ formatTime(item.created_at) }}</span>
+                <button v-if="!hasExternalActivities" class="feed-detail-btn" @click="showDetail(item.id)">查看详情</button>
+                <span v-if="!hasExternalActivities" class="feed-time">{{ formatTime(item.created_at) }}</span>
               </div>
             </div>
           </div>
@@ -299,8 +302,51 @@ export default {
       { value: 'price', label: '价格', color: '#7EB8A2' }
     ]
 
-    // 加载初始数据
-    feed.loadActivities('all')
+    // 判断是否为分享页模式（通过 collectorData.activities 是否有外部注入数据）
+    const hasExternalActivities = computed(() => {
+      return Array.isArray(props.collectorData?.activities) && props.collectorData.activities.length > 0
+    })
+
+    // show_asset：是否展示资产金额（成本价/市值/盈亏）
+    const showAsset = computed(() => {
+      return props.collectorData?.show_asset !== false
+    })
+
+    if (hasExternalActivities.value) {
+      // 分享页模式：将外部传入的扁平活动数据按日期分组，跳过 API 调用
+      const raw = props.collectorData.activities
+      const groupMap = {}
+      const friendlyLabel = (dateStr) => {
+        // 将 YYYY-MM-DD 转为友好标签（今天 / 昨天 / N天前 / MM-DD）
+        const d = new Date(dateStr)
+        if (isNaN(d.getTime())) return ''
+        const today = new Date()
+        const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+        const diff = Math.round((t0 - d0) / 86400000)
+        if (diff === 0) return '今天'
+        if (diff === 1) return '昨天'
+        if (diff > 1 && diff < 7) return `${diff}天前`
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        const dd = String(d.getDate()).padStart(2, '0')
+        return `${mm}-${dd}`
+      }
+      for (const item of raw) {
+        const date = (item.event_date || item.created_at || '').substring(0, 10)
+        if (!date) continue
+        if (!groupMap[date]) {
+          groupMap[date] = { date, label: friendlyLabel(date), items: [] }
+        }
+        groupMap[date].items.push(item)
+      }
+      const groups = Object.values(groupMap).sort((a, b) => b.date.localeCompare(a.date))
+      feed.activityGroups.value = groups
+      feed.hasMore.value = false
+      feed.loading.value = false
+    } else {
+      // 收藏家仪表盘模式：通过 API 加载数据
+      feed.loadActivities('all')
+    }
 
     // 计算属性
     const detailSheetTitle = computed(() => {
@@ -381,6 +427,8 @@ export default {
     return {
       ...feed,
       filterOptions,
+      hasExternalActivities,
+      showAsset,
       detailSheetTitle,
       showFigureCard,
       detailData,
@@ -614,6 +662,13 @@ export default {
 .feed-time {
   font-size: 12px;
   color: #999;
+}
+
+.feed-time-inline {
+  font-size: 12px;
+  color: #999;
+  margin-right: 8px;
+  font-weight: 400;
 }
 
 /* ===== Load More ===== */

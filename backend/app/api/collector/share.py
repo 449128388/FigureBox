@@ -14,13 +14,14 @@ API端点：
 from fastapi import APIRouter, Depends, Request, Response, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from app.models.database import get_db
 from app.models.user import User
 from app.models.figure import Figure
 from app.models.sold_order import SoldOrder
-from app.models.asset import AssetTransaction
+from app.models.order import Order
+from app.models.asset import AssetTransaction, AssetValueCache
 from app.models.activity_feed import ActivityFeed
 from app.models.collector_privacy import CollectorPrivacy
 from app.api.users import get_current_user
@@ -29,10 +30,9 @@ from app.services.collector_service.collector_privacy_service import CollectorPr
 from app.services.collector_service.collector_manufacturer_service import CollectorManufacturerService
 from app.services.collector_service.collector_exclusion_service import CollectorExclusionService
 from app.services.collector_service.collector_tag_service import CollectorTagService
+from app.services.dashboard_service.assets_service.profit_analysis_service import ProfitAnalysisService
 
 router = APIRouter()
-
-CABINET_ITEMS_LIMIT = 20
 
 
 def _get_image_url(figure):
@@ -80,7 +80,7 @@ async def _verify_share_access(db: Session, user_id: int, token: str) -> Collect
 def _feed_to_dict(ev):
     return {
         "id": ev.id,
-        "event_type": ev.event_type,
+        "event_type": ev.event_type.lower(),
         "event_title": ev.event_title,
         "detail_data": ev.detail_data,
         "created_at": ev.created_at.isoformat() if ev.created_at else "",
@@ -132,22 +132,17 @@ async def get_shared_profile(
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
 
-    poster_level = privacy.poster_level or "stats_only"
-
     return {
         "visible": True,
         "user_id": user_id,
         "nickname": user.username or "收藏家",
         "home_visibility": privacy.home_visibility,
-        "poster_level": poster_level,
         "from_poster": poster == "1",
         "show_total": privacy.show_total,
-        "show_figures": privacy.show_figures and poster_level == "full",
-        "show_asset": privacy.show_asset and poster_level == "full",
-        "show_feed": privacy.show_feed and poster_level == "full",
-        "show_tags": privacy.show_tags and poster_level == "full",
-        "summary_only": poster_level == "stats_only",
-        "names_only": poster_level == "names_only"
+        "show_figures": privacy.show_figures,
+        "show_asset": privacy.show_asset,
+        "show_feed": privacy.show_feed,
+        "show_tags": privacy.show_tags,
     }
 
 
@@ -191,9 +186,17 @@ async def get_shared_summary(
     ).order_by(AssetTransaction.transaction_date.desc()).all()
     this_month_count = len(this_month_transactions)
     recent_figures = []
+    recent_figures_detail = []
     for trans in this_month_transactions[:3]:
         if trans.figure and trans.figure.name:
-            recent_figures.append(trans.figure.name)
+            fig = trans.figure
+            recent_figures.append(fig.name)
+            recent_figures_detail.append({
+                "name": fig.name,
+                "price": fig.market_price or fig.price or 0,
+                "image": _get_image_url(fig),
+                "spec": f"{fig.work} · {fig.scale} · {fig.manufacturer}" if (fig.work or fig.scale or fig.manufacturer) else ""
+            })
     recent_figures_text = ' / '.join(recent_figures) if recent_figures else '暂无新入库'
 
     sold_orders = db.query(SoldOrder).filter(
@@ -202,6 +205,9 @@ async def get_shared_summary(
     ).all()
     total_sold_count = len(sold_orders)
     total_companion_days = 0
+    # 计算收益率
+    total_sold_cost = 0.0
+    total_sold_profit = 0.0
     for sold_order in sold_orders:
         if sold_order.created_at and sold_order.figure_id:
             first = db.query(AssetTransaction).filter(
@@ -214,6 +220,25 @@ async def get_shared_summary(
                 days = (sold_order.created_at - first.transaction_date).days
                 if days > 0:
                     total_companion_days += days
+            # 累计成本和利润
+            if first and first.price:
+                cost = first.price
+                sell_price = sold_order.sell_price or 0
+                total_sold_cost += cost
+                total_sold_profit += sell_price - cost
+
+    # 计算总资产价值（从 asset_value_cache 取当日缓存数据）
+    today = date.today()
+    cached = db.query(AssetValueCache).filter(
+        AssetValueCache.user_id == user_id,
+        AssetValueCache.cache_date == today
+    ).first()
+    total_asset_value = cached.total_value if cached else 0.0
+
+    # 使用盈亏分析服务计算总收益率（含浮动盈亏 + 实现盈亏）
+    total_return_rate = ProfitAnalysisService.calculate_total_return_rate(db, user_id)
+    prefix = "+" if total_return_rate >= 0 else ""
+    profit_rate = f"{prefix}{total_return_rate}%"
 
     return {
         "total_collection": total_collection,
@@ -221,8 +246,11 @@ async def get_shared_summary(
         "unique_manufacturers": len(unique_manufacturers),
         "this_month_count": this_month_count,
         "recent_figures": recent_figures_text,
+        "recent_figures_detail": recent_figures_detail,
         "total_sold_count": total_sold_count,
-        "total_companion_days": total_companion_days
+        "total_companion_days": total_companion_days,
+        "total_asset_value": total_asset_value,
+        "profit_rate": profit_rate
     }
 
 
@@ -235,13 +263,10 @@ async def get_shared_cabinets(
     """获取公开收藏柜数据"""
     privacy = await _verify_share_access(db, user_id, token)
     now = datetime.now()
-    poster_level = privacy.poster_level or "stats_only"
-    show_figures = privacy.show_figures and poster_level == "full"
 
     exclusion_map = CollectorExclusionService.bulk_get_excluded_ids_by_cabinet(db, user_id)
 
-    # 1. 海景房
-    star_items = []
+    # 1. 海景房（仅统计数量）
     active_holdings = db.query(AssetTransaction).filter(
         AssetTransaction.user_id == user_id,
         AssetTransaction.transaction_type == 'buy',
@@ -252,77 +277,117 @@ async def get_shared_cabinets(
     for t in active_holdings:
         if t.figure_id not in fh or (t.transaction_date and fh[t.figure_id] and t.transaction_date < fh[t.figure_id]):
             fh[t.figure_id] = t.transaction_date
+    star_count = 0
     for fid, first_date in fh.items():
         if fid in exclusion_map.get('star', set()):
             continue
-        if first_date:
-            days = (now - first_date).days
-            if days > 180:
-                fig = db.query(Figure).filter(Figure.id == fid).first()
-                if fig:
-                    item = {"id": fid, "holding_days": days, "stock": _get_figure_stock(db, user_id, fid),
-                            "transaction_date": first_date.strftime("%Y-%m-%d") if first_date else None}
-                    if show_figures:
-                        item.update({k: getattr(fig, k, "未知") for k in ("name", "work", "scale", "manufacturer")})
-                        item["image"] = _get_image_url(fig)
-                    star_items.append(item)
-    star_items.sort(key=lambda x: x.get("holding_days", 0), reverse=True)
+        if first_date and (now - first_date).days > 180:
+            star_count += 1
 
-    # 2. 最近入柜
+    # 2. 最近入柜（仅统计数量）
     thirty_days_ago = now - timedelta(days=30)
     recent_trans = db.query(AssetTransaction).filter(
         AssetTransaction.user_id == user_id,
         AssetTransaction.transaction_type == 'buy',
         AssetTransaction.transaction_date >= thirty_days_ago,
         AssetTransaction.is_active == True
-    ).order_by(AssetTransaction.transaction_date.desc()).all()
-    rfm = {}
+    ).all()
+    rfm = set()
     for t in recent_trans:
-        if t.figure_id not in rfm:
-            rfm[t.figure_id] = t
-    new_items = []
-    for fid, t in rfm.items():
+        rfm.add(t.figure_id)
+    new_count = 0
+    for fid in rfm:
         if fid in exclusion_map.get('new', set()):
             continue
-        if t.figure:
-            fb = db.query(AssetTransaction).filter(
-                AssetTransaction.figure_id == fid,
-                AssetTransaction.user_id == user_id,
-                AssetTransaction.transaction_type == 'buy',
-                AssetTransaction.is_active == True
-            ).order_by(AssetTransaction.transaction_date.asc()).first()
-            fd = fb.transaction_date if fb and fb.transaction_date else None
-            hd = max((now - fd).days, 0) if fd else 0
-            item = {"id": fid, "holding_days": hd, "stock": _get_figure_stock(db, user_id, fid),
-                    "transaction_date": fd.strftime("%Y-%m-%d") if fd else None}
-            if show_figures:
-                item.update({k: getattr(t.figure, k, "未知") for k in ("name", "work", "scale", "manufacturer")})
-                item["image"] = _get_image_url(t.figure)
-            new_items.append(item)
+        new_count += 1
 
-    # 已出藏品 count
-    total_sold_count = db.query(SoldOrder).filter(
+    # ====== 4. 已出藏品（已出坑） ======
+    sold_orders = db.query(SoldOrder).filter(
         SoldOrder.user_id == user_id,
         SoldOrder.is_active == True
-    ).count()
+    ).all()
 
+    sold_figure_ids = set()
+    for so in sold_orders:
+        if so.figure_id:
+            sold_figure_ids.add(so.figure_id)
+    sold_count = sum(1 for fid in sold_figure_ids if fid not in exclusion_map.get('out', set()))
+
+    # ====== 5. 预定中（空气谷） ======
+    air_orders = db.query(Order).filter(
+        Order.user_id == user_id,
+        Order.order_type == '定金预定',
+        Order.status.in_(['未支付', '已支付']),
+        Order.is_active == 1
+    ).all()
+    seen_air = set()
+    air_count = 0
+    for order in air_orders:
+        if order.figure_id in seen_air or not order.figure:
+            continue
+        if order.figure_id in exclusion_map.get('air', set()):
+            continue
+        seen_air.add(order.figure_id)
+        air_count += 1
+
+    # ====== 6. 复数专区 ======
+    dup_rows = db.query(
+        AssetTransaction.figure_id,
+        func.sum(AssetTransaction.remaining_quantity).label('total_stock')
+    ).filter(
+        AssetTransaction.user_id == user_id,
+        AssetTransaction.transaction_type == 'buy',
+        AssetTransaction.is_active == True,
+        AssetTransaction.remaining_quantity > 0
+    ).group_by(AssetTransaction.figure_id).having(
+        func.sum(AssetTransaction.remaining_quantity) >= 2
+    ).all()
+    dup_count = sum(1 for r in dup_rows if r.figure_id not in exclusion_map.get('dup', set()))
+
+    # ====== 7. 待出荷 ======
+    wait_orders = db.query(Order).filter(
+        Order.user_id == user_id,
+        Order.status == '已完成',
+        Order.is_active == 1
+    ).all()
+    seen_wait = set()
+    wait_count = 0
+    for order in wait_orders:
+        if order.figure_id in seen_wait or not order.figure:
+            continue
+        if order.figure_id in exclusion_map.get('wait', set()):
+            continue
+        seen_wait.add(order.figure_id)
+        wait_count += 1
+
+    # ====== 8. 本命厂商（仅统计数量） ======
+    manufacturer_count = CollectorManufacturerService.get_count(db, user_id)
+
+    # ====== 构建8个分类，meta 与 cabinets.py 保持完全一致 ======
     cabinets_list = [
         {"key": "star", "name": "海景房专区", "description": "镇柜之宝", "icon": "🖼️", "icon_bg": "#E8F4F8",
-         "count": len(star_items), "meta": f"{len(star_items)} 体 · 入柜 180+ 天", "items": star_items[:CABINET_ITEMS_LIMIT]},
+         "count": star_count,
+         "meta": f"{star_count} 体 · 入柜 180+ 天" if star_count > 0 else "暂无镇柜藏品"},
         {"key": "new", "name": "最近入柜", "description": "新欢", "icon": "✨", "icon_bg": "#F0F5E8",
-         "count": len(new_items), "meta": f"{len(new_items)} 体 · 30 天内新成员", "items": new_items[:CABINET_ITEMS_LIMIT]},
+         "count": new_count,
+         "meta": f"{new_count} 体 · 30 天内新成员" if new_count > 0 else "暂无新入库"},
         {"key": "fix", "name": "修复工坊", "description": "待修复", "icon": "🔧", "icon_bg": "#FDF6EE",
-         "count": 0, "meta": "暂无数据", "items": []},
+         "count": 0, "meta": "暂无待修复藏品"},
         {"key": "out", "name": "已出藏品", "description": "已出坑", "icon": "📦", "icon_bg": "#F5F5F5",
-         "count": total_sold_count, "meta": f"{total_sold_count} 体 · 找到新主人", "items": []},
+         "count": sold_count,
+         "meta": f"{sold_count} 体 · 找到新主人" if sold_count > 0 else "暂无已出藏品"},
         {"key": "air", "name": "预定中", "description": "空气谷", "icon": "☁️", "icon_bg": "#F3E8FF",
-         "count": 0, "meta": "暂无数据", "items": []},
+         "count": air_count,
+         "meta": f"{air_count} 体 · 待付尾款" if air_count > 0 else "暂无预定"},
         {"key": "dup", "name": "复数专区", "description": "复数", "icon": "👯", "icon_bg": "#FFF2F0",
-         "count": 0, "meta": "暂无数据", "items": []},
+         "count": dup_count,
+         "meta": f"{dup_count} 体 · 同款复购" if dup_count > 0 else "暂无复数藏品"},
         {"key": "wait", "name": "待出荷", "description": "待出荷", "icon": "📅", "icon_bg": "#E6F7FF",
-         "count": 0, "meta": "暂无数据", "items": []},
+         "count": wait_count,
+         "meta": f"{wait_count} 体 · 等待出货" if wait_count > 0 else "暂无待出荷"},
         {"key": "role", "name": "本命厂商", "description": "本命", "icon": "🏭", "icon_bg": "#E8F4F8",
-         "count": CollectorManufacturerService.get_count(db, user_id), "meta": "暂无本命厂商", "items": []},
+         "count": manufacturer_count,
+         "meta": f"{manufacturer_count} 家 · 追厂狂魔" if manufacturer_count > 0 else "暂无本命厂商"},
     ]
     return cabinets_list
 
@@ -353,9 +418,8 @@ async def get_shared_activities(
 ):
     """获取公开动态流"""
     privacy = await _verify_share_access(db, user_id, token)
-    poster_level = privacy.poster_level or "stats_only"
 
-    if privacy.show_feed and poster_level == "full":
+    if privacy.show_feed:
         activities = db.query(ActivityFeed).filter(
             ActivityFeed.user_id == user_id
         ).order_by(ActivityFeed.created_at.desc()).limit(limit).all()

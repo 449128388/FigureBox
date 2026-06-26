@@ -27,7 +27,7 @@ from sqlalchemy import func, text
 from app.models.activity_feed import ActivityFeed
 from app.models.figure import Figure
 
-# 汇率配置：相对人民币的汇率（与 asset_core_calculations.py 保持一致）
+# 汇率配置：相对人民币的汇率
 PRICE_EXCHANGE_RATES = {
     'CNY': 1.0,
     'JPY': 1/23,

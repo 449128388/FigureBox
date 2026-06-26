@@ -7,7 +7,7 @@ const PRIVACY_SELECTORS = {
     title: '个人主页可见性',
     options: [
       { value: 'public', label: '公开', desc: '任何人都可以查看你的收藏主页' },
-      { value: 'friends_only', label: '仅好友', desc: '仅互相关注的用户可以查看' },
+      { value: 'friends_only', label: '仅好友', desc: '仅互相关注的用户可以查看', disabled: true, disabledTip: '即将支持' },
       { value: 'private', label: '私密', desc: '仅自己可见' }
     ]
   },

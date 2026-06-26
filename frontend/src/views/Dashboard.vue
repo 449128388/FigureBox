@@ -353,7 +353,7 @@
 
     <!-- 收藏家模式弹窗 -->
     <SharePoster v-model:visible="showPosterModal" :collectorData="collectorData" />
-    <PrivacySettings v-model:visible="showPrivacyModal" />
+    <PrivacySettings v-model:visible="showPrivacyModal" @saved="handlePrivacySaved" />
   </div>
 </template>
 
@@ -821,6 +821,11 @@ export default {
         selectedCabinet.value = freshCabinet
       }
     }
+
+    // 隐私设置保存后刷新收藏家数据（SharePoster 需要最新的 poster_level）
+    const handlePrivacySaved = async () => {
+      await fetchCollectorData()
+    }
     
     // 显示年度消费上限对话框
     const showAnnualLimitDialog = async () => {
@@ -978,6 +983,7 @@ export default {
       handleCabinetClick,
       handleCabinetBack,
       handleCabinetRefresh,
+      handlePrivacySaved,
       showAnnualLimitDialog,
       saveAnnualLimit,
       exportBill,

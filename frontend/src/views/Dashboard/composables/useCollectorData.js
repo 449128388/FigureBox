@@ -12,11 +12,12 @@ export function useCollectorData() {
   const fetchCollectorData = async () => {
     loading.value = true
     try {
-      // 并行请求3个独立接口（动态流由 ActivityFeed 组件独立加载）
-      const [summaryRes, cabinetsRes, tagsRes] = await Promise.all([
+      // 并行请求4个独立接口（动态流由 ActivityFeed 组件独立加载）
+      const [summaryRes, cabinetsRes, tagsRes, privacyRes] = await Promise.all([
         axios.get('/collector/summary'),
         axios.get('/collector/cabinets'),
-        axios.get('/collector/tags')
+        axios.get('/collector/tags'),
+        axios.get('/collector/privacy').catch(() => null)
       ])
 
       // 合并数据为统一格式
@@ -34,7 +35,8 @@ export function useCollectorData() {
         ],
         tags: tagsRes.tags || [],
         system_tags: tagsRes.system_tags || [],
-        user_tags: tagsRes.user_tags || []
+        user_tags: tagsRes.user_tags || [],
+        privacy: privacyRes  // 隐私设置（含 poster_level）
       }
     } catch (error) {
       console.error('获取收藏家数据失败:', error)

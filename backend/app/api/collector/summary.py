@@ -12,16 +12,17 @@ API端点：
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, date
 
 from app.models.database import get_db
 from app.models.order import Order
 from app.models.figure import Figure
 from app.models.user import User
 from app.models.sold_order import SoldOrder
-from app.models.asset import AssetTransaction
+from app.models.asset import AssetTransaction, AssetValueCache
 from app.api.users import get_current_user
 from app.api.collector.dashboard import get_valid_orders, get_figures_with_valid_orders, check_token_refresh
+from app.services.dashboard_service.assets_service.profit_analysis_service import ProfitAnalysisService
 
 router = APIRouter()
 
@@ -97,9 +98,17 @@ async def get_collector_summary(
     
     # 取本月入库的最近3只手办名称
     recent_figures = []
+    recent_figures_detail = []
     for trans in this_month_transactions[:3]:
         if trans.figure and trans.figure.name:
-            recent_figures.append(trans.figure.name)
+            fig = trans.figure
+            recent_figures.append(fig.name)
+            recent_figures_detail.append({
+                "name": fig.name,
+                "price": fig.market_price or fig.price or 0,
+                "image": (fig.images[0] if fig.images and isinstance(fig.images, list) and len(fig.images) > 0 else ""),
+                "spec": f"{fig.work} · {fig.scale} · {fig.manufacturer}" if (fig.work or fig.scale or fig.manufacturer) else ""
+            })
     recent_figures_text = ' / '.join(recent_figures) if recent_figures else '暂无新入库'
     
     # ========== 右卡片：已出藏品 ==========
@@ -110,8 +119,10 @@ async def get_collector_summary(
     
     total_sold_count = len(sold_orders)
     
-    # 计算陪伴时长（陪伴时长 = 卖出日期 - 首次入库日期）
+    # 计算陪伴时长 + 收益率
     total_companion_days = 0
+    total_sold_cost = 0.0
+    total_sold_profit = 0.0
     for sold_order in sold_orders:
         if sold_order.created_at and sold_order.figure_id:
             first_transaction = db.query(AssetTransaction).filter(
@@ -125,6 +136,25 @@ async def get_collector_summary(
                 companion_days = (sold_order.created_at - first_transaction.transaction_date).days
                 if companion_days > 0:
                     total_companion_days += companion_days
+            # 累计成本和利润（用于海报返回）
+            if first_transaction and first_transaction.price:
+                cost = first_transaction.price
+                sell_price = sold_order.sell_price or 0
+                total_sold_cost += cost
+                total_sold_profit += sell_price - cost
+
+    # 计算总资产价值（从 asset_value_cache 取当日缓存数据）
+    today = date.today()
+    cached = db.query(AssetValueCache).filter(
+        AssetValueCache.user_id == current_user.id,
+        AssetValueCache.cache_date == today
+    ).first()
+    total_asset_value = cached.total_value if cached else 0.0
+
+    # 使用盈亏分析服务计算总收益率（含浮动盈亏 + 实现盈亏）
+    total_return_rate = ProfitAnalysisService.calculate_total_return_rate(db, current_user.id)
+    prefix = "+" if total_return_rate >= 0 else ""
+    profit_rate = f"{prefix}{total_return_rate}%"
 
     # 检查token续期
     check_token_refresh(request, response)
@@ -135,6 +165,9 @@ async def get_collector_summary(
         "unique_manufacturers": len(unique_manufacturers),
         "this_month_count": this_month_count,
         "recent_figures": recent_figures_text,
+        "recent_figures_detail": recent_figures_detail,
         "total_sold_count": total_sold_count,
-        "total_companion_days": total_companion_days
+        "total_companion_days": total_companion_days,
+        "total_asset_value": total_asset_value,
+        "profit_rate": profit_rate
     }

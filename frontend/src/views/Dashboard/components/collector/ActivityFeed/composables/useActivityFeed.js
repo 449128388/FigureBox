@@ -80,11 +80,19 @@ export function useActivityFeed() {
    * - 标签 #tagname → tag-badge（红色）
    * - 出柜分类 → highlight（主题色）
    */
-  function formatEventTitle(item) {
+  function formatEventTitle(item, showAsset = true) {
     if (!item || !item.event_title) return ''
     const type = item.event_type || ''
     const detail = item.detail_data || {}
     let title = item.event_title
+
+    // 0. show_asset = false 时，掩码所有价格敏感数据
+    if (!showAsset) {
+      title = title.replace(/((?:JP\s+)?[¥$€£])(\d+(?:\.\d+)?)/g, '¥***')
+      title = title.replace(/(盈利\s*)¥[\d.]+/g, '$1¥***')
+      title = title.replace(/(亏损\s*)¥[\d.]+/g, '$1¥***')
+      return title
+    }
 
     // 1. 包裹手办名称（全部类型）
     title = title.replace(/「([^」]*)」/g, '<span class="highlight">「$1」</span>')
@@ -110,6 +118,11 @@ export function useActivityFeed() {
     if (type === 'buy') {
       // 金额数字带币种符号（如 $800.0、¥900.0、JP ¥800.0）
       title = title.replace(/((?:JP\s+)?[¥$€£])(\d+(?:\.\d+)?)/g, '<span class="price">$1$2</span>')
+    }
+
+    // 6. 市场价更新事件：价格数字高亮（红色）
+    if (type === 'price_update') {
+      title = title.replace(/([¥$€£])(\d+(?:\.\d+)?)/g, '<span class="price">$1$2</span>')
     }
 
     return title
