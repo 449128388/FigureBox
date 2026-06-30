@@ -8,27 +8,16 @@ from sqlalchemy.orm import Session
 if TYPE_CHECKING:
     from app.models.figure import Figure
 
+from app.services.sold_order_service.currency_service import CurrencyService
+
 
 class FigurePriceService:
     """手办价格服务类"""
-
-    # 汇率配置：相对人民币的汇率
-    EXCHANGE_RATES = {
-        'CNY': 1.0,    # 人民币
-        'JPY': 1/23,   # 日元：1人民币 = 23日元
-        'USD': 7.0,    # 美元：1美元 = 7人民币
-        'EUR': 8.0     # 欧元：1欧元 = 8人民币
-    }
 
     @classmethod
     def convert_to_cny(cls, amount: float, currency: str) -> float:
         """
         将金额转换为人民币
-
-        汇率：
-        - 1人民币 = 23日元
-        - 1美元 = 7人民币
-        - 1欧元 = 8人民币
 
         Args:
             amount: 金额
@@ -40,8 +29,7 @@ class FigurePriceService:
         if not amount:
             return 0
 
-        rate = cls.EXCHANGE_RATES.get(currency, 1.0)
-        return amount * rate
+        return CurrencyService.to_cny(amount, currency)
 
     @classmethod
     def calculate_order_amount_cny(cls, deposit: float, deposit_currency: str,

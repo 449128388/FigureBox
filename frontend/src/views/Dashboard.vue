@@ -98,9 +98,8 @@
         v-if="activeView === 'asset'" 
         :dashboard-data="dashboardData"
         @sell-asset="sellAsset"
-        @add-position="addPosition"
-        @cut-loss="cutLoss"
-        @edit-price="editPrice"
+        @add-position="handleAddPosition"
+        @edit-price="handleEditPrice"
         @refresh-data="fetchDashboardData"
       />
 
@@ -892,10 +891,6 @@ export default {
       // 此函数保留用于兼容性
     }
     
-    const cutLoss = (item) => {
-      ElMessage.info(`斩仓 ${item.figure_name} 功能开发中`)
-    }
-    
     const editPrice = (item) => {
       // 价格修改功能已在 PriceUpdateDialog 组件中实现
       // 此函数保留用于兼容性，实际逻辑在 AssetView.vue 中处理
@@ -997,7 +992,6 @@ export default {
       handleActivityAction,
       sellAsset,
       addPosition,
-      cutLoss,
       editPrice,
       addToWatchlist,
       openBuyDialog,

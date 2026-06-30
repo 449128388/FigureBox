@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
 from app.api import auth, figures, orders, users, assets, asset_transactions, sold_orders, market, collector, records
 from app.models.database import engine, Base
+from app.models.exchange_rate import ExchangeRateRealtime, ExchangeRateHistory
+from app.models.hpi import HPIDaily, HPIComponent
 from app.utils.jwt import verify_token, create_access_token
 from app.utils.exception_handlers import register_exception_handlers
 from starlette.middleware.base import BaseHTTPMiddleware

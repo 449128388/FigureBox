@@ -31,7 +31,7 @@ class UserAssetSnapshot(Base):
     id = Column(Integer, primary_key=True, index=True, comment="快照记录唯一标识ID")
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="关联用户ID")
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, index=True, comment="关联用户ID")
 
     # 快照数据
     snapshot_date = Column(Date, nullable=False, index=True, comment="快照日期")

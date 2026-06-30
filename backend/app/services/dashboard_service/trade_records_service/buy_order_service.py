@@ -15,15 +15,7 @@ from app.services.asset_transaction_service import AssetTransactionService
 from app.services.figure_service import FigureService
 from app.services.figure_service.figure_price_service import FigurePriceService
 from app.services.order_service.order_number_service import OrderNumberService
-
-
-# 汇率配置：相对人民币的汇率
-EXCHANGE_RATES = {
-    'CNY': 1.0,    # 人民币
-    'JPY': 1/23,   # 日元：1人民币 = 23日元
-    'USD': 7.0,    # 美元：1美元 = 7人民币
-    'EUR': 8.0     # 欧元：1欧元 = 8人民币
-}
+from app.services.exchange_rate_service import ExchangeRateService
 
 
 class BuyOrderService:
@@ -305,7 +297,7 @@ class BuyOrderService:
         # 按汇率换算为人民币总金额
         total_amount_cny = 0
         for curr, amount in total_by_currency.items():
-            rate = EXCHANGE_RATES.get(curr, 1.0)
+            rate = ExchangeRateService.get_rate(db, curr)
             total_amount_cny += amount * rate
 
         return {

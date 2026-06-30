@@ -26,14 +26,7 @@ from sqlalchemy import func, text
 
 from app.models.activity_feed import ActivityFeed
 from app.models.figure import Figure
-
-# 汇率配置：相对人民币的汇率
-PRICE_EXCHANGE_RATES = {
-    'CNY': 1.0,
-    'JPY': 1/23,
-    'USD': 7.0,
-    'EUR': 8.0
-}
+from app.services.exchange_rate_service import ExchangeRateService
 
 
 class CollectorActivityService:
@@ -478,8 +471,8 @@ class CollectorActivityService:
         new_sym = CollectorActivityService._get_currency_symbol(new_currency or "CNY")
 
         # 统一折算为人民币计算变动金额和幅度
-        old_cny = old_price * PRICE_EXCHANGE_RATES.get(old_currency or "CNY", 1.0)
-        new_cny = new_price * PRICE_EXCHANGE_RATES.get(new_currency or "CNY", 1.0)
+        old_cny = old_price * ExchangeRateService.get_rate(db, old_currency or "CNY")
+        new_cny = new_price * ExchangeRateService.get_rate(db, new_currency or "CNY")
         change = round(new_cny - old_cny, 2)
         change_rate = ""
         if old_cny and old_cny != 0:

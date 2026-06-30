@@ -28,7 +28,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True, comment="订单唯一标识ID")
     
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="关联用户ID（订单所属用户）")
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, comment="关联用户ID（订单所属用户）")
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, comment="关联手办ID（订单对应的手办）")
     
     # 付款信息（支持定金+尾款模式）

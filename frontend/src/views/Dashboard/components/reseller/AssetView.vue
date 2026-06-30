@@ -42,7 +42,6 @@
       :dashboardData="dashboardData"
       @sell-asset="handleQuickSell"
       @add-position="handleAddPosition"
-      @cut-loss="$emit('cut-loss', $event)"
       @edit-price="handleEditPrice"
     />
 
@@ -95,7 +94,7 @@ export default {
       default: () => ({})
     }
   },
-  emits: ['sell-asset', 'add-position', 'cut-loss', 'edit-price', 'refresh-data'],
+  emits: ['sell-asset', 'add-position', 'edit-price', 'refresh-data'],
   setup(props, { emit }) {
     const priceUpdateDialog = ref(null)
     const addPositionDialog = ref(null)

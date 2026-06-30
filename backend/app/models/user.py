@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime
+from sqlalchemy.sql import func
 from app.models.database import Base
+
 
 class User(Base):
     """
@@ -9,6 +11,7 @@ class User(Base):
     - 存储用户登录凭证（用户名、密码哈希）
     - 支持用户权限管理（普通用户/管理员）
     - 支持用户状态控制（激活/禁用）
+    - 合并 user_settings 表字段，统一管理用户配置
     
     安全说明：
     - 密码使用哈希存储，不保存明文
@@ -17,7 +20,7 @@ class User(Base):
     关联关系：
     - 被 Order、AssetAlert、AssetTransaction 等模型关联
     """
-    __tablename__ = "users"
+    __tablename__ = "users_info"
 
     # 主键
     id = Column(Integer, primary_key=True, index=True, comment="用户唯一标识ID")
@@ -30,3 +33,7 @@ class User(Base):
     # 用户状态
     is_active = Column(Boolean, default=True, comment="账号是否激活（True=正常，False=禁用）")
     is_admin = Column(Boolean, default=False, comment="是否为管理员（True=管理员，False=普通用户）")
+
+    # 用户配置（原 user_settings 表字段）
+    annual_spending_limit = Column(Float, default=0, comment="年度手办消费上限（0表示未设置）")
+    settings_updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment="配置最后更新时间")

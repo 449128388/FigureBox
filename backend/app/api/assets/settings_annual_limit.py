@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.models.database import get_db
-from app.models.asset import UserSettings
 from app.models.user import User
 from app.api.users import get_current_user
 
@@ -46,19 +45,19 @@ def get_annual_spending_limit(
     
     返回当前用户设置的年度消费上限金额
     """
-    settings = db.query(UserSettings).filter(
-        UserSettings.user_id == current_user.id
+    user = db.query(User).filter(
+        User.id == current_user.id
     ).first()
     
-    if not settings:
+    if not user or not user.annual_spending_limit:
         return {
             "annual_spending_limit": 0,
             "message": "未设置年度消费上限"
         }
     
     return {
-        "annual_spending_limit": settings.annual_spending_limit,
-        "updated_at": settings.updated_at
+        "annual_spending_limit": user.annual_spending_limit,
+        "updated_at": user.settings_updated_at
     }
 
 
@@ -77,24 +76,20 @@ def update_annual_spending_limit(
     if limit < 0:
         raise HTTPException(status_code=400, detail="消费上限不能为负数")
     
-    settings = db.query(UserSettings).filter(
-        UserSettings.user_id == current_user.id
+    user = db.query(User).filter(
+        User.id == current_user.id
     ).first()
     
-    if settings:
-        settings.annual_spending_limit = limit
+    if user:
+        user.annual_spending_limit = limit
     else:
-        settings = UserSettings(
-            user_id=current_user.id,
-            annual_spending_limit=limit
-        )
-        db.add(settings)
+        raise HTTPException(status_code=404, detail="用户不存在")
     
     db.commit()
-    db.refresh(settings)
+    db.refresh(user)
     
     return {
-        "annual_spending_limit": settings.annual_spending_limit,
-        "updated_at": settings.updated_at,
+        "annual_spending_limit": user.annual_spending_limit,
+        "updated_at": user.settings_updated_at,
         "message": "年度消费上限设置成功"
     }

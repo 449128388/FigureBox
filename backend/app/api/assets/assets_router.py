@@ -34,6 +34,7 @@ from . import operation_price
 from . import operation_position
 from . import operation_holding_filter
 from . import settings_annual_limit
+from . import exchange_rates_api
 
 # 创建主路由
 router = APIRouter()
@@ -71,4 +72,11 @@ router.include_router(
     settings_annual_limit.router,
     prefix="",
     tags=["asset-settings"]
+)
+
+# 注册汇率查询路由（前端使用）
+router.include_router(
+    exchange_rates_api.router,
+    prefix="",
+    tags=["asset-exchange-rates"]
 )

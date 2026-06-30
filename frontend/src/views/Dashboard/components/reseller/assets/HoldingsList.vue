@@ -108,7 +108,6 @@
                 <el-dropdown-menu>
                   <el-dropdown-item @click="$emit('sell-asset', item)">卖出</el-dropdown-item>
                   <el-dropdown-item @click="$emit('add-position', item)">补仓</el-dropdown-item>
-                  <el-dropdown-item v-if="item.status && item.status.includes('破位')" @click="$emit('cut-loss', item)">斩仓</el-dropdown-item>
                   <el-dropdown-item @click="$emit('edit-price', item)">修改市场价</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -180,7 +179,7 @@ export default {
       default: () => ({})
     }
   },
-  emits: ['sell-asset', 'add-position', 'cut-loss', 'edit-price'],
+  emits: ['sell-asset', 'add-position', 'edit-price'],
   setup(props) {
     const showFilter = ref(false)
     const searchKeyword = ref('')

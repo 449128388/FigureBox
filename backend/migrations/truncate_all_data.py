@@ -30,8 +30,7 @@ TABLES = [
     "figures",                 # 手办
 
     # 用户相关
-    "user_settings",           # 用户设置
-    "users",                   # 用户
+    "users_info",              # 用户信息（原 users + user_settings 合并）
 ]
 
 

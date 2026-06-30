@@ -11,15 +11,7 @@ from app.models.figure import Figure
 from app.models.asset import OrderTransaction
 from app.models.sold_order import SoldOrder
 from app.models.order import Order
-
-
-# 汇率配置：相对人民币的汇率
-EXCHANGE_RATES = {
-    'CNY': 1.0,    # 人民币
-    'JPY': 1/23,   # 日元：1人民币 = 23日元
-    'USD': 7.0,    # 美元：1美元 = 7人民币
-    'EUR': 8.0     # 欧元：1欧元 = 8人民币
-}
+from app.services.exchange_rate_service import ExchangeRateService
 
 
 class TransactionQueryService:
@@ -277,8 +269,8 @@ class TransactionQueryService:
             balance = order.balance or 0
             deposit_currency = order.deposit_currency or "CNY"
             balance_currency = order.balance_currency or "CNY"
-            deposit_rate = EXCHANGE_RATES.get(deposit_currency, 1.0)
-            balance_rate = EXCHANGE_RATES.get(balance_currency, 1.0)
+            deposit_rate = ExchangeRateService.get_rate(db, deposit_currency)
+            balance_rate = ExchangeRateService.get_rate(db, balance_currency)
             # 根据订单状态确定已支付的金额：
             # 已完成 → 定金+尾款均已支付
             # 已支付 → 仅定金已支付

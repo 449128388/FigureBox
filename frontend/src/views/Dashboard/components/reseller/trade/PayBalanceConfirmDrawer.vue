@@ -70,7 +70,7 @@
               placeholder="请输入支付金额"
               :disabled="isFullPayment"
             >
-              <template #prefix>{{ getCurrencySymbol(orderData?.balance_currency) }}</template>
+              <template #suffix>{{ getCurrencySymbol(orderData?.balance_currency) }}</template>
             </el-input>
             <div class="form-tip">
               <el-checkbox v-model="isFullPayment" size="small">

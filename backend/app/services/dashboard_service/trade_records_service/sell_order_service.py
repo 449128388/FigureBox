@@ -8,16 +8,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from app.models.sold_order import SoldOrder
-from app.models.figure import Figure
-
-
-# 汇率配置：相对人民币的汇率
-EXCHANGE_RATES = {
-    'CNY': 1.0,    # 人民币
-    'JPY': 1/23,   # 日元：1人民币 = 23日元
-    'USD': 7.0,    # 美元：1美元 = 7人民币
-    'EUR': 8.0     # 欧元：1欧元 = 8人民币
-}
+from app.services.sold_order_service.currency_service import CurrencyService
 
 
 class SellOrderService:
@@ -244,7 +235,7 @@ class SellOrderService:
         """将金额转换为人民币"""
         if not currency:
             currency = "CNY"
-        rate = EXCHANGE_RATES.get(currency, 1.0)
+        rate = CurrencyService.get_exchange_rate(currency)
         return amount * rate
 
     @staticmethod

@@ -8,18 +8,11 @@ from typing import Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.asset import AssetValueCache, UserSettings, AssetTransaction
+from app.models.asset import AssetValueCache, AssetTransaction
 from app.models.figure import Figure
 from app.models.order import Order
-
-
-# 汇率配置：相对人民币的汇率
-EXCHANGE_RATES = {
-    'CNY': 1.0,    # 人民币
-    'JPY': 1/23,   # 日元：1人民币 = 23日元
-    'USD': 7.0,    # 美元：1美元 = 7人民币
-    'EUR': 8.0     # 欧元：1欧元 = 8人民币
-}
+from app.models.user import User
+from app.services.exchange_rate_service import ExchangeRateService
 
 
 class TotalAssetsCalculator:
@@ -207,13 +200,16 @@ class PositionCalculator:
         Returns:
             float: 投资预算上限
         """
-        user_settings = db.query(UserSettings).filter(
-            UserSettings.user_id == user_id
+        user_settings = db.query(User).filter(
+            User.id == user_id
         ).first()
         return user_settings.annual_spending_limit if user_settings else 0
 
     @staticmethod
-    def _convert_to_rmb(amount: float, currency: str) -> float:
+    def _convert_to_rmb(
+        db: Session,
+        amount: float, currency: str
+    ) -> float:
         """
         将指定币种金额转换为人民币
 
@@ -224,11 +220,12 @@ class PositionCalculator:
         Returns:
             float: 人民币金额
         """
-        rate = EXCHANGE_RATES.get(currency, 1.0)
+        rate = ExchangeRateService.get_rate(db, currency)
         return amount * rate
 
     @staticmethod
     def _calculate_invested_cost_no_sold(
+        db: Session,
         orders: List[Order]
     ) -> float:
         """
@@ -242,6 +239,7 @@ class PositionCalculator:
         已投入成本 = Σ(定金 × 汇率 + 尾款 × 汇率)
 
         Args:
+            db: 数据库会话
             orders: 订单列表
 
         Returns:
@@ -251,11 +249,13 @@ class PositionCalculator:
         for order in orders:
             # 转换定金为人民币
             deposit_rmb = PositionCalculator._convert_to_rmb(
+                db,
                 order.deposit or 0,
                 order.deposit_currency or 'CNY'
             )
             # 转换尾款为人民币
             balance_rmb = PositionCalculator._convert_to_rmb(
+                db,
                 order.balance or 0,
                 order.balance_currency or 'CNY'
             )
@@ -313,11 +313,13 @@ class PositionCalculator:
             if order.status != "已完成":
                 # 转换定金为人民币
                 deposit_rmb = PositionCalculator._convert_to_rmb(
+                    db,
                     order.deposit or 0,
                     order.deposit_currency or 'CNY'
                 )
                 # 转换尾款为人民币
                 balance_rmb = PositionCalculator._convert_to_rmb(
+                    db,
                     order.balance or 0,
                     order.balance_currency or 'CNY'
                 )
@@ -377,7 +379,7 @@ class PositionCalculator:
             invested_cost = cls._calculate_invested_cost_with_sold(db, user_id, orders)
         else:
             # 无卖出记录：统计所有订单的定金+尾款
-            invested_cost = cls._calculate_invested_cost_no_sold(orders)
+            invested_cost = cls._calculate_invested_cost_no_sold(db, orders)
 
         # 计算仓位百分比
         if investment_budget > 0:

@@ -54,7 +54,7 @@ class AssetAlert(Base):
     id = Column(Integer, primary_key=True, index=True, comment="预警设置唯一标识ID")
     
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="关联用户ID")
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, comment="关联用户ID")
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, comment="关联手办ID")
     
     # 预警配置
@@ -94,7 +94,7 @@ class AssetTransaction(Base):
     id = Column(Integer, primary_key=True, index=True, comment="交易记录唯一标识ID")
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="关联用户ID")
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, comment="关联用户ID")
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, comment="关联手办ID")
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, comment="关联订单ID（买入交易时关联）")
     sold_order_id = Column(Integer, ForeignKey("sold_orders.id"), nullable=True, comment="关联卖出订单ID（卖出交易时关联）")
@@ -213,7 +213,7 @@ class AssetValueCache(Base):
     id = Column(Integer, primary_key=True, index=True, comment="缓存记录唯一标识ID")
     
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="关联用户ID")
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, comment="关联用户ID")
     
     # 资产数据
     total_value = Column(Float, nullable=False, comment="当日总市值（所有手办当前价值总和）")
@@ -222,18 +222,6 @@ class AssetValueCache(Base):
 
     # 关系
     user = relationship("User")  # 关联用户对象
-
-class UserSettings(Base):
-    """用户设置（年度手办消费上限等）"""
-    __tablename__ = "user_settings"
-
-    id = Column(Integer, primary_key=True, index=True, comment="设置记录唯一标识ID")
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, comment="关联用户ID")
-    annual_spending_limit = Column(Float, default=0, comment="年度手办消费上限（0表示未设置）")
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment="更新时间")
-
-    # 关系
-    user = relationship("User") # 关联用户对象
 
 
 class OrderTransaction(Base):
@@ -266,7 +254,7 @@ class OrderTransaction(Base):
     id = Column(Integer, primary_key=True, index=True, comment="资金流水记录唯一标识ID")
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="关联用户ID")
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, comment="关联用户ID")
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, comment="关联手办ID")
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, comment="关联订单ID（可选）")
     sold_order_id = Column(Integer, ForeignKey("sold_orders.id"), nullable=True, comment="关联卖出订单ID（卖出交易时关联）")
@@ -329,7 +317,7 @@ class PlasticIndexHistory(Base):
     id = Column(Integer, primary_key=True, index=True, comment="记录唯一标识ID")
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="关联用户ID")
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, comment="关联用户ID")
 
     # 指数数据
     current_value = Column(Float, nullable=False, comment="当前指数值")

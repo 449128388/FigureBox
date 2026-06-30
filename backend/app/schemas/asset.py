@@ -54,7 +54,7 @@ class AssetAlert(Base):
     id = Column(Integer, primary_key=True, index=True)  # 预警设置唯一标识ID
     
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False)  # 关联用户ID
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID
     
     # 预警配置
@@ -93,7 +93,7 @@ class AssetTransaction(Base):
     id = Column(Integer, primary_key=True, index=True)  # 交易记录唯一标识ID
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False)  # 关联用户ID
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # 关联订单ID（买入交易时关联）
 
@@ -206,7 +206,7 @@ class AssetValueCache(Base):
     id = Column(Integer, primary_key=True, index=True)  # 缓存记录唯一标识ID
     
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False)  # 关联用户ID
     
     # 资产数据
     total_value = Column(Float, nullable=False)  # 当日总市值（所有手办当前价值总和）
@@ -215,19 +215,6 @@ class AssetValueCache(Base):
 
     # 关系
     user = relationship("User")  # 关联用户对象
-
-class UserSettings(Base):
-    """用户设置（年度手办消费上限等）"""
-    __tablename__ = "user_settings"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
-    annual_spending_limit = Column(Float, default=0)  # 年度手办消费上限（0表示未设置）
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())  # 更新时间
-
-    # 关系
-    user = relationship("User") # 关联用户对象
-
 
 class OrderTransaction(Base):
     """
@@ -259,7 +246,7 @@ class OrderTransaction(Base):
     id = Column(Integer, primary_key=True, index=True)  # 资金流水记录唯一标识ID
 
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 关联用户ID
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False)  # 关联用户ID
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False)  # 关联手办ID
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # 关联订单ID（可选）
 

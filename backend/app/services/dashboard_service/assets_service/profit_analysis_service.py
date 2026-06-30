@@ -11,6 +11,7 @@ from app.models.figure import Figure
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
 from app.models.asset import AssetTransaction
+from app.services.exchange_rate_service import ExchangeRateService
 
 
 class ProfitAnalysisService:
@@ -148,14 +149,6 @@ class ProfitAnalysisService:
         Returns:
             float: 总投入成本
         """
-        # 汇率配置
-        exchange_rates = {
-            'CNY': 1.0,
-            'JPY': 1/23,
-            'USD': 7.0,
-            'EUR': 8.0
-        }
-
         # 查询已完成订单
         completed_orders = db.query(Order).filter(
             Order.user_id == user_id,
@@ -165,12 +158,12 @@ class ProfitAnalysisService:
 
         total_cost = 0.0
         for order in completed_orders:
-            # 转换定金为人民币
-            deposit_rate = exchange_rates.get(order.deposit_currency or 'CNY', 1.0)
+            # 转换定金为人民币（使用统一汇率服务）
+            deposit_rate = ExchangeRateService.get_rate(db, order.deposit_currency or 'CNY')
             deposit_rmb = (order.deposit or 0) * deposit_rate
 
-            # 转换尾款为人民币
-            balance_rate = exchange_rates.get(order.balance_currency or 'CNY', 1.0)
+            # 转换尾款为人民币（使用统一汇率服务）
+            balance_rate = ExchangeRateService.get_rate(db, order.balance_currency or 'CNY')
             balance_rmb = (order.balance or 0) * balance_rate
 
             total_cost += deposit_rmb + balance_rmb

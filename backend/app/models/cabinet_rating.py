@@ -26,7 +26,7 @@ class CabinetRating(Base):
     id = Column(Integer, primary_key=True, index=True, comment="评分唯一标识ID")
     
     # 外键关联
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="用户ID")
+    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, comment="用户ID")
     figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, comment="手办ID")
     
     # 收藏柜类型
