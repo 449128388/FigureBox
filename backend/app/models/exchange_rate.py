@@ -21,7 +21,7 @@ class ExchangeRateRealtime(Base):
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4", "comment": "最新汇率缓存表"}
     )
 
-    id = Column(Integer, primary_key=True, index=True, comment="记录唯一标识ID")
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="记录唯一标识ID")
     currency = Column(String(10), nullable=False, unique=True, comment="币种代码：CNY/USD/JPY/EUR/HKD/GBP 等")
     rate_to_cny = Column(Float, nullable=False, comment="相对人民币的汇率（1单位本币 = ? 人民币）")
     updated_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"),
@@ -36,7 +36,7 @@ class ExchangeRateHistory(Base):
         {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4", "comment": "汇率历史记录表"}
     )
 
-    id = Column(Integer, primary_key=True, index=True, comment="记录唯一标识ID")
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="记录唯一标识ID")
     currency = Column(String(10), nullable=False, comment="币种代码")
     rate_to_cny = Column(Float, nullable=False, comment="相对人民币的汇率")
     record_date = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), comment="记录时间")

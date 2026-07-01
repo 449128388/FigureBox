@@ -44,6 +44,10 @@ class HPIDaily(Base):
     sold_up_count = Column(Integer, default=0, comment="卖出后上涨（卖飞）")
     sold_down_count = Column(Integer, default=0, comment="卖出后下跌（卖对）")
 
+    # 走势图拆分贡献（HPI 走势 K图两线）
+    in_cabinet_value = Column(Float, default=0, comment="在柜手办加权市值贡献（绿实线）")
+    sold_value = Column(Float, default=0, comment="已出手办加权市值贡献（灰虚线）")
+
     record_date = Column(Date, nullable=False, comment="记录日期")
     created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), comment="创建时间")
 
@@ -64,6 +68,7 @@ class HPIComponent(Base):
     # 买入时点（锁定）
     first_buy_price = Column(Float, nullable=False, comment="首次买入价")
     first_buy_date = Column(Date, nullable=False, comment="首次买入日期")
+    quantity = Column(Integer, default=1, comment="累计买入数量（订单笔数）")
     total_buy_amount = Column(Float, nullable=False, comment="累计买入金额")
 
     # 当前状态

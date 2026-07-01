@@ -21,6 +21,10 @@ python migrations/add_exchange_rate_tables.py
 echo "→ 检查 exchange_rate 表备注..."
 python migrations/add_exchange_rate_comments.py
 
+# 修复汇率表 id 字段 AUTO_INCREMENT
+echo "→ 修复 exchange_rate 表 id AUTO_INCREMENT..."
+python migrations/fix_exchange_rate_autoincrement.py
+
 # 执行所有表注释补充
 echo "→ 检查所有表注释..."
 python migrations/add_all_table_comments.py
@@ -32,6 +36,10 @@ python migrations/merge_user_settings_into_users.py
 # 执行 HPI 表创建
 echo "→ 检查 HPI 表..."
 python migrations/add_hpi_tables.py
+
+# 执行 HPI 拆分贡献字段
+echo "→ 添加 HPI 拆分贡献字段..."
+python migrations/add_hpi_contributions.py
 
 echo "✅ 数据库迁移完成"
 

@@ -12,10 +12,12 @@
 - 已出手办 ✅ 继续跟踪当前市场价（看卖飞/卖对）
 
 计算公式：
-HPI = 1000 × (1 + 平均超额收益率)
-平均超额收益率 = Σ(每手办收益率 × 该手办权重)
+HPI = 1000 × (1 + 加权平均收益率)
+加权平均收益率 = Σ(每手办收益率 × 每手办权重)
 每手办收益率 = (当前市场价 - 首次买入价) / 首次买入价
-权重 = 该手办历史交易金额 / 历史总交易金额
+每手办权重 = 该手办历史交易金额 / 历史总交易金额
+涨跌点数 = HPI - 1000
+涨跌百分比 = 加权平均收益率 × 100%
 
 成分股管理：
 - 纳入：用户首次买入某手办时自动纳入
@@ -37,6 +39,7 @@ from app.models.figure import Figure
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
 from app.models.hpi import HPIDaily, HPIComponent
+from app.services.sold_order_service.currency_service import CurrencyService
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +88,8 @@ class HPIService:
                     "total_figures": r.total_figures,
                     "holding_figures": r.holding_figures,
                     "sold_figures": r.sold_figures,
+                    "in_cabinet_value": float(r.in_cabinet_value or 0),
+                    "sold_value": float(r.sold_value or 0),
                 }
                 for r in records
             ]
@@ -99,6 +104,8 @@ class HPIService:
                 "total_figures": calc_result["total_figures"],
                 "holding_figures": calc_result["holding_figures"],
                 "sold_figures": calc_result["sold_figures"],
+                "in_cabinet_value": calc_result.get("in_cabinet_value", 0.0),
+                "sold_value": calc_result.get("sold_value", 0.0),
             }]
         return []
 
@@ -179,6 +186,8 @@ class HPIService:
             down_count=calc_result["down_count"],
             sold_up_count=calc_result["sold_up_count"],
             sold_down_count=calc_result["sold_down_count"],
+            in_cabinet_value=calc_result.get("in_cabinet_value", 0.0),
+            sold_value=calc_result.get("sold_value", 0.0),
             record_date=calc_date,
         )
         db.add(daily)
@@ -191,6 +200,7 @@ class HPIService:
                 record_date=calc_date,
                 first_buy_price=round(comp["first_buy_price"], 2),
                 first_buy_date=comp["first_buy_date"],
+                quantity=comp["quantity"],
                 total_buy_amount=round(comp["total_buy_amount"], 2),
                 current_price=round(comp["current_price"], 2),
                 is_sold=1 if comp["is_sold"] else 0,
@@ -211,11 +221,24 @@ class HPIService:
         """
         核心计算逻辑
 
-        1. 获取用户生涯所有交易过的手办（从 Order 表获取买入记录）
+        公式定义：
+          HPI = 1000 × (1 + 加权平均收益率)
+          加权平均收益率 = Σ(每手办收益率 × 每手办权重)
+          每手办收益率 = (当前市场价 - 首次买入价) / 首次买入价
+          每手办权重 = 该手办历史交易金额 / 历史总交易金额
+          涨跌点数 = HPI - 1000
+          涨跌百分比 = 加权平均收益率 × 100%
+
+        走势图拆分贡献（在柜/已出）：
+          - 始终满足：HPI = 在柜贡献 + 已出贡献
+          - 在柜贡献 = Σ(1000 × 当前市场价/首次买入价 × 权重)  （在柜手办）
+          - 已出贡献 = Σ(1000 × 当前市场价/首次买入价 × 权重)  （已出手办）
+
+        1. 获取用户生涯所有交易过的手办（从 Order 表）
         2. 获取每个手办的当前市场价
         3. 判断是否已出（从 SoldOrder 表）
-        4. 计算每手办收益率、权重
-        5. 汇总计算 HPI
+        4. 计算总交易金额、每手办权重、收益率
+        5. 计算加权平均收益率和 HPI
         """
         # 1. 获取用户所有买入过的手办
         figure_data = cls._get_all_traded_figures(db, user_id)
@@ -229,17 +252,19 @@ class HPIService:
         # 3. 获取已出手办映射
         sold_figures = cls._get_sold_figure_map(db, user_id)
 
-        # 4. 计算总交易金额（权重分母）
+        # 4. 计算历史总交易金额（权重分母）
         total_amount = sum(fd["total_buy_amount"] for fd in figure_data)
         if total_amount <= 0:
             return None
 
         # 5. 逐手办计算
         components = []
-        total_weighted_return = 0.0
+        total_weighted_return = 0.0  # 累积加权平均收益率（百分比点数）
         up_count = flat_count = down_count = 0
         sold_up_count = sold_down_count = 0
         holding_count = sold_count = 0
+        in_cabinet_chart_sum = 0.0  # 在柜走势图贡献（0~1000标尺）
+        sold_chart_sum = 0.0        # 已出走势图贡献（0~1000标尺）
         # 涨跌平容差阈值 ±1%，避免微小价格波动被统计为涨跌
         THRESHOLD = 1.0
 
@@ -247,20 +272,26 @@ class HPIService:
             figure_id = fd["figure_id"]
             first_buy_price = fd["first_buy_price"]
             first_buy_date = fd["first_buy_date"]
+            quantity = fd["quantity"]
             total_buy_amount = fd["total_buy_amount"]
             current_price = market_prices.get(figure_id, first_buy_price)
             is_sold = figure_id in sold_figures
             sell_price = sold_figures.get(figure_id)
 
-            # 收益率
+            # 收益率（百分比，如 83.8 表示 +83.8%）
             return_pct = (current_price - first_buy_price) / first_buy_price * 100 if first_buy_price > 0 else 0
 
-            # 权重
+            # 权重 = 该手办历史交易金额 / 历史总交易金额
             weight = total_buy_amount / total_amount
 
-            # 加权收益率
+            # 加权收益率贡献（百分比点数，如 13.7 表示贡献 +13.7%）
             weighted_return = return_pct * weight
             total_weighted_return += weighted_return
+
+            # 走势图贡献值（0~1000 标尺）
+            # = 1000 × (当前市场价 / 首次买入价) × 权重
+            # = 1000 × (1 + 收益率) × 权重
+            chart_contribution = cls.BASE_INDEX * (current_price / first_buy_price) * weight if first_buy_price > 0 else 0
 
             # 盈亏分布（使用 ±1% 容差阈值）
             if return_pct > THRESHOLD:
@@ -270,9 +301,10 @@ class HPIService:
             else:
                 flat_count += 1
 
-            # 在柜/已出
+            # 在柜/已出分类
             if is_sold:
                 sold_count += 1
+                sold_chart_sum += chart_contribution
                 # 卖飞/卖对判断
                 if current_price > sell_price:
                     sold_up_count += 1
@@ -280,26 +312,40 @@ class HPIService:
                     sold_down_count += 1
             else:
                 holding_count += 1
+                in_cabinet_chart_sum += chart_contribution
 
             components.append({
                 "figure_id": figure_id,
                 "figure_name": fd.get("figure_name", ""),
                 "first_buy_price": first_buy_price,
                 "first_buy_date": first_buy_date,
+                "quantity": quantity,
                 "total_buy_amount": total_buy_amount,
                 "current_price": current_price,
                 "is_sold": is_sold,
                 "sell_price": sell_price,
                 "return_pct": return_pct,
                 "weight": weight,
-                "contribution": weighted_return,
+                "contribution": round(weighted_return, 2),       # 百分比点数贡献
                 "sell_fly": is_sold and current_price > sell_price,
                 "sell_right": is_sold and current_price < sell_price,
             })
 
         # 6. 计算 HPI
-        avg_return = total_weighted_return
-        index_value = cls.BASE_INDEX * (1 + avg_return / 100)
+        avg_return = total_weighted_return  # 加权平均收益率（百分比点数，如 4.6）
+        index_value = cls.BASE_INDEX * (1 + avg_return / 100)  # HPI 指数值
+
+        # 走势图拆分（0~1000标尺，恒等式：in_cabinet_value + sold_value = index_value）
+        in_cabinet_value = round(in_cabinet_chart_sum, 2)
+        sold_value = round(sold_chart_sum, 2)
+
+        # 找出所有成分股中最小的首次买入日期
+        earliest_buy_date = None
+        for fd in figure_data:
+            date_val = fd.get("first_buy_date")
+            if date_val:
+                if earliest_buy_date is None or date_val < earliest_buy_date:
+                    earliest_buy_date = date_val
 
         return {
             "index_value": round(index_value, 2),
@@ -312,6 +358,9 @@ class HPIService:
             "down_count": down_count,
             "sold_up_count": sold_up_count,
             "sold_down_count": sold_down_count,
+            "in_cabinet_value": in_cabinet_value,
+            "sold_value": sold_value,
+            "first_buy_date": earliest_buy_date,
             "components": components,
         }
 
@@ -321,55 +370,85 @@ class HPIService:
         获取用户生涯所有交易过的手办
 
         从 Order 表统计每手办的：
-        - 首次买入价格
+        - 首次买入价格（人民币）
         - 首次买入日期
-        - 累计买入金额
+        - 累计买入金额（人民币，经币种汇率转换）
         - 手办名称
+
+        币种处理：deposit 和 balance 可能有不同的币种（deposit_currency / balance_currency），
+        统一通过 CurrencyService 转换为人民币后再汇总。
         """
-        # 使用 SQL 聚合查询
-        from sqlalchemy import text
+        from collections import OrderedDict
 
-        sql = text("""
-            SELECT
-                o.figure_id,
-                f.name AS figure_name,
-                (SELECT o2.deposit + o2.balance
-                 FROM orders o2
-                 WHERE o2.figure_id = o.figure_id
-                   AND o2.user_id = o.user_id
-                   AND o2.is_active = 1
-                   AND o2.status IN ('已完成', '已支付')
-                 ORDER BY o2.created_at ASC
-                 LIMIT 1) AS first_buy_price,
-                MIN(o.created_at) AS first_buy_date,
-                SUM(o.deposit + o.balance) AS total_buy_amount
-            FROM orders o
-            JOIN figures f ON f.id = o.figure_id
-            WHERE o.user_id = :user_id
-              AND o.is_active = 1
-              AND o.status IN ('已完成', '已支付')
-            GROUP BY o.figure_id
-        """)
-        result = db.execute(sql, {"user_id": user_id})
-        rows = result.fetchall()
+        # 查询所有有效订单（含币种信息）
+        orders = (
+            db.query(Order)
+            .filter(
+                Order.user_id == user_id,
+                Order.is_active == 1,
+                Order.status.in_(['已完成', '已支付']),
+            )
+            .order_by(Order.created_at.asc())
+            .all()
+        )
+        if not orders:
+            return []
 
+        # 按 figure_id 分组聚合
+        figure_map = OrderedDict()  # figure_id -> aggregated data
+        figure_names = {}  # figure_id -> name
+
+        # 预查询手办名称
+        figure_ids = list(set(o.figure_id for o in orders))
+        figures = db.query(Figure).filter(Figure.id.in_(figure_ids)).all()
+        figure_names = {f.id: f.name for f in figures}
+
+        for order in orders:
+            fid = order.figure_id
+            if fid not in figure_map:
+                figure_map[fid] = {
+                    "first_buy_price_cny": None,   # 首次订单的CNY总价
+                    "first_buy_date": None,         # 首次订单日期
+                    "total_buy_amount_cny": 0.0,    # 累计CNY总金额
+                    "quantity": 0,                  # 订单笔数
+                }
+
+            # 将本订单的 deposit + balance 转为 CNY
+            deposit_cny = CurrencyService.to_cny(
+                order.deposit or 0, order.deposit_currency or 'CNY', db=db
+            )
+            balance_cny = CurrencyService.to_cny(
+                order.balance or 0, order.balance_currency or 'CNY', db=db
+            )
+            order_total_cny = deposit_cny + balance_cny
+
+            record = figure_map[fid]
+            # 首次订单记录首次买入价（CNY）
+            if record["first_buy_price_cny"] is None:
+                record["first_buy_price_cny"] = order_total_cny
+                record["first_buy_date"] = order.created_at
+
+            record["total_buy_amount_cny"] += order_total_cny
+            record["quantity"] += 1
+
+        # 组装返回数据
         figure_data = []
-        for row in rows:
-            first_price = float(row.first_buy_price) if row.first_buy_price else 0
-            if first_price <= 0:
+        for fid, record in figure_map.items():
+            first_price_cny = record["first_buy_price_cny"]
+            if not first_price_cny or first_price_cny <= 0:
                 continue
 
-            # first_buy_date 可能是 datetime 或 date
-            buy_date = row.first_buy_date
+            buy_date = record["first_buy_date"]
             if hasattr(buy_date, 'date'):
                 buy_date = buy_date.date()
 
             figure_data.append({
-                "figure_id": row.figure_id,
-                "figure_name": row.figure_name or "",
-                "first_buy_price": first_price,
+                "figure_id": fid,
+                "figure_name": figure_names.get(fid, ""),
+                "first_buy_price": round(first_price_cny, 2),
                 "first_buy_date": buy_date,
-                "total_buy_amount": float(row.total_buy_amount or 0),
+                "total_buy_amount": round(record["total_buy_amount_cny"], 2),
+                "quantity": record["quantity"],
             })
 
         return figure_data
@@ -422,6 +501,7 @@ class HPIService:
                 "figure_id": c.figure_id,
                 "first_buy_price": c.first_buy_price,
                 "first_buy_date": c.first_buy_date.isoformat() if c.first_buy_date else "",
+                "quantity": c.quantity or 1,
                 "total_buy_amount": c.total_buy_amount,
                 "current_price": c.current_price,
                 "is_sold": bool(c.is_sold),
@@ -437,6 +517,14 @@ class HPIService:
     @staticmethod
     def _build_dashboard(snapshot: HPIDaily, components: List[Dict]) -> Dict[str, Any]:
         """构建 dashboard 返回格式（从快照）"""
+        # 从组件中找出最早的首次买入日期
+        earliest_buy_date = None
+        for c in components:
+            date_val = c.get("first_buy_date")
+            if date_val:
+                if earliest_buy_date is None or date_val < earliest_buy_date:
+                    earliest_buy_date = date_val
+
         return {
             "index_value": snapshot.index_value,
             "avg_return": snapshot.avg_return,
@@ -448,6 +536,9 @@ class HPIService:
             "down_count": snapshot.down_count,
             "sold_up_count": snapshot.sold_up_count,
             "sold_down_count": snapshot.sold_down_count,
+            "in_cabinet_value": float(snapshot.in_cabinet_value or 0),
+            "sold_value": float(snapshot.sold_value or 0),
+            "first_buy_date": earliest_buy_date,
             "components": components,
         }
 
@@ -465,6 +556,9 @@ class HPIService:
             "down_count": result["down_count"],
             "sold_up_count": result["sold_up_count"],
             "sold_down_count": result["sold_down_count"],
+            "in_cabinet_value": result.get("in_cabinet_value", 0.0),
+            "sold_value": result.get("sold_value", 0.0),
+            "first_buy_date": result.get("first_buy_date"),
             "components": result.get("components", []),
         }
 
@@ -481,5 +575,6 @@ class HPIService:
             "down_count": 0,
             "sold_up_count": 0,
             "sold_down_count": 0,
+            "first_buy_date": None,
             "components": [],
         }

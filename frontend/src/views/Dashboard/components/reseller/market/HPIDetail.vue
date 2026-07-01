@@ -32,21 +32,28 @@
     </div>
 
     <div class="hpi-body">
-    <!-- HPI 核心指标 -->
+    <!-- HPI 头部：指数值 + 累计收益 -->
     <div class="hpi-header">
-      <div class="hpi-main-value">
-        <span class="value">{{ formatNumber(indexData?.index_value) }}</span>
-        <span class="unit">点</span>
+      <div class="hpi-main">
+        <span class="hpi-value">{{ formatNumber(indexData?.index_value) }}</span>
+        <span :class="['hpi-change', returnClass]">
+          <span class="hpi-arrow">{{ changeArrow }}</span>
+          <span class="hpi-change-points">+{{ formatNumber(Math.abs(indexData?.index_value - 1000)) }}</span>
+          <span class="hpi-change-pct">({{ formatPct(indexData?.avg_return) }})</span>
+        </span>
       </div>
-      <div class="hpi-avg-return">
-        生涯均价涨幅：<span :class="returnClass">{{ formatPct(indexData?.avg_return) }}</span>
-      </div>
+    </div>
+
+    <!-- 基准信息 + 生涯累计收益（同行） -->
+    <div class="hpi-base-info" v-if="indexData?.first_buy_date">
+      基准: <span>1,000</span> (首次买入日: {{ formatDate(indexData?.first_buy_date) }}) &nbsp;|&nbsp;
+      生涯累计收益率: <strong :class="returnClass">{{ formatPct(indexData?.avg_return) }}</strong>
     </div>
 
     <!-- 统计卡片 -->
     <div class="hpi-stats">
       <div class="stat-card">
-        <div class="stat-label">生涯手办</div>
+        <div class="stat-label">累计交易</div>
         <div class="stat-value">{{ indexData?.total_figures || 0 }}</div>
       </div>
       <div class="stat-card">
@@ -78,10 +85,6 @@
         </div>
       </div>
       <div ref="chartRef" class="chart-container"></div>
-      <div class="chart-legend">
-        <span class="legend-item"><span class="line-holding"></span>在柜手办</span>
-        <span class="legend-item"><span class="line-sold"></span>已出手办</span>
-      </div>
     </div>
 
     <!-- 成分股列表 -->
@@ -146,6 +149,13 @@ export default {
       return v > 0 ? 'up' : v < 0 ? 'down' : ''
     })
 
+    const changeArrow = computed(() => {
+      const v = indexData.value?.avg_return || 0
+      if (v > 0) return '↑'
+      if (v < 0) return '↓'
+      return '—'
+    })
+
     const fetchHistory = async (days) => {
       try {
         const res = await axios.get(`/market/hpi-history?days=${days}`)
@@ -174,61 +184,114 @@ export default {
         if (!chartInstance) {
           chartInstance = echarts.init(chartRef.value)
         }
+        // 本地日期工具（避免 toISOString 的 UTC 偏移）
+        const fmtLocal = (d) => {
+          const y = d.getFullYear()
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          return `${y}-${m}-${day}`
+        }
+        const parseLocal = (s) => {
+          const [y, m, d] = s.split('-').map(Number)
+          return new Date(y, m - 1, d)
+        }
         const data = historyData.value
-        if (!data.length) return
 
-        const dates = data.map(d => d.date)
-        const values = data.map(d => d.value)
-        const holding = data.map(d => d.holding_figures)
-        const sold = data.map(d => d.sold_figures)
+        // 按时间控件（selectedRange）补齐中间缺失的日期，保证 X 轴连续显示
+        const dates = []
+        const inCabinet = []
+        const sold = []
+        const dataMap = {}
+        for (const d of data) {
+          dataMap[d.date] = d
+        }
+        const range = selectedRange.value
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        let startDate, endDate
+        if (range >= 9999) {
+          // 全部：起始 = data 最小日期，结束 = today（始终包含今天）
+          endDate = today
+          let earliest = today
+          for (const key in dataMap) {
+            const dt = parseLocal(key)
+            if (dt < earliest) earliest = dt
+          }
+          startDate = earliest
+        } else {
+          // 近7/30/365：起始 = endDate - (N-1)，结束 = today（也始终包含今天）
+          endDate = today
+          startDate = new Date(today)
+          startDate.setDate(startDate.getDate() - (range - 1))
+        }
+        // 遍历 startDate -> endDate 之间的所有日期（用本地日期格式化）
+        const totalDays = Math.floor((endDate - startDate) / 86400000) + 1
+        for (let i = 0; i < totalDays; i++) {
+          const d = new Date(startDate)
+          d.setDate(d.getDate() + i)
+          const ds = fmtLocal(d)
+          dates.push(ds)
+          const hit = dataMap[ds]
+          inCabinet.push(hit ? (hit.in_cabinet_value || 0) : 0)
+          sold.push(hit ? (hit.sold_value || 0) : 0)
+        }
 
         chartInstance.setOption({
           tooltip: {
             trigger: 'axis',
             formatter: (params) => {
-              const p = params[0]
-              const idx = p.dataIndex
-              const d = data[idx]
+              const idx = params[0].dataIndex
+              const date = dates[idx]
+              const ic = Math.round(inCabinet[idx] || 0)
+              const sl = Math.round(sold[idx] || 0)
               return `<div>
-                <div>日期：${d.date}</div>
-                <div>HPI：${d.value?.toFixed(2)}</div>
-                <div>收益率：${d.avg_return?.toFixed(2)}%</div>
-                <div>在柜：${d.holding_figures} | 已出：${d.sold_figures}</div>
+                <div>${date}</div>
+                <div><span style="display:inline-block;width:8px;height:8px;background:#52c41a;border-radius:50%;margin-right:4px;"></span>在柜贡献 <strong>${ic}</strong></div>
+                <div><span style="display:inline-block;width:8px;height:8px;background:#bfbfbf;border-radius:50%;margin-right:4px;"></span>已出贡献 <strong>${sl}</strong></div>
               </div>`
             }
           },
-          grid: { left: 50, right: 20, top: 20, bottom: 30 },
+          legend: {
+            bottom: 0,
+            data: [
+              { name: '在柜贡献', icon: 'circle', itemStyle: { color: '#52c41a' } },
+              { name: '已出贡献', icon: 'circle', itemStyle: { color: '#bfbfbf' } }
+            ],
+            textStyle: { fontSize: 12, color: '#666' }
+          },
+          grid: { left: 60, right: 50, top: 20, bottom: 60, containLabel: true },
           xAxis: {
             type: 'category',
             data: dates,
-            axisLabel: { fontSize: 10, rotate: 45 }
+            boundaryGap: false,
+            axisLabel: {
+              fontSize: 10,
+              rotate: 45,
+              margin: 14,
+              interval: dates.length > 60 ? Math.floor(dates.length / 30) : 0
+            }
           },
           yAxis: {
             type: 'value',
+            min: 0,
             splitLine: { lineStyle: { type: 'dashed', color: '#eee' } }
           },
           series: [
             {
-              name: '在柜',
+              name: '在柜贡献',
               type: 'line',
-              data: values,
+              data: inCabinet,
               smooth: true,
               symbol: 'none',
-              lineStyle: { color: '#52c41a', width: 2 },
-              areaStyle: {
-                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                  { offset: 0, color: 'rgba(82, 196, 26, 0.3)' },
-                  { offset: 1, color: 'rgba(82, 196, 26, 0.02)' }
-                ])
-              }
+              lineStyle: { color: '#52c41a', width: 2 }
             },
             {
-              name: '已出',
+              name: '已出贡献',
               type: 'line',
-              data: values,
+              data: sold,
               smooth: true,
               symbol: 'none',
-              lineStyle: { color: '#d9d9d9', width: 2, type: 'dashed' }
+              lineStyle: { color: '#bfbfbf', width: 2, type: 'dashed' }
             }
           ]
         })
@@ -247,6 +310,13 @@ export default {
       if (!v && v !== 0) return '0'
       return Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
     }
+    const formatDate = (v) => {
+      if (!v) return ''
+      // 处理 "2023-12-25" 或 ISO 格式日期
+      const d = new Date(v)
+      if (isNaN(d.getTime())) return String(v).substring(0, 10)
+      return d.toISOString().substring(0, 10)
+    }
 
     onMounted(() => {
       fetchHistory(selectedRange.value)
@@ -259,7 +329,7 @@ export default {
 
     return {
       chartRef, selectedRange, timeRanges, historyData, components, loading,
-      indexData, returnClass, switchRange, formatNumber, formatPct, formatCurrency
+      indexData, returnClass, changeArrow, switchRange, formatNumber, formatPct, formatCurrency, formatDate
     }
   }
 }
@@ -284,14 +354,21 @@ export default {
 /* 卡片 body（与参考设计 card-body 一致） */
 .hpi-body { padding: 20px; }
 
-.hpi-header { margin-bottom: 16px; }
-.hpi-main-value { display: flex; align-items: baseline; gap: 4px; margin-bottom: 4px; }
-.hpi-main-value .value { font-size: 36px; font-weight: 700; color: #333; }
-.hpi-main-value .unit { font-size: 16px; color: #666; }
-.hpi-avg-return { font-size: 14px; color: #666; }
-.hpi-avg-return span { font-weight: 600; }
-.hpi-avg-return .up { color: #f5222d; }
-.hpi-avg-return .down { color: #52c41a; }
+.hpi-header { margin-bottom: 12px; }
+.hpi-main { display: flex; align-items: baseline; gap: 16px; }
+.hpi-value { font-size: 48px; font-weight: 700; color: #333; line-height: 1; }
+.hpi-change { font-size: 16px; font-weight: 600; display: inline-flex; align-items: baseline; gap: 4px; }
+.hpi-change.up { color: #f5222d; }
+.hpi-change.down { color: #52c41a; }
+.hpi-arrow { font-size: 18px; }
+.hpi-change-points { font-size: 18px; font-weight: 700; }
+.hpi-change-pct { font-size: 14px; font-weight: 500; opacity: 0.85; }
+
+.hpi-base-info { font-size: 13px; color: #999; margin-bottom: 16px; }
+.hpi-base-info span { color: #666; }
+.hpi-base-info strong { font-weight: 600; }
+.hpi-base-info strong.up { color: #f5222d; }
+.hpi-base-info strong.down { color: #52c41a; }
 
 .hpi-stats { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .stat-card {
@@ -300,8 +377,8 @@ export default {
 .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
 .stat-value { font-size: 20px; font-weight: 700; color: #333; }
 .stat-value.sold-track { color: #faad14; }
-.stat-value.fly { color: #ff4d4f; }
-.stat-value.right { color: #52c41a; }
+.stat-value.fly { color: #52c41a; }
+.stat-value.right { color: #f5222d; }
 
 /* 涨平跌药丸样式 */
 .hpi-stats-pills { display: flex; gap: 10px; }
@@ -328,10 +405,6 @@ export default {
 }
 .range-btn.active { background: #1890ff; color: #fff; border-color: #1890ff; }
 .chart-container { width: 100%; height: 300px; }
-.chart-legend { display: flex; gap: 20px; margin-top: 8px; font-size: 12px; color: #999; }
-.legend-item { display: flex; align-items: center; gap: 6px; }
-.line-holding { width: 20px; height: 2px; background: #52c41a; display: inline-block; }
-.line-sold { width: 20px; height: 2px; background: #d9d9d9; display: inline-block; border-top: 1px dashed #d9d9d9; }
 
 .hpi-components h4 { font-size: 14px; color: #333; margin-bottom: 12px; }
 .loading, .empty { text-align: center; padding: 40px; color: #999; font-size: 14px; }
@@ -350,6 +423,6 @@ export default {
 .badge.sold { background: #fff7e6; color: #d48806; }
 .badge.holding { background: #f6ffed; color: #389e0d; }
 .comp-sell-label { font-size: 12px; font-weight: 600; }
-.comp-sell-label.fly { color: #ff4d4f; }
-.comp-sell-label.right { color: #52c41a; }
+.comp-sell-label.fly { color: #52c41a; }
+.comp-sell-label.right { color: #f5222d; }
 </style>
