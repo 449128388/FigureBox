@@ -72,15 +72,6 @@
               <el-icon><Refresh /></el-icon> 刷新资产
             </el-button>
           </template>
-          <!-- 行情版块按钮 -->
-          <template v-if="activeView === 'market'">
-            <el-button type="primary" @click="refreshData">
-              <el-icon><Refresh /></el-icon> 刷新行情
-            </el-button>
-            <el-button @click="openAlertSettings">
-              <el-icon><Bell /></el-icon> 设置预警
-            </el-button>
-          </template>
           <!-- 交易版块按钮 -->
           <template v-if="activeView === 'trade'">
             <el-button type="primary" @click="openBillExportDialog">
@@ -101,13 +92,6 @@
         @add-position="handleAddPosition"
         @edit-price="handleEditPrice"
         @refresh-data="fetchDashboardData"
-      />
-
-      <!-- 行情视图 -->
-      <MarketView 
-        v-else-if="activeView === 'market'" 
-        :market-data="marketData"
-        @add-watchlist="addToWatchlist"
       />
 
       <!-- 交易视图 -->
@@ -385,7 +369,6 @@ import FigureOutDrawer from './Dashboard/components/collector/CabinetDetail/comp
 
 // 导入倒狗模式组件
 import AssetView from './Dashboard/components/reseller/AssetView.vue'
-import MarketView from './Dashboard/components/reseller/MarketView.vue'
 import TradeView from './Dashboard/components/reseller/TradeView.vue'
 import BillExportDialog from './Dashboard/components/reseller/trade/BillExportDialog.vue'
 import CreateBuyOrderDrawer from './Dashboard/components/reseller/trade/CreateBuyOrderDrawer.vue'
@@ -433,7 +416,6 @@ export default {
       FigureOutDrawer,
       // 倒狗模式组件
       AssetView,
-      MarketView,
       TradeView,
       BillExportDialog,
       CreateBuyOrderDrawer,
@@ -532,7 +514,6 @@ export default {
     
     const viewTabs = [
       { label: '资产', value: 'asset' },
-      { label: '行情', value: 'market' },
       { label: '交易', value: 'trade' }
     ]
     
@@ -938,8 +919,6 @@ export default {
         await fetchDashboardData()
       } else if (newView === 'trade') {
         await fetchTradeData()
-      } else if (newView === 'market') {
-        await fetchMarketData()
       }
     })
     

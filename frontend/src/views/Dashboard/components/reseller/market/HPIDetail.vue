@@ -386,14 +386,14 @@ export default {
   padding: 8px 14px; border-radius: 8px; text-align: center;
   border: 1px solid #f0f0f0; min-width: 60px;
 }
-.stat-pill.up { background: #f6ffed; border-color: #b7eb8f; }
+.stat-pill.up { background: #fff2f0; border-color: #ffccc7; }
 .stat-pill.flat { background: #fafafa; border-color: #f0f0f0; }
-.stat-pill.down { background: #fff2f0; border-color: #ffccc7; }
+.stat-pill.down { background: #f6ffed; border-color: #b7eb8f; }
 .pill-label { font-size: 11px; color: #999; margin-bottom: 2px; }
 .pill-num { font-size: 18px; font-weight: 700; }
-.stat-pill.up .pill-num { color: #52c41a; }
+.stat-pill.up .pill-num { color: #f5222d; }
 .stat-pill.flat .pill-num { color: #8c8c8c; }
-.stat-pill.down .pill-num { color: #ff4d4f; }
+.stat-pill.down .pill-num { color: #52c41a; }
 
 .hpi-chart-section { margin-bottom: 24px; }
 .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }

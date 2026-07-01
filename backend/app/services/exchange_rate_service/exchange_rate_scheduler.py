@@ -66,6 +66,7 @@ class ExchangeRateScheduler:
     def start(self):
         """启动定时任务调度器"""
         if not self._scheduler.running:
+            # 工作日 09:25 获取汇率
             self._scheduler.add_job(
                 func=refresh_exchange_rates,
                 trigger=CronTrigger(
@@ -78,8 +79,20 @@ class ExchangeRateScheduler:
                 name="汇率定时刷新（工作日 09:25）",
                 replace_existing=True
             )
+            # 每日 00:10 清除汇率缓存锁，解决锁残留导致的定时任务不执行问题
+            self._scheduler.add_job(
+                func=clear_exchange_rate_lock,
+                trigger=CronTrigger(
+                    hour=0,
+                    minute=10,
+                    timezone=BEIJING_TZ
+                ),
+                id="exchange_rate_lock_clear",
+                name="汇率缓存锁清理（每日 00:10）",
+                replace_existing=True
+            )
             self._scheduler.start()
-            logger.info("汇率定时任务调度器已启动（工作日 09:25 执行）")
+            logger.info("汇率定时任务调度器已启动（工作日 09:25 执行，每日 00:10 清理锁）")
 
     def stop(self):
         if self._scheduler and self._scheduler.running:
@@ -119,6 +132,13 @@ def refresh_exchange_rates():
         logger.error(f"定时任务刷新汇率失败: {e}")
     finally:
         db.close()
+
+
+def clear_exchange_rate_lock():
+    """清除汇率缓存锁（每日 00:10 定时任务回调）"""
+    logger.info("定时任务：清除汇率并发锁...")
+    ExchangeRateService.clear_fetch_lock()
+    logger.info("汇率并发锁已清除，确保 09:25 汇率刷新可正常执行")
 
 
 def start_scheduler():

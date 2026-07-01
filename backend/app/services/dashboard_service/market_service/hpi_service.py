@@ -136,12 +136,20 @@ class HPIService:
         2. 计算每手办的收益率和权重
         3. 计算加权平均收益率和 HPI
         4. 写入 hpi_daily 和 hpi_components
+
+        事务保护：
+        - 异常时主动 rollback，防止 session 污染影响后续用户
         """
         try:
             today = date.today()
             return cls._calculate_and_save(db, user_id, today)
         except Exception as e:
             logger.error(f"HPI 每日跑批失败 (user_id={user_id}): {e}")
+            # 回滚事务，确保 session 干净（不影响后续用户）
+            try:
+                db.rollback()
+            except Exception:
+                pass
             return False
 
     # ========== 内部方法 ==========

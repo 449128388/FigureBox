@@ -141,6 +141,18 @@ class ExchangeRateService:
         """
         return ExchangeRateService._fetch_and_save_rates(db)
 
+    @staticmethod
+    def clear_fetch_lock() -> None:
+        """
+        清除全局并发锁（供定时任务使用，解决线程锁残留问题）
+
+        当 _fetch_and_save_rates 因网络异常或进程中断导致锁未释放时，
+        后续定时任务将无法获取锁而跳过执行。通过重建锁对象来强制重置。
+        """
+        global _fetch_lock
+        _fetch_lock = threading.Lock()
+        logger.info("汇率并发锁已重置")
+
     # ========== 内部方法 ==========
 
     @staticmethod
