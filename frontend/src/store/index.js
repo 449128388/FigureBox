@@ -4,6 +4,7 @@ import axios from '../axios'
 export const useUserStore = defineStore('user', {
   state: () => ({
     user: null,
+    profile: null,
     token: localStorage.getItem('token') || null
   }),
   getters: {
@@ -31,9 +32,28 @@ export const useUserStore = defineStore('user', {
         return null
       }
     },
+    async fetchProfile() {
+      try {
+        const response = await axios.get('/users/profile')
+        this.profile = response
+        return response
+      } catch (error) {
+        return null
+      }
+    },
+    async updateProfile(profileData) {
+      const response = await axios.put('/users/profile', profileData)
+      this.profile = response
+      return response
+    },
+    async updateSettings(settingsData) {
+      const response = await axios.put('/users/settings', settingsData)
+      return response
+    },
     logout() {
       this.token = null
       this.user = null
+      this.profile = null
       localStorage.removeItem('token')
     }
   }

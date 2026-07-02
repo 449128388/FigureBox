@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const instance = axios.create({
   baseURL: '/api',
-  timeout: 10000,
+  timeout: 60000,  // 上传大图需要更长超时
   // 允许获取自定义响应头
   headers: {
     'Access-Control-Expose-Headers': 'X-Refresh-Token'
@@ -39,8 +39,11 @@ instance.interceptors.response.use(
   },
   error => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+      // 已在登录页时，不跳转（让页面自行处理错误提示）
+      if (window.location.pathname !== '/login') {
+        localStorage.removeItem('token')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

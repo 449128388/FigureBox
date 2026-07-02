@@ -19,9 +19,13 @@
 指数服务架构说明：
 - IndexService: 指数服务（上证指数、沪深300等）
 
+存储服务架构说明：
+- StorageService: MinIO 对象存储服务（图片上传、删除、URL生成）
+
 所有手办相关服务已迁移到 figure_service 包中
 所有订单相关服务已迁移到 order_service 包中
 所有指数相关服务已迁移到 dashboard_service/assets_service 包中
+所有存储相关服务已迁移到 storage_service 包中
 """
 
 # 从 dashboard_service 导入资产相关服务（企业级服务层架构）
@@ -49,6 +53,9 @@ from .order_service import (
     OrderCrudService,
 )
 
+# 从 storage_service 包导入存储服务
+from .storage_service import StorageService
+
 __all__ = [
     "IndexService",
     "AssetCalculationService",
@@ -65,4 +72,6 @@ __all__ = [
     "OrderService",
     "OrderQueryService",
     "OrderCrudService",
+    # 存储服务
+    "StorageService",
 ]

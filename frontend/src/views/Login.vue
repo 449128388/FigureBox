@@ -19,7 +19,7 @@
     <form @submit.prevent="handleLogin">
       <div class="form-group">
         <label for="email">邮箱</label>
-        <input type="email" id="email" v-model="email" required>
+        <input type="text" id="email" v-model="email" placeholder="请输入邮箱地址" required>
       </div>
       <div class="form-group">
         <label for="password">密码</label>
@@ -33,6 +33,7 @@
 
 <script>
 import { useUserStore } from '../store'
+import { ElMessage } from 'element-plus'
 
 export default {
   name: 'Login',
@@ -44,13 +45,24 @@ export default {
   },
   methods: {
     async handleLogin() {
-      const userStore = useUserStore()
-      try {
-        await userStore.login(this.email, this.password)
-        this.$router.push('/')
-      } catch (error) {
-        alert('登录失败，请检查邮箱和密码')
+      // 自定义邮箱格式校验
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(this.email)) {
+        ElMessage.error('请输入有效的邮箱地址')
+        return
       }
+      if (!this.password) {
+        ElMessage.error('请输入密码')
+        return
+      }
+      const userStore = useUserStore()
+        try {
+          await userStore.login(this.email, this.password)
+          this.$router.push('/')
+        } catch (error) {
+          const msg = error.response?.data?.detail || '登录失败，请检查邮箱和密码'
+          ElMessage.error(msg)
+        }
     }
   }
 }

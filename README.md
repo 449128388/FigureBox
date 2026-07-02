@@ -181,8 +181,8 @@ FigureBox/
    ```
 
 3. **访问应用**
-   - 前端：http://localhost:25600
-   - 后端 API 文档：http://localhost:25610/docs
+   - 前端：http://localhost:28620
+   - 后端 API 文档：http://localhost:28610/docs
 
 ## 后端 API 端点
 

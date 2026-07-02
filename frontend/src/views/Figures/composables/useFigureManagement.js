@@ -433,19 +433,30 @@ export function useFigureManagement() {
     newFigure.value.images.splice(index, 1)
   }
 
-  const handleFileUpload = (event) => {
+  const handleFileUpload = async (event) => {
     const files = event.target.files
     if (!files) return
 
     for (const file of files) {
-      if (newFigure.value.images.length >= 10) break
-
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        newFigure.value.images.push(e.target.result)
+      if (newFigure.value.images.length >= 10) {
+        ElMessage.warning('最多只能上传 10 张图片')
+        break
       }
-      reader.readAsDataURL(file)
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await axios.post('/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        newFigure.value.images.push(res.url)
+      } catch (error) {
+        const msg = error.response?.data?.detail || error.message || '上传失败'
+        ElMessage.error(`图片 "${file.name}" 上传失败: ${msg}`)
+      }
     }
+    // 清空 input 值，允许重复选择同一文件
+    event.target.value = ''
   }
 
   return {

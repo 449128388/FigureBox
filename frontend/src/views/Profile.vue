@@ -1,206 +1,772 @@
-<!--
-  Profile.vue - 个人资料页面
-
-  功能说明：
-  - 展示当前登录用户的基本信息（用户名、邮箱）
-  - 支持编辑个人资料（用户名、邮箱）
-  - 提供退出登录功能
-  - 未获取用户信息时自动拉取
-
-  维护提示：
-  - 使用 userStore 管理用户状态
-  - 编辑模式通过 isEditing 控制
-  - 保存功能目前仅前端模拟，可扩展为API调用
-  - 退出登录后跳转到登录页面
--->
 <template>
-  <div class="profile-container">
-    <h2>个人资料</h2>
-    <div class="profile-info" v-if="userStore.currentUser">
-      <div v-if="!isEditing">
-        <p><strong>用户名:</strong> {{ userStore.currentUser.username }}</p>
-        <p><strong>邮箱:</strong> {{ userStore.currentUser.email }}</p>
-        <div class="profile-actions">
-          <button class="btn btn-edit" @click="startEditing">编辑资料</button>
-          <button class="btn btn-logout" @click="logout">退出</button>
-        </div>
-      </div>
-      <div v-else class="edit-form">
-        <div class="form-group">
-          <label>用户名</label>
-          <input type="text" v-model="editUser.username">
-        </div>
-        <div class="form-group">
-          <label>邮箱</label>
-          <input type="email" v-model="editUser.email">
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-cancel" @click="cancelEditing">取消</button>
-          <button class="btn btn-save" @click="saveChanges">保存</button>
-        </div>
-      </div>
+  <!-- Header -->
+  <header class="top-header">
+    <div class="logo-area">
+      <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#00a1d6"/><path d="M8 20c0-4 4-8 8-8s8 4 8 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="14" r="1.5" fill="#fff"/><circle cx="20" cy="14" r="1.5" fill="#fff"/></svg>
+      FigureBox
     </div>
+    <nav class="header-nav">
+      <a href="#">资产看板</a>
+      <a href="#">手办库</a>
+      <a href="#" class="active">个人中心</a>
+    </nav>
+    <div class="header-user">
+      <span>{{ userStore.currentUser?.username || userStore.profile?.username || '' }}</span>
+      <div class="header-avatar">{{ (userStore.currentUser?.username || 'U')[0].toUpperCase() }}</div>
+    </div>
+  </header>
+
+  <div class="profile-page">
+    <!-- Sidebar -->
+    <aside class="profile-sidebar">
+      <div
+        v-for="item in sidebarItems"
+        :key="item.id"
+        class="sidebar-item"
+        :class="{ active: activePanel === item.id }"
+        @click="switchPanel(item.id)"
+      >
+        <span class="sidebar-icon" v-html="item.icon"></span>
+        <span>{{ item.label }}</span>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="profile-main">
+      <!-- 基本资料 -->
+      <div class="panel" :class="{ active: activePanel === 'panel-basic' }">
+        <div class="panel-header">基本资料</div>
+        <div class="panel-body">
+          <div class="form-row">
+            <label class="form-label">昵称</label>
+            <div class="form-control">
+              <div class="input-wrap">
+                <input type="text" v-model="basicForm.nickname" maxlength="25" placeholder="请输入昵称">
+                <span class="char-count" :style="{ color: nicknameLen >= 25 ? '#f25d8e' : '' }">{{ nicknameLen }}/25</span>
+              </div>
+              <div class="form-hint">昵称禁止使用特殊符号或空格</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">用户ID</label>
+            <div class="form-control">
+              <div class="input-wrap small">
+                <input type="text" :value="userStore.profile?.id || userStore.currentUser?.id || ''" readonly>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">签名</label>
+            <div class="form-control">
+              <div class="input-wrap">
+                <input type="text" v-model="basicForm.signature" maxlength="24" placeholder="编辑个签名 showcase 一下自己吧">
+                <span class="char-count" :style="{ color: signatureLen >= 24 ? '#f25d8e' : '' }">{{ signatureLen }}/24</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">性别</label>
+            <div class="form-control">
+              <div class="radio-group">
+                <label class="radio-item">
+                  <input type="radio" v-model="basicForm.gender" value="male"> 男
+                </label>
+                <label class="radio-item">
+                  <input type="radio" v-model="basicForm.gender" value="female"> 女
+                </label>
+                <label class="radio-item">
+                  <input type="radio" v-model="basicForm.gender" value="secret"> 保密
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">生日</label>
+            <div class="form-control">
+              <div class="select-group">
+                <select v-model.number="basicForm.birthday.year">
+                  <option v-for="y in years" :key="y" :value="y">{{ y }}年</option>
+                </select>
+                <select v-model="basicForm.birthday.month">
+                  <option v-for="m in 12" :key="m" :value="String(m).padStart(2,'0')">{{ String(m).padStart(2,'0') }}月</option>
+                </select>
+                <select v-model="basicForm.birthday.day">
+                  <option v-for="d in 31" :key="d" :value="String(d).padStart(2,'0')">{{ String(d).padStart(2,'0') }}日</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">自我介绍</label>
+            <div class="form-control">
+              <div class="input-wrap large">
+                <textarea v-model="basicForm.bio" maxlength="500" placeholder="500字以内"></textarea>
+                <span class="char-count" :style="{ color: bioLen >= 500 ? '#f25d8e' : '' }">{{ bioLen }}/500</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="saveBasic">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 头像设置 -->
+      <div class="panel" :class="{ active: activePanel === 'panel-avatar' }">
+        <div class="panel-header">头像设置</div>
+        <div class="panel-body">
+          <div class="avatar-section">
+            <div class="avatar-preview-box">
+              <div class="label">当前头像</div>
+              <img :src="avatarSrc" class="avatar-large" alt="当前头像">
+              <br>
+              <a class="avatar-change-link" @click="triggerAvatarInput">更换头像</a>
+              <input type="file" ref="avatarInput" accept="image/*" style="display:none" @change="previewAvatar">
+              <div class="avatar-tips">
+                支持 jpg、jpeg、png、gif 格式<br>
+                文件大小不超过 5MB<br>
+                建议尺寸 200×200 像素以上
+              </div>
+            </div>
+            <div class="avatar-preview-box">
+              <div class="label">预览头像</div>
+              <img :src="avatarSrc" class="avatar-circle" alt="预览头像">
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:24px;">
+            <button class="btn btn-primary" @click="saveAvatar">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 屏蔽设置 -->
+      <div class="panel" :class="{ active: activePanel === 'panel-block' }">
+        <div class="panel-header">屏蔽设置</div>
+        <div class="panel-body">
+          <div class="setting-group">
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">屏蔽陌生人私信</div>
+                <div class="switch-hint">未关注的人将无法向你发送私信</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.block_stranger_msg }" @click="toggleSwitch('block_stranger_msg')"></div>
+            </div>
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">屏蔽评论通知</div>
+                <div class="switch-hint">关闭后不再接收任何评论回复提醒</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.block_comment_notify }" @click="toggleSwitch('block_comment_notify')"></div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="saveSettings('block')">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 隐私设置 -->
+      <div class="panel" :class="{ active: activePanel === 'panel-privacy' }">
+        <div class="panel-header">隐私设置</div>
+        <div class="panel-body">
+          <div class="setting-group">
+            <div class="setting-group-title">个人资料可见性</div>
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">公开我的收藏柜</div>
+                <div class="switch-hint">其他用户可以在你的主页看到收藏柜</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.privacy_cabinet }" @click="toggleSwitch('privacy_cabinet')"></div>
+            </div>
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">公开我的收益数据</div>
+                <div class="switch-hint">资产看板中的盈亏数据对他人可见</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.privacy_profit }" @click="toggleSwitch('privacy_profit')"></div>
+            </div>
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">公开我的关注列表</div>
+                <div class="switch-hint">允许他人查看你关注的手办和厂商</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.privacy_follow }" @click="toggleSwitch('privacy_follow')"></div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="saveSettings('privacy')">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 推送设置 -->
+      <div class="panel" :class="{ active: activePanel === 'panel-push' }">
+        <div class="panel-header">推送设置</div>
+        <div class="panel-body">
+          <div class="setting-group">
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">尾款到期提醒</div>
+                <div class="switch-hint">手办尾款支付截止前 3 天推送通知</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.push_balance_remind }" @click="toggleSwitch('push_balance_remind')"></div>
+            </div>
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">价格预警推送</div>
+                <div class="switch-hint">关注的手办市场价达到设定阈值时通知</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.push_price_alert }" @click="toggleSwitch('push_price_alert')"></div>
+            </div>
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">系统公告</div>
+                <div class="switch-hint">FigureBox 功能更新与维护通知</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.push_system_notice }" @click="toggleSwitch('push_system_notice')"></div>
+            </div>
+            <div class="switch-row">
+              <div>
+                <div class="switch-label">邮件周报</div>
+                <div class="switch-hint">每周一发送资产收益周报至绑定邮箱</div>
+              </div>
+              <div class="toggle" :class="{ active: toggles.push_weekly_report }" @click="toggleSwitch('push_weekly_report')"></div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="saveSettings('push')">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 账号安全 -->
+      <div class="panel" :class="{ active: activePanel === 'panel-security' }">
+        <div class="panel-header">账号安全</div>
+        <div class="panel-body">
+          <div class="security-list">
+            <div class="security-item">
+              <div class="security-info">
+                <div class="security-title">邮箱地址</div>
+                <div class="security-desc">{{ userStore.currentUser?.email || '未设置' }}</div>
+              </div>
+              <button class="btn btn-outline btn-sm" disabled>修改邮箱</button>
+            </div>
+            <div class="security-item">
+              <div class="security-info">
+                <div class="security-title">登录密码</div>
+                <div class="security-desc">已设置密码</div>
+              </div>
+              <button class="btn btn-outline btn-sm" disabled>修改密码</button>
+            </div>
+            <div class="security-item">
+              <div class="security-info">
+                <div class="security-title">用户名</div>
+                <div class="security-desc">{{ userStore.currentUser?.username || '' }}</div>
+              </div>
+              <button class="btn btn-outline btn-sm" disabled>修改用户名</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 账号注销 -->
+      <div class="panel" :class="{ active: activePanel === 'panel-delete' }">
+        <div class="panel-header">账号注销</div>
+        <div class="panel-body">
+          <div class="danger-zone">
+            <div class="danger-zone-title">⚠️ 注销账号</div>
+            <div class="danger-zone-desc">
+              注销后，你的个人资料、收藏柜数据、交易记录、收益统计等所有信息将被永久删除且无法恢复。<br>
+              请确保已备份重要数据，并确认当前账号无未完成的尾款订单或纠纷。
+            </div>
+            <button class="btn btn-danger" @click="showDeleteConfirm">申请注销账号</button>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 
 <script>
-import { useUserStore } from '../store'
+import { ref, computed } from 'vue'
+import { useProfile } from './Profile/composables/useProfile'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 export default {
   name: 'Profile',
-  data() {
+  setup() {
+    const profile = useProfile()
+
+    const yearRange = computed(() => {
+      const y = new Date().getFullYear()
+      return Array.from({ length: 100 }, (_, i) => y - i)
+    })
+
+    const avatarSrc = ref('')
+
+    const sidebarItems = [
+      { id: 'panel-basic', label: '基本资料', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
+      { id: 'panel-avatar', label: '头像设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' },
+      { id: 'panel-block', label: '屏蔽设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' },
+      { id: 'panel-privacy', label: '隐私设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' },
+      { id: 'panel-push', label: '推送设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' },
+      { id: 'panel-security', label: '账号安全', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
+      { id: 'panel-delete', label: '账号注销', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' },
+    ]
+
+    const triggerAvatarInput = () => {
+      document.getElementById('avatar-input')?.click()
+    }
+
+    const previewAvatar = (e) => {
+      const file = e.target.files?.[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (ev) => { avatarSrc.value = ev.target.result }
+        reader.readAsDataURL(file)
+      }
+    }
+
+    const saveAvatar = async () => {
+      // 上传头像到 MinIO 或保存 base64
+      ElMessage.success('头像已更新')
+    }
+
+    const showDeleteConfirm = () => {
+      ElMessageBox.confirm(
+        '注销后所有数据将永久删除且无法恢复，确认要注销吗？',
+        '确认注销账号',
+        { confirmButtonText: '确认注销', cancelButtonText: '取消', type: 'warning' }
+      ).then(() => {
+        ElMessage.info('请联系管理员完成注销流程')
+      }).catch(() => {})
+    }
+
     return {
-      isEditing: false,
-      editUser: {
-        username: '',
-        email: ''
-      }
-    }
-  },
-  computed: {
-    userStore() {
-      return useUserStore()
-    }
-  },
-  mounted() {
-    if (!this.userStore.currentUser) {
-      this.userStore.fetchUser()
-    }
-  },
-  methods: {
-    startEditing() {
-      this.editUser = {
-        username: this.userStore.currentUser.username,
-        email: this.userStore.currentUser.email
-      }
-      this.isEditing = true
-    },
-    cancelEditing() {
-      this.isEditing = false
-    },
-    async saveChanges() {
-      try {
-        // 这里可以添加API调用，更新用户信息
-        // 模拟保存成功
-        this.userStore.user = this.editUser
-        this.isEditing = false
-      } catch (error) {
-      }
-    },
-    logout() {
-      this.userStore.logout()
-      this.$router.push('/login')
+      ...profile,
+      sidebarItems,
+      years: yearRange,
+      avatarSrc,
+      triggerAvatarInput,
+      previewAvatar,
+      saveAvatar,
+      showDeleteConfirm
     }
   }
 }
 </script>
 
 <style scoped>
-.profile-container {
-  margin-top: 20px;
+/* ===== Top Header ===== */
+.top-header {
+  background: #fff;
+  border-bottom: 1px solid #e3e5e7;
+  padding: 0 24px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
-
-h2 {
-  margin-bottom: 20px;
-  color: #333;
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #18191c;
 }
-
-.profile-info {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.logo-area svg { width: 32px; height: 32px; }
+.header-nav {
+  display: flex;
+  gap: 24px;
+  font-size: 14px;
+  color: #61666d;
 }
-
-.profile-info p {
-  margin-bottom: 10px;
-  color: #333;
+.header-nav a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.2s;
 }
-
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
+.header-nav a:hover, .header-nav a.active { color: #00a1d6; }
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #61666d;
+}
+.header-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 600; font-size: 14px;
   cursor: pointer;
-  font-size: 14px;
-  margin-top: 10px;
 }
 
-.profile-actions {
+/* ===== Page Layout ===== */
+.profile-page {
+  max-width: 960px;
+  margin: 24px auto;
+  padding: 0 24px;
   display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* Sidebar */
+.profile-sidebar {
+  width: 180px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  margin-top: 10px;
+  padding: 14px 18px;
+  font-size: 14px;
+  color: #61666d;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+.sidebar-item:hover {
+  background: #f6f7f8;
+  color: #18191c;
+}
+.sidebar-item.active {
+  background: rgba(0, 161, 214, 0.08);
+  color: #00a1d6;
+  border-left-color: #00a1d6;
+  font-weight: 600;
+}
+.sidebar-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+.sidebar-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
-.btn-edit {
-  background-color: #2196F3;
-  color: white;
+/* Main */
+.profile-main {
+  flex: 1;
+  min-width: 0;
 }
-
-.btn-edit:hover {
-  background-color: #0b7dda;
+.panel {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow: hidden;
+  display: none;
 }
-
-.btn-logout {
-  background-color: #f44336;
-  color: white;
-}
-
-.btn-logout:hover {
-  background-color: #da190b;
-}
-
-.edit-form {
-  margin-top: 20px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
+.panel.active {
   display: block;
-  margin-bottom: 5px;
-  color: #333;
-  font-weight: 500;
+  animation: fadeIn 0.3s ease;
 }
-
-.form-group input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  transition: border-color 0.3s;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
-.form-group input:focus {
-  outline: none;
-  border-color: #2196F3;
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+.panel-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e3e5e7;
+  font-size: 18px;
+  font-weight: 700;
+  color: #18191c;
 }
+.panel-body { padding: 24px 32px 32px; }
 
-.form-actions {
-  margin-top: 20px;
+/* Form */
+.form-row {
   display: flex;
-  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+.form-label {
+  width: 90px;
+  text-align: right;
+  padding-right: 20px;
+  padding-top: 9px;
+  font-size: 14px;
+  color: #61666d;
+  flex-shrink: 0;
+}
+.form-control { flex: 1; min-width: 0; }
+.input-wrap { position: relative; max-width: 480px; }
+.input-wrap.small { max-width: 200px; }
+.input-wrap.large { max-width: 600px; }
+
+input[type="text"], input[type="email"], input[type="password"],
+textarea, select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #e3e5e7;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 14px;
+  color: #18191c;
+  outline: none;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #00a1d6;
+  box-shadow: 0 0 0 3px rgba(0, 161, 214, 0.15);
+}
+input::placeholder, textarea::placeholder { color: #9499a0; }
+input:read-only {
+  background: #f6f7f8;
+  color: #9499a0;
+  cursor: default;
 }
 
-.btn-cancel {
-  background-color: #9e9e9e;
-  color: white;
+.char-count {
+  position: absolute;
+  right: 10px;
+  bottom: 9px;
+  font-size: 12px;
+  color: #9499a0;
+  pointer-events: none;
+  background: rgba(255,255,255,0.9);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+textarea + .char-count { bottom: 10px; }
+textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.6;
+  padding-bottom: 28px;
+}
+.form-hint { margin-top: 6px; font-size: 12px; color: #9499a0; }
+
+/* Radio */
+.radio-group { display: flex; gap: 24px; padding-top: 6px; }
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #18191c;
+  cursor: pointer;
+  user-select: none;
+}
+.radio-item input[type="radio"] {
+  appearance: none;
+  width: 16px; height: 16px;
+  border: 2px solid #c9cdd4;
+  border-radius: 50%;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  padding: 0;
+}
+.radio-item input[type="radio"]:checked { border-color: #00a1d6; }
+.radio-item input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px; height: 8px;
+  background: #00a1d6;
+  border-radius: 50%;
 }
 
-.btn-cancel:hover {
-  background-color: #757575;
+/* Select */
+.select-group { display: flex; gap: 10px; }
+.select-group select {
+  width: auto;
+  min-width: 100px;
+  padding-right: 28px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239499a0' stroke-width='1.5' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
 }
 
-.btn-save {
-  background-color: #4CAF50;
-  color: white;
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s;
+}
+.btn-primary { background: #00a1d6; color: #fff; }
+.btn-primary:hover { background: #008db1; }
+.btn-outline {
+  background: #fff;
+  color: #61666d;
+  border: 1px solid #c9cdd4;
+}
+.btn-outline:hover { border-color: #00a1d6; color: #00a1d6; }
+.btn-danger { background: #f25d8e; color: #fff; }
+.btn-danger:hover { background: #d94d7a; }
+.btn-sm { padding: 6px 16px; font-size: 13px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.form-actions { margin-top: 8px; padding-left: 110px; }
+
+/* Avatar */
+.avatar-section { display: flex; gap: 40px; align-items: flex-start; }
+.avatar-preview-box { text-align: center; }
+.avatar-preview-box .label { font-size: 13px; color: #9499a0; margin-bottom: 12px; }
+.avatar-large {
+  width: 200px; height: 200px;
+  border-radius: 8px;
+  background: #f6f7f8;
+  object-fit: cover;
+  border: 1px solid #e3e5e7;
+}
+.avatar-circle {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: #f6f7f8;
+  object-fit: cover;
+  border: 1px solid #e3e5e7;
+}
+.avatar-change-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: #00a1d6;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.avatar-change-link:hover { text-decoration: underline; }
+.avatar-tips {
+  margin-top: 24px;
+  padding: 12px 16px;
+  background: #f6f7f8;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #9499a0;
+  line-height: 1.8;
+  max-width: 320px;
 }
 
-.btn-save:hover {
-  background-color: #45a049;
+/* Switch */
+.setting-group { margin-bottom: 28px; }
+.setting-group-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #18191c;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e3e5e7;
+}
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+.switch-label { font-size: 14px; color: #18191c; }
+.switch-hint { font-size: 12px; color: #9499a0; margin-top: 2px; }
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: #c9cdd4;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.3s;
+  flex-shrink: 0;
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.toggle.active { background: #00a1d6; }
+.toggle.active::after { transform: translateX(18px); }
+
+/* Security */
+.security-list { max-width: 640px; }
+.security-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0;
+  border-bottom: 1px solid #e3e5e7;
+}
+.security-item:last-child { border-bottom: none; }
+.security-info { display: flex; flex-direction: column; gap: 4px; }
+.security-title { font-size: 14px; font-weight: 600; color: #18191c; }
+.security-desc { font-size: 13px; color: #9499a0; }
+
+/* Danger Zone */
+.danger-zone {
+  margin-top: 32px;
+  padding: 24px;
+  border: 1px solid #ffd6d6;
+  border-radius: 8px;
+  background: #fff8f8;
+}
+.danger-zone-title { font-size: 16px; font-weight: 700; color: #f25d8e; margin-bottom: 8px; }
+.danger-zone-desc {
+  font-size: 13px;
+  color: #61666d;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .profile-page { flex-direction: column; }
+  .profile-sidebar {
+    width: 100%;
+    position: static;
+    display: flex;
+    overflow-x: auto;
+    gap: 4px;
+    padding: 8px;
+  }
+  .sidebar-item {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+  .sidebar-item.active {
+    border-left-color: transparent;
+    border-bottom-color: #00a1d6;
+  }
+  .form-row { flex-direction: column; }
+  .form-label { text-align: left; width: auto; padding: 0 0 6px 0; }
+  .form-actions { padding-left: 0; }
+  .avatar-section { flex-direction: column; align-items: center; }
 }
 </style>

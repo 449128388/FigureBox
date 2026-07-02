@@ -10,7 +10,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text
-from app.models.database import DATABASE_URL as SQLALCHEMY_DATABASE_URL
+from app.models.database import Base, DATABASE_URL as SQLALCHEMY_DATABASE_URL
 
 # 所有表的注释映射
 TABLE_COMMENTS = {
@@ -48,6 +48,10 @@ TABLE_COMMENTS = {
 def upgrade():
     """为所有表添加注释"""
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+    # 先确保所有表已创建（ORM 模型自动建表）
+    Base.metadata.create_all(bind=engine)
+    print("✅ 所有 ORM 表已创建")
 
     with engine.connect() as conn:
         # 获取数据库中已有的所有表
