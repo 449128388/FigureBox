@@ -75,6 +75,8 @@ app.include_router(asset_transactions.router, prefix="/api/asset-transactions", 
 app.include_router(sold_orders.router, prefix="/api/sold-orders", tags=["sold-orders"])
 app.include_router(records.router, prefix="/api/trade_records", tags=["records"])
 app.include_router(upload.router, prefix="/api", tags=["upload"])
+app.include_router(users.minio_config_router, prefix="/api", tags=["minio-config"])
+app.include_router(users.timeout_config_router, prefix="/api", tags=["timeout-config"])
 
 @app.get("/")
 def read_root():

@@ -18,6 +18,7 @@
   - 子组件通过 Props 接收数据，通过 Events 触发父组件刷新
 -->
 <template>
+  <TopHeader />
   <div class="orders-container">
     <div class="header">
       <div class="header-left">
@@ -40,11 +41,6 @@
         </div>
       </div>
       <div class="header-actions">
-        <div class="user-info">
-          <span v-if="userStore.isAuthenticated">当前用户: </span>
-          <span v-if="userStore.isAuthenticated" class="username" @click="$router.push('/profile')" style="cursor: pointer; color: #666;">{{ userStore.currentUser?.username }}</span>
-          <button v-if="userStore.isAuthenticated" class="btn btn-logout" @click="logout">退出</button>
-        </div>
       </div>
     </div>
 
@@ -173,6 +169,7 @@
       <!-- 收藏柜概览视图 -->
       <template v-else>
         <CollectorHeader
+          :avatar-url="userStore.currentUser?.avatar_url || userStore.profile?.avatar_url"
           @share-poster="showPosterModal = true"
           @privacy-settings="showPrivacyModal = true"
         />
@@ -348,6 +345,8 @@ import axios from '../axios'
 import { Refresh, Bell, Download, Plus, Money, Close } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import TopHeader from '../components/TopHeader.vue'
+
 // 导入收藏家模式组件
 import CollectorHeader from './Dashboard/components/collector/CollectorHeader.vue'
 import CollectorOverview from './Dashboard/components/collector/CollectorOverview.vue'
@@ -392,6 +391,7 @@ import { usePayBalance } from './Dashboard/composables/usePayBalance'
 export default {
   name: 'Dashboard',
   components: {
+    TopHeader,
     Refresh,
     Bell,
     Download,
@@ -520,12 +520,6 @@ export default {
     // 格式化数字
     const formatNumber = (num) => {
       return num?.toLocaleString() || '0'
-    }
-    
-    // 退出登录
-    const logout = () => {
-      userStore.logout()
-      router.push('/login')
     }
     
     // 获取资产数据
@@ -979,7 +973,6 @@ export default {
       openCancelDialog,
       viewRecord,
       deleteRecord,
-      logout,
       fetchDashboardData,
       handleMonthChange,
       handleTradeFilterChange,
@@ -1029,7 +1022,7 @@ export default {
 
 <style scoped>
 .orders-container {
-  margin-top: 20px;
+  margin-top: 84px;
   width: 1610px;
   margin-left: 50px;
   margin-right: 50px;
@@ -1140,22 +1133,6 @@ export default {
 .btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.btn-logout {
-  background-color: #fff;
-  color: #666;
-  padding: 5px 14px;
-  font-size: 13px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-logout:hover {
-  border-color: #f44336;
-  color: #f44336;
 }
 
 /* 倒狗模式操作栏 */

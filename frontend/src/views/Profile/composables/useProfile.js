@@ -1,6 +1,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../../../store'
 import { ElMessage } from 'element-plus'
+import axios from '../../../axios'
 
 export function useProfile() {
   const userStore = useUserStore()
@@ -19,8 +20,6 @@ export function useProfile() {
 
   // 开关设置
   const toggles = ref({
-    block_stranger_msg: false,
-    block_comment_notify: true,
     privacy_cabinet: true,
     privacy_profit: false,
     privacy_follow: true,
@@ -28,6 +27,26 @@ export function useProfile() {
     push_price_alert: true,
     push_system_notice: true,
     push_weekly_report: false
+  })
+
+  // 隐私设置（从 collector_privacy 表读取）
+  const privacySettings = ref({
+    home_visibility: 'public',
+    show_total: true,
+    show_figures: false,
+    show_asset: false,
+    show_tags: true,
+    show_feed: false
+  })
+
+  // 个人主页可见性中文文本
+  const homeVisibilityText = computed(() => {
+    const map = {
+      public: '公开',
+      friends_only: '仅好友可见',
+      private: '仅自己可见'
+    }
+    return map[privacySettings.value.home_visibility] || '公开'
   })
 
   // 字符计数
@@ -43,6 +62,42 @@ export function useProfile() {
   // 切换开关
   const toggleSwitch = (key) => {
     toggles.value[key] = !toggles.value[key]
+  }
+
+  // 切换隐私设置开关
+  const togglePrivacy = async (key) => {
+    privacySettings.value[key] = !privacySettings.value[key]
+    try {
+      await axios.put('/collector/privacy', { [key]: privacySettings.value[key] })
+      ElMessage.success('设置已保存')
+    } catch (error) {
+      privacySettings.value[key] = !privacySettings.value[key]
+      ElMessage.error('保存失败，请稍后重试')
+    }
+  }
+
+  // 加载隐私设置
+  const loadPrivacySettings = async () => {
+    try {
+      const response = await axios.get('/collector/privacy')
+      if (response) {
+        privacySettings.value = {
+          home_visibility: response.home_visibility || 'public',
+          show_total: response.show_total || false,
+          show_figures: response.show_figures || false,
+          show_asset: response.show_asset || false,
+          show_tags: response.show_tags || false,
+          show_feed: response.show_feed || false
+        }
+      }
+    } catch (error) {
+      console.error('加载隐私设置失败:', error)
+    }
+  }
+
+  // 显示主页可见性设置弹窗
+  const showHomeVisibility = () => {
+    ElMessage.info('进入可见性设置')
   }
 
   // 加载个人资料
@@ -82,10 +137,6 @@ export function useProfile() {
   // 保存设置
   const saveSettings = async (type) => {
     const settingsMap = {
-      block: { block_settings: JSON.stringify({
-        block_stranger_msg: toggles.value.block_stranger_msg,
-        block_comment_notify: toggles.value.block_comment_notify
-      })},
       privacy: { privacy_settings: JSON.stringify({
         privacy_cabinet: toggles.value.privacy_cabinet,
         privacy_profit: toggles.value.privacy_profit,
@@ -113,17 +164,22 @@ export function useProfile() {
       userStore.fetchUser()
     }
     loadProfile()
+    loadPrivacySettings()
   })
 
   return {
     activePanel,
     basicForm,
     toggles,
+    privacySettings,
+    homeVisibilityText,
     nicknameLen,
     signatureLen,
     bioLen,
     switchPanel,
     toggleSwitch,
+    togglePrivacy,
+    showHomeVisibility,
     saveBasic,
     saveSettings,
     logout,

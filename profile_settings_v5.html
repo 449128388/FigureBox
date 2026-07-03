@@ -13,6 +13,8 @@
     --primary-light: rgba(0, 161, 214, 0.08);
     --danger: #f25d8e;
     --danger-hover: #d94d7a;
+    --success: #52c41a;
+    --success-hover: #389e0d;
     --text-main: #18191c;
     --text-secondary: #61666d;
     --text-tertiary: #9499a0;
@@ -23,6 +25,8 @@
     --shadow: 0 2px 8px rgba(0,0,0,0.06);
     --shadow-hover: 0 4px 16px rgba(0,0,0,0.1);
     --sidebar-width: 220px;
+    --toggle-on: #c9a96e;
+    --toggle-off: #d8d8d8;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -55,6 +59,7 @@
     font-size: 18px;
     font-weight: 700;
     color: var(--text-main);
+    text-decoration: none;
   }
   .logo-area svg {
     width: 32px; height: 32px;
@@ -69,16 +74,35 @@
     text-decoration: none;
     color: inherit;
     transition: color 0.2s;
+    padding: 4px 0;
+    border-bottom: 2px solid transparent;
   }
   .header-nav a:hover, .header-nav a.active {
     color: var(--primary);
+    border-bottom-color: var(--primary);
   }
+
+  /* ===== User Dropdown ===== */
   .header-user {
     display: flex;
     align-items: center;
     gap: 12px;
     font-size: 14px;
     color: var(--text-secondary);
+    position: relative;
+  }
+  .user-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 8px 4px 4px;
+    border-radius: 20px;
+    transition: background 0.2s;
+    user-select: none;
+  }
+  .user-dropdown-trigger:hover {
+    background: #f6f7f8;
   }
   .header-avatar {
     width: 36px; height: 36px;
@@ -86,7 +110,82 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex; align-items: center; justify-content: center;
     color: #fff; font-weight: 600; font-size: 14px;
+    flex-shrink: 0;
+  }
+  .dropdown-arrow {
+    width: 10px; height: 6px;
+    transition: transform 0.2s;
+    color: var(--text-tertiary);
+  }
+  .user-dropdown-trigger.open .dropdown-arrow {
+    transform: rotate(180deg);
+  }
+
+  .user-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-hover);
+    min-width: 160px;
+    padding: 6px 0;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 200;
+  }
+  .user-dropdown-menu.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .user-dropdown-menu::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    right: 20px;
+    width: 10px;
+    height: 10px;
+    background: var(--card-bg);
+    border-left: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    transform: rotate(45deg);
+  }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    color: var(--text-main);
     cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .dropdown-item:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+  }
+  .dropdown-item svg {
+    width: 16px; height: 16px;
+    opacity: 0.7;
+  }
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 12px;
+  }
+  .dropdown-item.logout {
+    color: var(--danger);
+  }
+  .dropdown-item.logout:hover {
+    background: #fff0f3;
+  }
+  .dropdown-item.logout svg {
+    color: var(--danger);
   }
 
   /* ===== Layout ===== */
@@ -179,7 +278,7 @@
     margin-bottom: 24px;
   }
   .form-label {
-    width: 90px;
+    width: 110px;
     text-align: right;
     padding-right: 20px;
     padding-top: 9px;
@@ -198,10 +297,13 @@
   }
   .input-wrap.small { max-width: 200px; }
   .input-wrap.large { max-width: 600px; }
+  .input-wrap.medium { max-width: 360px; }
 
   input[type="text"],
   input[type="email"],
   input[type="password"],
+  input[type="url"],
+  input[type="number"],
   textarea,
   select {
     width: 100%;
@@ -254,6 +356,12 @@
     margin-top: 6px;
     font-size: 12px;
     color: var(--text-tertiary);
+  }
+  .form-hint.success {
+    color: var(--success);
+  }
+  .form-hint.error {
+    color: var(--danger);
   }
 
   /* Radio Group */
@@ -341,6 +449,13 @@
     border-color: var(--primary);
     color: var(--primary);
   }
+  .btn-success {
+    background: var(--success);
+    color: #fff;
+  }
+  .btn-success:hover {
+    background: var(--success-hover);
+  }
   .btn-danger {
     background: var(--danger);
     color: #fff;
@@ -355,7 +470,10 @@
 
   .form-actions {
     margin-top: 8px;
-    padding-left: 110px;
+    padding-left: 130px;
+  }
+  .form-actions .btn + .btn {
+    margin-left: 12px;
   }
 
   /* ===== Avatar Panel ===== */
@@ -439,60 +557,108 @@
     color: var(--text-tertiary);
   }
 
-  /* ===== Privacy / Push / Block Panels ===== */
-  .setting-group {
+  /* ===== Privacy Panel (New Design) ===== */
+  .privacy-section {
     margin-bottom: 28px;
   }
-  .setting-group-title {
-    font-size: 15px;
+  .privacy-section:last-child {
+    margin-bottom: 0;
+  }
+  .privacy-section-title {
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-main);
-    margin-bottom: 16px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 8px;
   }
-  .switch-row {
+  .privacy-section-title::before {
+    content: "";
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--toggle-on);
+    border-radius: 2px;
+  }
+
+  .privacy-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 0;
+    padding: 16px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-radius: 6px;
   }
-  .switch-label {
-    font-size: 14px;
-    color: var(--text-main);
+  .privacy-item:hover {
+    background: #fafafa;
   }
-  .switch-hint {
-    font-size: 12px;
-    color: var(--text-tertiary);
-    margin-top: 2px;
+  .privacy-item:last-child {
+    border-bottom: none;
   }
 
-  /* Toggle Switch */
-  .toggle {
+  .privacy-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .privacy-item-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-main);
+  }
+  .privacy-item-desc {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  /* Toggle Switch v2 (Brown/Gold) */
+  .toggle-v2 {
     position: relative;
-    width: 40px;
-    height: 22px;
-    background: #c9cdd4;
-    border-radius: 11px;
+    width: 44px;
+    height: 24px;
+    background: var(--toggle-off);
+    border-radius: 12px;
     cursor: pointer;
     transition: background 0.3s;
     flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
   }
-  .toggle::after {
+  .toggle-v2::after {
     content: "";
     position: absolute;
     top: 2px; left: 2px;
-    width: 18px; height: 18px;
+    width: 20px; height: 20px;
     background: #fff;
     border-radius: 50%;
     transition: transform 0.3s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
-  .toggle.active {
-    background: var(--primary);
+  .toggle-v2.active {
+    background: var(--toggle-on);
   }
-  .toggle.active::after {
-    transform: translateX(18px);
+  .toggle-v2.active::after {
+    transform: translateX(20px);
+  }
+
+  /* Privacy Link (for visibility setting) */
+  .privacy-link {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    color: var(--text-tertiary);
+    transition: color 0.2s;
+  }
+  .privacy-item:hover .privacy-link {
+    color: var(--text-secondary);
+  }
+  .privacy-link svg {
+    width: 14px; height: 14px;
+    opacity: 0.6;
   }
 
   /* Danger Zone */
@@ -516,6 +682,144 @@
     line-height: 1.6;
   }
 
+  /* ===== Timeout Panel Specific ===== */
+  .timeout-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 480px;
+  }
+  .timeout-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--card-bg);
+  }
+  .timeout-option:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+  .timeout-option.selected {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(0, 161, 214, 0.1);
+  }
+  .timeout-option input[type="radio"] {
+    appearance: none;
+    width: 18px; height: 18px;
+    border: 2px solid var(--border-hover);
+    border-radius: 50%;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .timeout-option input[type="radio"]:checked {
+    border-color: var(--primary);
+  }
+  .timeout-option input[type="radio"]:checked::after {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 9px; height: 9px;
+    background: var(--primary);
+    border-radius: 50%;
+  }
+  .timeout-option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .timeout-option-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-main);
+  }
+  .timeout-option-desc {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  .timeout-info-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    background: #f6f7f8;
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+    max-width: 640px;
+  }
+  .timeout-info-icon {
+    width: 20px; height: 20px;
+    color: var(--primary);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .timeout-info-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+  .timeout-info-text strong {
+    color: var(--text-main);
+  }
+
+  /* ===== MinIO Panel Specific ===== */
+  .minio-status-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    background: #f6ffed;
+    border: 1px solid #b7eb8f;
+    margin-bottom: 24px;
+    max-width: 640px;
+  }
+  .minio-status-card.error {
+    background: #fff2f0;
+    border-color: #ffccc7;
+  }
+  .minio-status-card.warning {
+    background: #fffbe6;
+    border-color: #ffe58f;
+  }
+  .status-icon {
+    width: 20px; height: 20px;
+    flex-shrink: 0;
+  }
+  .status-text {
+    font-size: 14px;
+    color: var(--text-main);
+  }
+  .status-text .detail {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+
+  .input-group-inline {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .input-group-inline .input-wrap {
+    flex: 1;
+  }
+  .input-group-inline .btn {
+    margin-top: 0;
+    white-space: nowrap;
+  }
+
   /* Toast */
   .toast {
     position: fixed;
@@ -536,6 +840,54 @@
   .toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .modal-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal-box {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-hover);
+    width: 420px;
+    max-width: 90vw;
+    padding: 28px;
+    transform: scale(0.95);
+    transition: transform 0.3s;
+  }
+  .modal-overlay.show .modal-box {
+    transform: scale(1);
+  }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 12px;
+  }
+  .modal-body {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 24px;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
   }
 
   /* Responsive */
@@ -575,6 +927,10 @@
       flex-direction: column;
       align-items: center;
     }
+    .header-nav { display: none; }
+    .input-group-inline {
+      flex-direction: column;
+    }
   }
 </style>
 <base target="_blank">
@@ -584,20 +940,48 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Logout Confirm Modal -->
+<div class="modal-overlay" id="logoutModal">
+  <div class="modal-box">
+    <div class="modal-title">确认退出登录？</div>
+    <div class="modal-body">
+      退出后将清除当前登录状态，需要重新输入账号密码才能访问个人资料与资产数据。
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeLogoutModal()">取消</button>
+      <button class="btn btn-danger" onclick="confirmLogout()">确认退出</button>
+    </div>
+  </div>
+</div>
+
 <!-- Header -->
 <header class="top-header">
-  <div class="logo-area">
+  <a href="#" class="logo-area">
     <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="var(--primary)"/><path d="M8 20c0-4 4-8 8-8s8 4 8 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="14" r="1.5" fill="#fff"/><circle cx="20" cy="14" r="1.5" fill="#fff"/></svg>
     FigureBox
-  </div>
+  </a>
   <nav class="header-nav">
     <a href="#">资产看板</a>
     <a href="#">手办库</a>
     <a href="#" class="active">个人中心</a>
   </nav>
   <div class="header-user">
-    <span style="font-size:13px;">449128388</span>
-    <div class="header-avatar">4</div>
+    <div class="user-dropdown-trigger" id="userDropdownTrigger" onclick="toggleDropdown(event)">
+      <span style="font-size:13px;">449128388</span>
+      <div class="header-avatar">4</div>
+      <svg class="dropdown-arrow" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l4 4 4-4"/></svg>
+    </div>
+    <div class="user-dropdown-menu" id="userDropdownMenu">
+      <a href="#" class="dropdown-item" onclick="showToast('进入个人资料')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        个人资料
+      </a>
+      <div class="dropdown-divider"></div>
+      <div class="dropdown-item logout" onclick="openLogoutModal(); closeDropdown();">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        退出登录
+      </div>
+    </div>
   </div>
 </header>
 
@@ -629,6 +1013,14 @@
     <div class="sidebar-item" data-target="panel-security">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       账号安全
+    </div>
+    <div class="sidebar-item" data-target="panel-minio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      MinIO 设置
+    </div>
+    <div class="sidebar-item" data-target="panel-timeout">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      超时登出
     </div>
     <div class="sidebar-item" data-target="panel-delete">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -743,20 +1135,20 @@
     <div class="panel" id="panel-block">
       <div class="panel-header">屏蔽设置</div>
       <div class="panel-body">
-        <div class="setting-group">
+        <div class="privacy-section">
           <div class="switch-row">
             <div>
               <div class="switch-label">屏蔽陌生人私信</div>
               <div class="switch-hint">未关注的人将无法向你发送私信</div>
             </div>
-            <div class="toggle" onclick="this.classList.toggle('active')"></div>
+            <div class="toggle-v2" onclick="this.classList.toggle('active')"></div>
           </div>
           <div class="switch-row">
             <div>
               <div class="switch-label">屏蔽评论通知</div>
               <div class="switch-hint">关闭后不再接收任何评论回复提醒</div>
             </div>
-            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+            <div class="toggle-v2 active" onclick="this.classList.toggle('active')"></div>
           </div>
         </div>
         <div class="form-actions">
@@ -765,37 +1157,66 @@
       </div>
     </div>
 
-    <!-- ===== 隐私设置 ===== -->
+    <!-- ===== 隐私设置 (New Design) ===== -->
     <div class="panel" id="panel-privacy">
       <div class="panel-header">隐私设置</div>
-      <div class="panel-body">
-        <div class="setting-group">
-          <div class="setting-group-title">个人资料可见性</div>
-          <div class="switch-row">
-            <div>
-              <div class="switch-label">公开我的收藏柜</div>
-              <div class="switch-hint">其他用户可以在你的主页看到收藏柜</div>
+      <div class="panel-body" style="padding: 20px 28px 28px;">
+
+        <!-- 访问权限 -->
+        <div class="privacy-section">
+          <div class="privacy-section-title">访问权限</div>
+          <div class="privacy-item" onclick="showToast('进入可见性设置')">
+            <div class="privacy-item-info">
+              <div class="privacy-item-title">个人主页可见性</div>
+              <div class="privacy-item-desc">控制谁可以访问你的收藏主页</div>
             </div>
-            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
-          </div>
-          <div class="switch-row">
-            <div>
-              <div class="switch-label">公开我的收益数据</div>
-              <div class="switch-hint">资产看板中的盈亏数据对他人可见</div>
+            <div class="privacy-link">
+              公开
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
-            <div class="toggle" onclick="this.classList.toggle('active')"></div>
-          </div>
-          <div class="switch-row">
-            <div>
-              <div class="switch-label">公开我的关注列表</div>
-              <div class="switch-hint">允许他人查看你关注的手办和厂商</div>
-            </div>
-            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
           </div>
         </div>
-        <div class="form-actions">
-          <button class="btn btn-primary" onclick="showToast('隐私设置已保存')">保存</button>
+
+        <!-- 数据展示 -->
+        <div class="privacy-section">
+          <div class="privacy-section-title">数据展示</div>
+          <div class="privacy-item" onclick="togglePrivacySwitch(this)">
+            <div class="privacy-item-info">
+              <div class="privacy-item-title">藏品总数</div>
+              <div class="privacy-item-desc">是否对外展示藏品统计数量</div>
+            </div>
+            <div class="toggle-v2 active"></div>
+          </div>
+          <div class="privacy-item" onclick="togglePrivacySwitch(this)">
+            <div class="privacy-item-info">
+              <div class="privacy-item-title">具体藏品列表</div>
+              <div class="privacy-item-desc">是否展示手办明细信息</div>
+            </div>
+            <div class="toggle-v2"></div>
+          </div>
+          <div class="privacy-item" onclick="togglePrivacySwitch(this)">
+            <div class="privacy-item-info">
+              <div class="privacy-item-title">标签云</div>
+              <div class="privacy-item-desc">是否展示手办标签偏好信息</div>
+            </div>
+            <div class="toggle-v2 active"></div>
+          </div>
+          <div class="privacy-item" onclick="togglePrivacySwitch(this)">
+            <div class="privacy-item-info">
+              <div class="privacy-item-title">动态流</div>
+              <div class="privacy-item-desc">买入卖出等操作记录是否对外展示</div>
+            </div>
+            <div class="toggle-v2"></div>
+          </div>
+          <div class="privacy-item" onclick="togglePrivacySwitch(this)">
+            <div class="privacy-item-info">
+              <div class="privacy-item-title">主页资产金额</div>
+              <div class="privacy-item-desc">包含成本价、市值、盈亏等敏感数据</div>
+            </div>
+            <div class="toggle-v2"></div>
+          </div>
         </div>
+
       </div>
     </div>
 
@@ -803,34 +1224,34 @@
     <div class="panel" id="panel-push">
       <div class="panel-header">推送设置</div>
       <div class="panel-body">
-        <div class="setting-group">
+        <div class="privacy-section">
           <div class="switch-row">
             <div>
               <div class="switch-label">尾款到期提醒</div>
               <div class="switch-hint">手办尾款支付截止前 3 天推送通知</div>
             </div>
-            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+            <div class="toggle-v2 active" onclick="this.classList.toggle('active')"></div>
           </div>
           <div class="switch-row">
             <div>
               <div class="switch-label">价格预警推送</div>
               <div class="switch-hint">关注的手办市场价达到设定阈值时通知</div>
             </div>
-            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+            <div class="toggle-v2 active" onclick="this.classList.toggle('active')"></div>
           </div>
           <div class="switch-row">
             <div>
               <div class="switch-label">系统公告</div>
               <div class="switch-hint">FigureBox 功能更新与维护通知</div>
             </div>
-            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+            <div class="toggle-v2 active" onclick="this.classList.toggle('active')"></div>
           </div>
           <div class="switch-row">
             <div>
               <div class="switch-label">邮件周报</div>
               <div class="switch-hint">每周一发送资产收益周报至绑定邮箱</div>
             </div>
-            <div class="toggle" onclick="this.classList.toggle('active')"></div>
+            <div class="toggle-v2" onclick="this.classList.toggle('active')"></div>
           </div>
         </div>
         <div class="form-actions">
@@ -876,6 +1297,170 @@
       </div>
     </div>
 
+    <!-- ===== MinIO 设置 ===== -->
+    <div class="panel" id="panel-minio">
+      <div class="panel-header">MinIO 图床设置</div>
+      <div class="panel-body">
+        <!-- 连接状态卡片 -->
+        <div class="minio-status-card" id="minioStatusCard">
+          <svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="#52c41a" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <div class="status-text">
+            <div>当前连接正常</div>
+            <div class="detail">上次验证时间：2026-07-02 14:35:12 · 延迟 12ms</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">服务器地址</label>
+          <div class="form-control">
+            <div class="input-wrap medium">
+              <input type="url" id="minio-endpoint" value="http://localhost:25620" placeholder="http://localhost:9000">
+            </div>
+            <div class="form-hint">MinIO API 端点地址，包含协议与端口</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">Access Key</label>
+          <div class="form-control">
+            <div class="input-wrap medium">
+              <input type="text" id="minio-access-key" value="minioadmin" placeholder="Access Key">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">Secret Key</label>
+          <div class="form-control">
+            <div class="input-wrap medium">
+              <input type="password" id="minio-secret-key" value="minioadmin123" placeholder="Secret Key">
+            </div>
+            <div class="form-hint">密钥仅保存在本地浏览器，不会上传至 FigureBox 服务器</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">Bucket 名称</label>
+          <div class="form-control">
+            <div class="input-wrap medium">
+              <input type="text" id="minio-bucket" value="figurebox-images" placeholder="Bucket 名称">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">图片访问域名</label>
+          <div class="form-control">
+            <div class="input-wrap medium">
+              <input type="url" id="minio-public-url" value="http://localhost:25620/figurebox-images" placeholder="http://localhost:25620/figurebox-images">
+            </div>
+            <div class="form-hint">前端拼接图片 URL 的基地址，通常与服务器地址一致</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">安全连接</label>
+          <div class="form-control">
+            <div class="radio-group">
+              <label class="radio-item"><input type="radio" name="minio-secure" value="false" checked> HTTP（内网）</label>
+              <label class="radio-item"><input type="radio" name="minio-secure" value="true"> HTTPS（公网）</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">区域 Region</label>
+          <div class="form-control">
+            <div class="input-wrap small">
+              <input type="text" id="minio-region" value="us-east-1" placeholder="us-east-1">
+            </div>
+            <div class="form-hint">一般使用默认即可，MinIO 单节点通常填 us-east-1</div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-success" onclick="testMinioConnection()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            测试连接
+          </button>
+          <button class="btn btn-primary" onclick="saveMinio()">保存配置</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 超时登出设置 ===== -->
+    <div class="panel" id="panel-timeout">
+      <div class="panel-header">超时登出设置</div>
+      <div class="panel-body">
+
+        <!-- 说明卡片 -->
+        <div class="timeout-info-card">
+          <svg class="timeout-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div class="timeout-info-text">
+            <strong>安全提示</strong>：当页面在设定时间内无任何操作（鼠标移动、点击、键盘输入），系统将自动退出登录状态，防止他人未经授权访问你的资产数据。该设置仅对当前设备生效，建议公共场合使用较短时长。
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">超时时间</label>
+          <div class="form-control">
+            <div class="timeout-options" id="timeoutOptions">
+              <label class="timeout-option selected" onclick="selectTimeout(this, 5)">
+                <input type="radio" name="timeout" value="5" checked>
+                <div class="timeout-option-text">
+                  <div class="timeout-option-label">30分钟</div>
+                  <div class="timeout-option-desc">适合公共场所或多人共用设备</div>
+                </div>
+              </label>
+              <label class="timeout-option" onclick="selectTimeout(this, 15)">
+                <input type="radio" name="timeout" value="15">
+                <div class="timeout-option-text">
+                  <div class="timeout-option-label">1小时</div>
+                  <div class="timeout-option-desc">兼顾安全与便利的推荐设置</div>
+                </div>
+              </label>
+              <label class="timeout-option" onclick="selectTimeout(this, 30)">
+                <input type="radio" name="timeout" value="30">
+                <div class="timeout-option-text">
+                  <div class="timeout-option-label">2小时</div>
+                  <div class="timeout-option-desc">适合办公室等相对安全的环境</div>
+                </div>
+              </label>
+              <label class="timeout-option" onclick="selectTimeout(this, 60)">
+                <input type="radio" name="timeout" value="60">
+                <div class="timeout-option-text">
+                  <div class="timeout-option-label">3 小时</div>
+                  <div class="timeout-option-desc">适合家庭个人电脑等私密环境</div>
+                </div>
+              </label>
+              <label class="timeout-option" onclick="selectTimeout(this, 0)">
+                <input type="radio" name="timeout" value="0">
+                <div class="timeout-option-text">
+                  <div class="timeout-option-label">从不超时</div>
+                  <div class="timeout-option-desc">保持永久登录，仅在手动退出时失效（不推荐）</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">倒计时提醒</label>
+          <div class="form-control">
+            <div class="radio-group">
+              <label class="radio-item"><input type="radio" name="timeout-warning" value="true" checked> 超时前 30 秒弹窗提醒</label>
+              <label class="radio-item"><input type="radio" name="timeout-warning" value="false"> 直接登出，不提醒</label>
+            </div>
+            <div class="form-hint">开启提醒后可在弹窗中点击"保持登录"延长当前会话</div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveTimeout()">保存设置</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== 账号注销 ===== -->
     <div class="panel" id="panel-delete">
       <div class="panel-header">账号注销</div>
@@ -895,6 +1480,48 @@
 </div>
 
 <script>
+  // ===== Dropdown =====
+  const trigger = document.getElementById('userDropdownTrigger');
+  const menu = document.getElementById('userDropdownMenu');
+
+  function toggleDropdown(e) {
+    e.stopPropagation();
+    const isOpen = menu.classList.contains('show');
+    if (isOpen) {
+      closeDropdown();
+    } else {
+      menu.classList.add('show');
+      trigger.classList.add('open');
+    }
+  }
+  function closeDropdown() {
+    menu.classList.remove('show');
+    trigger.classList.remove('open');
+  }
+  document.addEventListener('click', (e) => {
+    if (!trigger.contains(e.target) && !menu.contains(e.target)) {
+      closeDropdown();
+    }
+  });
+
+  // ===== Logout Modal =====
+  function openLogoutModal() {
+    document.getElementById('logoutModal').classList.add('show');
+  }
+  function closeLogoutModal() {
+    document.getElementById('logoutModal').classList.remove('show');
+  }
+  function confirmLogout() {
+    closeLogoutModal();
+    showToast('已退出登录，正在跳转...');
+    setTimeout(() => {
+      // window.location.href = '/login';
+    }, 1500);
+  }
+  document.getElementById('logoutModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeLogoutModal();
+  });
+
   // ===== Tab Switching =====
   const sidebarItems = document.querySelectorAll('.sidebar-item');
   const panels = document.querySelectorAll('.panel');
@@ -903,10 +1530,8 @@
     item.addEventListener('click', () => {
       const target = item.dataset.target;
       if (!target) return;
-
       sidebarItems.forEach(i => i.classList.remove('active'));
       item.classList.add('active');
-
       panels.forEach(p => p.classList.remove('active'));
       document.getElementById(target).classList.add('active');
     });
@@ -921,7 +1546,6 @@
     count.textContent = len + '/' + max;
     count.style.color = len >= max ? '#f25d8e' : 'var(--text-tertiary)';
   }
-
   ['nickname', 'sign', 'bio'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -963,10 +1587,80 @@
       showToast('基本资料已保存');
     }, 600);
   }
-
   function saveAvatar() {
     showToast('头像已更新');
   }
+
+  // ===== Privacy Toggle =====
+  function togglePrivacySwitch(item) {
+    const toggle = item.querySelector('.toggle-v2');
+    if (toggle) {
+      toggle.classList.toggle('active');
+    }
+  }
+
+  // ===== MinIO Actions =====
+  function testMinioConnection() {
+    const btn = document.querySelector('#panel-minio .btn-success');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:6px;"></span>测试中...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+
+      const card = document.getElementById('minioStatusCard');
+      card.className = 'minio-status-card';
+      card.innerHTML = `
+        <svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="#52c41a" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="status-text">
+          <div>连接测试成功</div>
+          <div class="detail">Bucket "figurebox-images" 可读写 · 延迟 12ms</div>
+        </div>
+      `;
+      showToast('MinIO 连接测试成功');
+    }, 1500);
+  }
+
+  function saveMinio() {
+    const btn = document.querySelectorAll('#panel-minio .btn-primary')[0];
+    const original = btn.textContent;
+    btn.textContent = '保存中...';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.disabled = false;
+      showToast('MinIO 配置已保存');
+    }, 600);
+  }
+
+  // ===== Timeout Actions =====
+  function selectTimeout(el, minutes) {
+    document.querySelectorAll('.timeout-option').forEach(opt => {
+      opt.classList.remove('selected');
+      opt.querySelector('input').checked = false;
+    });
+    el.classList.add('selected');
+    el.querySelector('input').checked = true;
+  }
+
+  function saveTimeout() {
+    const btn = document.querySelector('#panel-timeout .btn-primary');
+    const original = btn.textContent;
+    btn.textContent = '保存中...';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.disabled = false;
+      showToast('超时登出设置已保存');
+    }, 600);
+  }
+
+  // Add spin animation for test button
+  const style = document.createElement('style');
+  style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(style);
 </script>
 
 </body>

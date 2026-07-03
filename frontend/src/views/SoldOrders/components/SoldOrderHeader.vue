@@ -14,18 +14,11 @@
           <span v-if="isBatchMode && selectedCount > 0" class="batch-badge">{{ selectedCount }}</span>
         </button>
       </div>
-      <div class="user-info">
-        <span v-if="userStore.isAuthenticated">当前用户：</span>
-        <span v-if="userStore.isAuthenticated" class="username" @click="$emit('navigateToProfile')" style="cursor: pointer; color: #2196F3; text-decoration: underline;">{{ userStore.currentUser?.username }}</span>
-        <button v-if="userStore.isAuthenticated" class="btn btn-logout" @click="$emit('logout')">退出</button>
-      </div>
     </div>
   </div>
 </template>
 
 <script>
-import { useUserStore } from '../../../store'
-
 export default {
   name: 'SoldOrderHeader',
   props: {
@@ -38,12 +31,7 @@ export default {
       default: 0
     }
   },
-  emits: ['openAddForm', 'navigateToProfile', 'logout', 'toggle-batch-mode'],
-  computed: {
-    userStore() {
-      return useUserStore()
-    }
-  }
+  emits: ['openAddForm', 'toggle-batch-mode']
 }
 </script>
 
@@ -70,20 +58,10 @@ export default {
   gap: 20px;
 }
 
-.user-info {
+.action-buttons {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px 15px;
-  background-color: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.username {
-  font-size: 14px;
-  font-weight: 500;
-  color: #555;
+  gap: 10px;
 }
 
 .btn {
@@ -110,17 +88,6 @@ export default {
 
 .btn-add:hover {
   background-color: #45a049;
-}
-
-.btn-logout {
-  background-color: #f44336;
-  color: white;
-  padding: 8px 16px;
-  font-size: 14px;
-}
-
-.btn-logout:hover {
-  background-color: #da190b;
 }
 
 .btn-batch {

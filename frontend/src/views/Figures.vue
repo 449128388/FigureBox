@@ -30,16 +30,15 @@
   - 有关联订单的手办在批量选择模式下会被禁用
 -->
 <template>
+  <TopHeader />
   <div class="figures-container">
     <FiguresHeader
-      :user-store="userStore"
       :is-batch-mode="isBatchMode"
       :selected-count="selectedCount"
       @open-add-form="openAddForm"
       @import-figures="openImportDialog"
       @download-figures="handleDownload"
       @refresh-figures="fetchFigures"
-      @logout="logout($router)"
       @toggle-batch-mode="toggleBatchMode"
       @batch-delete="handleBatchDelete"
       @select-all="handleSelectAll"
@@ -165,6 +164,7 @@
 </template>
 
 <script>
+import TopHeader from '../components/TopHeader.vue'
 import FiguresHeader from './Figures/components/FiguresHeader.vue'
 import FiguresSearch from './Figures/components/FiguresSearch.vue'
 import FiguresList from './Figures/components/FiguresList.vue'
@@ -182,6 +182,7 @@ import { ElMessage } from 'element-plus'
 export default {
   name: 'Figures',
   components: {
+    TopHeader,
     FiguresHeader,
     FiguresSearch,
     FiguresList,
@@ -490,7 +491,7 @@ export default {
 
 <style scoped>
 .figures-container {
-  margin-top: 20px;
+  margin-top: 84px;
   width: 100%;
   max-width: 1650px;
   margin-left: 50px;

@@ -50,11 +50,22 @@ export const useUserStore = defineStore('user', {
       const response = await axios.put('/users/settings', settingsData)
       return response
     },
+    async updateAvatar(avatarUrl) {
+      const response = await axios.put('/users/profile', { avatar_url: avatarUrl })
+      if (this.profile) {
+        this.profile.avatar_url = avatarUrl
+      }
+      if (this.currentUser) {
+        this.currentUser.avatar_url = avatarUrl
+      }
+      return response
+    },
     logout() {
       this.token = null
       this.user = null
       this.profile = null
       localStorage.removeItem('token')
+      return Promise.resolve()
     }
   }
 })

@@ -22,6 +22,7 @@ class User(UserBase):
     id: int
     is_active: bool
     is_admin: bool
+    avatar_url: str
 
     class Config:
         from_attributes = True
@@ -109,3 +110,20 @@ class SettingsUpdate(BaseModel):
     block_settings: Optional[str] = None
     privacy_settings: Optional[str] = None
     push_settings: Optional[str] = None
+
+
+class MinIOConfigUpdate(BaseModel):
+    """MinIO 配置更新请求"""
+    endpoint: Optional[str] = None
+    access_key: Optional[str] = None
+    secret_key: Optional[str] = None
+    bucket: Optional[str] = None
+    public_url: Optional[str] = None
+    secure: Optional[bool] = None
+    region: Optional[str] = None
+
+
+class TimeoutConfigUpdate(BaseModel):
+    """超时登出配置更新请求"""
+    timeout_minutes: Optional[int] = None
+    timeout_warning: Optional[bool] = None

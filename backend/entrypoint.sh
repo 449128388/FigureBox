@@ -6,6 +6,15 @@ set -e
 echo "🚀 执行数据库迁移..."
 
 # 执行所有表注释补充
+echo "→ 检查 MinIO 配置字段..."
+python migrations/add_minio_columns.py
+
+echo "→ 填充 MinIO 默认值..."
+python migrations/fill_minio_defaults.py
+
+echo "→ 检查超时登出配置字段..."
+python migrations/add_timeout_columns.py
+
 echo "→ 检查所有表注释..."
 python migrations/add_all_table_comments.py
 

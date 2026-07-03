@@ -25,14 +25,13 @@
   - 【新增】批量选择模式下，订单卡片显示复选框
 -->
 <template>
+  <TopHeader />
   <div class="orders-container">
     <!-- 头部组件 -->
     <OrderHeader 
       :is-batch-mode="isBatchMode"
       :selected-count="selectedCount"
       @openAddForm="openAddForm"
-      @navigateToProfile="navigateToProfile"
-      @logout="handleLogout"
       @toggle-batch-mode="toggleBatchMode"
     />
     
@@ -140,6 +139,7 @@
 <script setup>
 import { onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import TopHeader from '../components/TopHeader.vue'
 import OrderHeader from './Orders/components/OrderHeader.vue'
 import OrderStatusTabs from './Orders/components/OrderStatusTabs.vue'
 import OrderItem from './Orders/components/OrderItem.vue'
@@ -232,7 +232,7 @@ watch(filteredOrders, (orders) => {
 
 <style scoped>
 .orders-container {
-  margin-top: 20px;
+  margin-top: 84px;
   width: 100%;
   max-width: 1650px;
   margin-left: 50px;

@@ -16,7 +16,8 @@
 <template>
   <div class="profile-hero">
     <div class="profile-left">
-      <div class="avatar">🧸</div>
+      <img v-if="avatarUrl" :src="avatarUrl" class="avatar" alt="用户头像">
+      <div v-else class="avatar fallback">🧸</div>
       <div class="profile-info">
         <div class="profile-title">我的塑料资产</div>
         <div class="profile-sub">藏品陈列室 · 以热爱为尺，不以涨跌为度</div>
@@ -36,6 +37,12 @@
 <script>
 export default {
   name: 'CollectorHeader',
+  props: {
+    avatarUrl: {
+      type: String,
+      default: ''
+    }
+  },
   emits: ['share-poster', 'privacy-settings'],
   methods: {
     sharePoster() {
@@ -70,13 +77,18 @@ export default {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #E8D5C0, #C49A6C);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
   color: #fff;
   flex-shrink: 0;
+  object-fit: cover;
+  border: 2px solid #E8D5C0;
+}
+
+.avatar.fallback {
+  background: linear-gradient(135deg, #E8D5C0, #C49A6C);
 }
 
 .profile-info {

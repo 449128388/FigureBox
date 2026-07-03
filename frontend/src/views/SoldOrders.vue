@@ -1,12 +1,11 @@
 <template>
+  <TopHeader />
   <div class="sold-orders-container">
     <!-- 头部组件 -->
     <SoldOrderHeader 
       :is-batch-mode="isBatchMode"
       :selected-count="selectedCount"
       @openAddForm="openAddForm"
-      @navigateToProfile="navigateToProfile"
-      @logout="handleLogout"
       @toggle-batch-mode="toggleBatchMode"
     />
     
@@ -113,6 +112,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import TopHeader from '../components/TopHeader.vue'
 import SoldOrderHeader from './SoldOrders/components/SoldOrderHeader.vue'
 import SoldOrderStatusTabs from './SoldOrders/components/SoldOrderStatusTabs.vue'
 import SoldOrderItem from './SoldOrders/components/SoldOrderItem.vue'
@@ -192,7 +192,7 @@ onMounted(() => {
 
 <style scoped>
 .sold-orders-container {
-  margin-top: 20px;
+  margin-top: 84px;
   width: 100%;
   max-width: 1650px;
   margin-left: 50px;

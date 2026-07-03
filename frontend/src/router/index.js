@@ -9,6 +9,7 @@ import SoldOrders from '../views/SoldOrders.vue'
 import Profile from '../views/Profile.vue'
 import Dashboard from '../views/Dashboard.vue'
 import ShareProfile from '../views/ShareProfile.vue'
+import { useUserStore } from '../store'
 
 const routes = [
   {
@@ -80,13 +81,19 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const token = localStorage.getItem('token')
   
   if (requiresAuth && !token) {
     next('/login')
   } else {
+    if (token) {
+      const userStore = useUserStore()
+      if (!userStore.currentUser) {
+        await userStore.fetchUser()
+      }
+    }
     next()
   }
 })

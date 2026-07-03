@@ -26,7 +26,7 @@ export default {
   computed: {
     isSpecialPage() {
       const currentPath = this.$route.path
-      return ['/', '/home', '/login', '/register', '/profile'].includes(currentPath)
+      return ['/', '/home', '/login', '/register', '/profile', '/dashboard', '/figures', '/orders', '/sell'].includes(currentPath)
     }
   },
   methods: {
