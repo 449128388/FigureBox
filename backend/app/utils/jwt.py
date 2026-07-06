@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Optional
 from jose import JWTError, jwt
 import os
 from dotenv import load_dotenv
@@ -13,9 +14,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 # Token 续期阈值：当 token 剩余有效期小于此值时自动续期（分钟）
 TOKEN_REFRESH_THRESHOLD_MINUTES = 10
 
-def create_access_token(data: dict):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    if expires_delta is None:
+        expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.utcnow() + expires_delta
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import timedelta
 from app.models.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, Token
@@ -29,8 +30,13 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     
-    # 创建访问令牌
-    access_token = create_access_token(data={"sub": str(db_user.id)})
+    # 创建访问令牌（使用用户配置的超时时间）
+    timeout_minutes = db_user.session_timeout_minutes
+    if timeout_minutes is None or timeout_minutes <= 0:
+        expires_delta = timedelta(days=365)  # 永不超时 ≈ 365天
+    else:
+        expires_delta = timedelta(minutes=timeout_minutes)
+    access_token = create_access_token(data={"sub": str(db_user.id)}, expires_delta=expires_delta)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/login", response_model=Token)
@@ -44,6 +50,11 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 创建访问令牌
-    access_token = create_access_token(data={"sub": str(db_user.id)})
+    # 创建访问令牌（使用用户配置的超时时间）
+    timeout_minutes = db_user.session_timeout_minutes
+    if timeout_minutes is None or timeout_minutes <= 0:
+        expires_delta = timedelta(days=365)  # 永不超时 ≈ 365天
+    else:
+        expires_delta = timedelta(minutes=timeout_minutes)
+    access_token = create_access_token(data={"sub": str(db_user.id)}, expires_delta=expires_delta)
     return {"access_token": access_token, "token_type": "bearer"}

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from datetime import timedelta
 from app.models.database import get_db
 from app.models.user import User
 from app.schemas.user import User as UserSchema, UserUpdate, ProfileUpdate, ProfileResponse, SettingsUpdate
@@ -36,9 +37,6 @@ def get_current_user(
         )
 
     user_id, should_refresh = verify_token(token)
-    if should_refresh and user_id:
-        new_token = create_access_token(data={"sub": str(user_id)})
-        request.state.new_token = new_token
 
     if user_id is None:
         raise HTTPException(
@@ -53,6 +51,17 @@ def get_current_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+
+    # Token 续期时使用用户的超时登出设置
+    if should_refresh:
+        timeout_minutes = user.session_timeout_minutes
+        if timeout_minutes is None or timeout_minutes <= 0:
+            expires_delta = timedelta(days=365)
+        else:
+            expires_delta = timedelta(minutes=timeout_minutes)
+        new_token = create_access_token(data={"sub": str(user_id)}, expires_delta=expires_delta)
+        request.state.new_token = new_token
+
     return user
 
 

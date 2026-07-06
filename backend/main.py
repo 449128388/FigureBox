@@ -5,9 +5,8 @@ from app.api import auth, figures, orders, users, assets, asset_transactions, so
 from app.models.database import engine, Base
 from app.models.exchange_rate import ExchangeRateRealtime, ExchangeRateHistory
 from app.models.hpi import HPIDaily, HPIComponent
-from app.utils.jwt import verify_token, create_access_token
 from app.utils.exception_handlers import register_exception_handlers
-from starlette.middleware.base import BaseHTTPMiddleware
+from app.utils.middleware import TokenRefreshMiddleware
 from starlette.responses import Response
 import logging
 
@@ -37,30 +36,7 @@ app.add_middleware(
     expose_headers=["X-Refresh-Token"],  # 暴露自定义响应头
 )
 
-# Token 自动续期中间件
-class TokenRefreshMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # 打印请求头信息用于调试
-        logger.info(f"请求路径: {request.url.path}")
-        logger.info(f"所有请求头: {dict(request.headers)}")
-        logger.info(f"Authorization头: {request.headers.get('Authorization')}")
-        
-        response = await call_next(request)
-        
-        # 获取请求中的 token
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header[7:]  # 去掉 "Bearer " 前缀
-            user_id, should_refresh = verify_token(token)
-            
-            # 只有当需要续期时才续期
-            if user_id and should_refresh:
-                new_token = create_access_token({"sub": user_id})
-                response.headers["X-Refresh-Token"] = new_token
-        
-        return response
-
-# 添加 Token 续期中间件
+# 添加 Token 续期中间件（从 app/utils/middleware.py 导入）
 app.add_middleware(TokenRefreshMiddleware)
 
 # 注册路由
