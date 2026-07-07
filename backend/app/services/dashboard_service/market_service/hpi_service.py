@@ -280,64 +280,124 @@ class HPIService:
             figure_id = fd["figure_id"]
             first_buy_price = fd["first_buy_price"]
             first_buy_date = fd["first_buy_date"]
-            quantity = fd["quantity"]
+            total_qty = max(int(fd["quantity"] or 1), 1)
             total_buy_amount = fd["total_buy_amount"]
             current_price = market_prices.get(figure_id, first_buy_price)
-            is_sold = figure_id in sold_figures
-            sell_price = sold_figures.get(figure_id)
 
-            # 收益率（百分比，如 83.8 表示 +83.8%）
-            return_pct = (current_price - first_buy_price) / first_buy_price * 100 if first_buy_price > 0 else 0
+            # 卖出信息（含数量 + 加权平均卖出价）
+            sold_info = sold_figures.get(figure_id)
+            sold_qty = int((sold_info or {}).get("sold_qty") or 0)
+            sold_qty = max(min(sold_qty, total_qty), 0)
+            sell_price = (sold_info or {}).get("sell_price") if sold_info else None
+            holding_qty = total_qty - sold_qty
 
-            # 权重 = 该手办历史交易金额 / 历史总交易金额
-            weight = total_buy_amount / total_amount
+            # 单体均价（人民币）—— 作为该手办所有分片的成本参考基准
+            unit_cost = total_buy_amount / total_qty if total_qty > 0 else 0
 
-            # 加权收益率贡献（百分比点数，如 13.7 表示贡献 +13.7%）
-            weighted_return = return_pct * weight
-            total_weighted_return += weighted_return
+            # 准备本次手办要追加的成分股行
+            pending_rows = []  # (qty, buy_amt, is_sold, sell_price, return_pct)
 
-            # 走势图贡献值（0~1000 标尺）
-            # = 1000 × (当前市场价 / 首次买入价) × 权重
-            # = 1000 × (1 + 收益率) × 权重
-            chart_contribution = cls.BASE_INDEX * (current_price / first_buy_price) * weight if first_buy_price > 0 else 0
+            # 已出部分
+            if sold_qty > 0:
+                sold_amt = round(unit_cost * sold_qty, 2)
+                if sold_amt <= 0:
+                    # 防御：成本无效时跳过该分片
+                    sold_amt = 0
+                if sell_price is not None and sold_amt > 0:
+                    sold_return = (sell_price - unit_cost) / unit_cost * 100
+                elif sold_amt == 0 and sell_price:
+                    sold_return = 0
+                else:
+                    sold_return = 0
+                pending_rows.append({
+                    "qty": sold_qty,
+                    "buy_amt": sold_amt,
+                    "is_sold": True,
+                    "sell_price": sell_price,
+                    "return_pct": sold_return,
+                })
 
-            # 盈亏分布（使用 ±1% 容差阈值）
-            if return_pct > THRESHOLD:
-                up_count += 1
-            elif return_pct < -THRESHOLD:
-                down_count += 1
-            else:
-                flat_count += 1
+            # 在柜部分
+            if holding_qty > 0:
+                holding_amt = round(unit_cost * holding_qty, 2)
+                # 在柜收益率：以「单体均价」为成本基准，与已出分片保持一致
+                holding_return = (
+                    (current_price - unit_cost) / unit_cost * 100
+                    if unit_cost > 0 else 0
+                )
+                pending_rows.append({
+                    "qty": holding_qty,
+                    "buy_amt": holding_amt,
+                    "is_sold": False,
+                    "sell_price": None,
+                    "return_pct": holding_return,
+                })
 
-            # 在柜/已出分类
-            if is_sold:
-                sold_count += 1
-                sold_chart_sum += chart_contribution
-                # 卖飞/卖对判断
-                if current_price > sell_price:
-                    sold_up_count += 1
-                elif current_price < sell_price:
-                    sold_down_count += 1
-            else:
-                holding_count += 1
-                in_cabinet_chart_sum += chart_contribution
+            # 汇总到全用户维度
+            for row in pending_rows:
+                qty = row["qty"]
+                buy_amt = row["buy_amt"]
+                is_sold = row["is_sold"]
+                sp = row["sell_price"]
+                rpct = row["return_pct"]
 
-            components.append({
-                "figure_id": figure_id,
-                "figure_name": fd.get("figure_name", ""),
-                "first_buy_price": first_buy_price,
-                "first_buy_date": first_buy_date,
-                "quantity": quantity,
-                "total_buy_amount": total_buy_amount,
-                "current_price": current_price,
-                "is_sold": is_sold,
-                "sell_price": sell_price,
-                "return_pct": return_pct,
-                "weight": weight,
-                "contribution": round(weighted_return, 2),       # 百分比点数贡献
-                "sell_fly": is_sold and current_price > sell_price,
-                "sell_right": is_sold and current_price < sell_price,
-            })
+                # 权重 = 本分片成本 / 全用户总投入
+                weight = buy_amt / total_amount if total_amount > 0 else 0
+                weighted_return = rpct * weight
+                total_weighted_return += weighted_return
+
+                # 走势图贡献值（0~1000 标尺）
+                # = 1000 × (当前市场价 / 成本基准) × 权重
+                # = 1000 × (1 + 收益率) × 权重
+                chart_price = sp if is_sold and sp is not None else current_price
+                chart_contribution = (
+                    cls.BASE_INDEX * (chart_price / unit_cost) * weight
+                    if unit_cost > 0 else 0
+                )
+
+                # 盈亏分布（使用 ±1% 容差阈值）
+                if rpct > THRESHOLD:
+                    up_count += 1
+                elif rpct < -THRESHOLD:
+                    down_count += 1
+                else:
+                    flat_count += 1
+
+                # 在柜/已出分类
+                if is_sold:
+                    sold_count += 1
+                    sold_chart_sum += chart_contribution
+                    if sp is None:
+                        sold_up_count += 0
+                        sold_down_count += 0
+                    else:
+                        # 卖飞/卖对：卖出价 < 当前市场价 为卖飞，卖出价 >= 当前市场价 为卖对
+                        if current_price > sp:
+                            sold_up_count += 1
+                        elif current_price <= sp:
+                            sold_down_count += 1
+                else:
+                    holding_count += 1
+                    in_cabinet_chart_sum += chart_contribution
+
+                components.append({
+                    "figure_id": figure_id,
+                    "figure_name": fd.get("figure_name", ""),
+                    "first_image": fd.get("first_image", ""),
+                    # 单体均价（人民币），前端的「买入」展示以此为基准
+                    "first_buy_price": round(unit_cost, 2),
+                    "first_buy_date": first_buy_date,
+                    "quantity": qty,
+                    "total_buy_amount": buy_amt,
+                    "current_price": current_price,
+                    "is_sold": is_sold,
+                    "sell_price": sp,
+                    "return_pct": rpct,
+                    "weight": weight,
+                    "contribution": round(weighted_return, 2),       # 百分比点数贡献
+                    "sell_fly": bool(is_sold and sp is not None and current_price > sp),
+                    "sell_right": bool(is_sold and sp is not None and current_price <= sp),
+                })
 
         # 6. 计算 HPI
         avg_return = total_weighted_return  # 加权平均收益率（百分比点数，如 4.6）
@@ -358,9 +418,10 @@ class HPIService:
         return {
             "index_value": round(index_value, 2),
             "avg_return": round(avg_return, 2),
-            "total_figures": len(components),
-            "holding_figures": holding_count,
-            "sold_figures": sold_count,
+            # total_figures 统计体数总和（混合状态下拆分为多行时累加）
+            "total_figures": sum(c["quantity"] for c in components),
+            "holding_figures": sum(c["quantity"] for c in components if not c["is_sold"]),
+            "sold_figures": sum(c["quantity"] for c in components if c["is_sold"]),
             "up_count": up_count,
             "flat_count": flat_count,
             "down_count": down_count,
@@ -405,11 +466,15 @@ class HPIService:
         # 按 figure_id 分组聚合
         figure_map = OrderedDict()  # figure_id -> aggregated data
         figure_names = {}  # figure_id -> name
+        figure_images = {}  # figure_id -> 首图URL
 
-        # 预查询手办名称
+        # 预查询手办名称与首图
         figure_ids = list(set(o.figure_id for o in orders))
         figures = db.query(Figure).filter(Figure.id.in_(figure_ids)).all()
         figure_names = {f.id: f.name for f in figures}
+        for f in figures:
+            imgs = f.images or []
+            figure_images[f.id] = imgs[0] if imgs else ""
 
         for order in orders:
             fid = order.figure_id
@@ -453,6 +518,7 @@ class HPIService:
             figure_data.append({
                 "figure_id": fid,
                 "figure_name": figure_names.get(fid, ""),
+                "first_image": figure_images.get(fid, ""),
                 "first_buy_price": round(first_price_cny, 2),
                 "first_buy_date": buy_date,
                 "total_buy_amount": round(record["total_buy_amount_cny"], 2),
@@ -471,21 +537,41 @@ class HPIService:
         }
 
     @staticmethod
-    def _get_sold_figure_map(db: Session, user_id: int) -> Dict[int, Optional[float]]:
+    def _get_sold_figure_map(db: Session, user_id: int) -> Dict[int, Dict[str, Any]]:
         """
-        获取用户已出手办映射
+        获取用户已出手办映射（支持多笔卖出记录与卖出数量）
 
         Returns:
-            Dict[figure_id, sell_price]
+            Dict[figure_id, {
+                "sell_price": 加权平均卖出价（CNY）,
+                "sold_qty": 累计卖出体数
+            }]
         """
+        from app.services.sold_order_service.currency_service import CurrencyService as _CS
         sold_orders = db.query(SoldOrder).filter(
             SoldOrder.user_id == user_id,
             SoldOrder.is_active == True
         ).all()
 
-        sold_map = {}
+        sold_map: Dict[int, Dict[str, Any]] = {}
         for so in sold_orders:
-            sold_map[so.figure_id] = so.sell_price or 0
+            qty = int(so.quantity or 1)
+            # 卖出价按币种折算为人民币（用总额÷数量得到单均价，再折算）
+            unit_cny = _CS.to_cny(
+                (so.sell_price or 0) / qty if qty > 0 else 0,
+                so.sell_price_currency or 'CNY', db=db
+            )
+            prev = sold_map.get(so.figure_id)
+            if prev is None:
+                sold_map[so.figure_id] = {"sell_price": unit_cny, "sold_qty": qty}
+            else:
+                # 多次卖出：加权平均卖出价
+                total_qty = prev["sold_qty"] + qty
+                avg_price = (
+                    (prev["sell_price"] * prev["sold_qty"] + unit_cny * qty) / total_qty
+                    if total_qty > 0 else 0
+                )
+                sold_map[so.figure_id] = {"sell_price": avg_price, "sold_qty": total_qty}
         return sold_map
 
     @staticmethod
@@ -498,15 +584,27 @@ class HPIService:
     @staticmethod
     def _get_today_components(db: Session, user_id: int, record_date: date) -> List[Dict]:
         """获取指定日期的成分股数据"""
-        components = db.query(HPIComponent).filter(
+        components = db.query(
+            HPIComponent,
+            Figure.name.label("figure_name"),
+            Figure.images.label("figure_images"),
+        ).outerjoin(
+            Figure, HPIComponent.figure_id == Figure.id
+        ).filter(
             HPIComponent.user_id == user_id,
             HPIComponent.record_date == record_date
         ).all()
 
         result = []
-        for c in components:
+        for row in components:
+            c = row[0] if hasattr(row, "_mapping") else row[0] if isinstance(row, tuple) else row
+            figure_name = row[1] if hasattr(row, "_mapping") else row[1] if isinstance(row, tuple) else getattr(row, "figure_name", "")
+            figure_images = row[2] if hasattr(row, "_mapping") else row[2] if isinstance(row, tuple) else getattr(row, "figure_images", None) or []
+            first_image = figure_images[0] if figure_images else ""
             result.append({
                 "figure_id": c.figure_id,
+                "figure_name": figure_name or f"手办 #{c.figure_id}",
+                "first_image": first_image,
                 "first_buy_price": c.first_buy_price,
                 "first_buy_date": c.first_buy_date.isoformat() if c.first_buy_date else "",
                 "quantity": c.quantity or 1,

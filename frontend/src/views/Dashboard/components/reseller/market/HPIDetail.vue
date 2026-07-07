@@ -87,30 +87,11 @@
       <div ref="chartRef" class="chart-container"></div>
     </div>
 
-    <!-- 成分股列表 -->
-    <div class="hpi-components">
-      <h4>成分股详情</h4>
-      <div v-if="loading" class="loading">加载中...</div>
-      <div v-else-if="components.length === 0" class="empty">暂无交易数据</div>
-      <div v-else class="component-list">
-        <div v-for="comp in components" :key="comp.figure_id" class="component-row">
-          <div class="comp-name">{{ comp.figure_name || `手办 #${comp.figure_id}` }}</div>
-          <div class="comp-price">买入 ¥{{ formatCurrency(comp.first_buy_price) }}</div>
-          <div class="comp-current">现价 ¥{{ formatCurrency(comp.current_price) }}</div>
-          <div class="comp-return" :class="{ up: comp.return_pct > 0, down: comp.return_pct < 0 }">
-            {{ formatPct(comp.return_pct) }}
-          </div>
-          <div class="comp-weight">{{ (comp.weight * 100).toFixed(1) }}%</div>
-          <div class="comp-status">
-            <span v-if="comp.is_sold" class="badge sold">已出</span>
-            <span v-else class="badge holding">在柜</span>
-          </div>
-          <div v-if="comp.is_sold" class="comp-sell-label" :class="{ fly: comp.sell_fly, right: comp.sell_right }">
-            {{ comp.sell_fly ? '⚡卖飞' : comp.sell_right ? '✅卖对' : '' }}
-          </div>
-        </div>
-      </div>
-    </div>
+      <!-- 投资复盘 -->
+      <InvestmentReview :market-data="marketData" />
+
+      <!-- 板块涨幅排行 -->
+      <SectorRanking :market-data="marketData" />
     </div>
   </div>
 </template>
@@ -120,8 +101,12 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import axios from '../../../../../axios'
 import * as echarts from 'echarts'
 
+import InvestmentReview from './InvestmentReview.vue'
+import SectorRanking from './SectorRanking.vue'
+
 export default {
   name: 'HPIDetail',
+  components: { InvestmentReview, SectorRanking },
   props: {
     marketData: { type: Object, default: () => ({}) }
   },
@@ -129,8 +114,6 @@ export default {
     const chartRef = ref(null)
     const selectedRange = ref(30)
     const historyData = ref([])
-    const components = ref([])
-    const loading = ref(false)
     let chartInstance = null
 
     const timeRanges = [
@@ -162,15 +145,6 @@ export default {
         historyData.value = res.history || []
         renderChart()
       } catch { /* ignore */ }
-    }
-
-    const fetchComponents = async () => {
-      loading.value = true
-      try {
-        const res = await axios.get('/market/hpi-components')
-        components.value = [...(res.holding || []), ...(res.sold || [])]
-      } catch { /* ignore */ }
-      finally { loading.value = false }
     }
 
     const switchRange = (days) => {
@@ -246,16 +220,16 @@ export default {
               const sl = Math.round(sold[idx] || 0)
               return `<div>
                 <div>${date}</div>
-                <div><span style="display:inline-block;width:8px;height:8px;background:#52c41a;border-radius:50%;margin-right:4px;"></span>在柜贡献 <strong>${ic}</strong></div>
-                <div><span style="display:inline-block;width:8px;height:8px;background:#bfbfbf;border-radius:50%;margin-right:4px;"></span>已出贡献 <strong>${sl}</strong></div>
+                <div><span style="display:inline-block;width:8px;height:8px;background:#52c41a;border-radius:50%;margin-right:4px;"></span>在柜指数 <strong>${ic}</strong></div>
+                <div><span style="display:inline-block;width:8px;height:8px;background:#bfbfbf;border-radius:50%;margin-right:4px;"></span>已出指数 <strong>${sl}</strong></div>
               </div>`
             }
           },
           legend: {
             bottom: 0,
             data: [
-              { name: '在柜贡献', icon: 'circle', itemStyle: { color: '#52c41a' } },
-              { name: '已出贡献', icon: 'circle', itemStyle: { color: '#bfbfbf' } }
+              { name: '在柜指数', icon: 'circle', itemStyle: { color: '#52c41a' } },
+              { name: '已出指数', icon: 'circle', itemStyle: { color: '#bfbfbf' } }
             ],
             textStyle: { fontSize: 12, color: '#666' }
           },
@@ -278,7 +252,7 @@ export default {
           },
           series: [
             {
-              name: '在柜贡献',
+              name: '在柜指数',
               type: 'line',
               data: inCabinet,
               smooth: true,
@@ -286,7 +260,7 @@ export default {
               lineStyle: { color: '#52c41a', width: 2 }
             },
             {
-              name: '已出贡献',
+              name: '已出指数',
               type: 'line',
               data: sold,
               smooth: true,
@@ -320,7 +294,6 @@ export default {
 
     onMounted(() => {
       fetchHistory(selectedRange.value)
-      fetchComponents()
     })
 
     watch(() => props.marketData, () => {
@@ -328,7 +301,7 @@ export default {
     })
 
     return {
-      chartRef, selectedRange, timeRanges, historyData, components, loading,
+      chartRef, selectedRange, timeRanges, historyData,
       indexData, returnClass, changeArrow, switchRange, formatNumber, formatPct, formatCurrency, formatDate
     }
   }
@@ -406,23 +379,4 @@ export default {
 .range-btn.active { background: #1890ff; color: #fff; border-color: #1890ff; }
 .chart-container { width: 100%; height: 300px; }
 
-.hpi-components h4 { font-size: 14px; color: #333; margin-bottom: 12px; }
-.loading, .empty { text-align: center; padding: 40px; color: #999; font-size: 14px; }
-.component-list { display: flex; flex-direction: column; gap: 8px; }
-.component-row {
-  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-  background: #fafafa; border-radius: 6px; font-size: 13px; flex-wrap: wrap;
-}
-.comp-name { flex: 1; min-width: 100px; font-weight: 500; color: #333; }
-.comp-price, .comp-current { color: #666; font-size: 12px; }
-.comp-return { font-weight: 600; min-width: 60px; }
-.comp-return.up { color: #f5222d; }
-.comp-return.down { color: #52c41a; }
-.comp-weight { color: #999; font-size: 12px; min-width: 50px; }
-.badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
-.badge.sold { background: #fff7e6; color: #d48806; }
-.badge.holding { background: #f6ffed; color: #389e0d; }
-.comp-sell-label { font-size: 12px; font-weight: 600; }
-.comp-sell-label.fly { color: #52c41a; }
-.comp-sell-label.right { color: #f5222d; }
 </style>

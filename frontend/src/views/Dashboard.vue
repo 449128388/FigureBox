@@ -885,12 +885,7 @@ export default {
       // 价格修改功能已在 PriceUpdateDialog 组件中实现
       // 此函数保留用于兼容性，实际逻辑在 AssetView.vue 中处理
     }
-    
-    // 添加到自选股
-    const addToWatchlist = () => {
-      ElMessage.info('添加自选股功能开发中')
-    }
-    
+
     // 交易操作
     const openBuyDialog = () => {
       openCreateBuyOrderDrawer()
@@ -926,6 +921,8 @@ export default {
     watch(activeView, async (newView) => {
       if (newView === 'asset') {
         await fetchDashboardData()
+      } else if (newView === 'market') {
+        await fetchMarketData()
       } else if (newView === 'trade') {
         await fetchTradeData()
       }
@@ -981,7 +978,6 @@ export default {
       sellAsset,
       addPosition,
       editPrice,
-      addToWatchlist,
       openBuyDialog,
       openSellDialog,
       openPaymentDialog,

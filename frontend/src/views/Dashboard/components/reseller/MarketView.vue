@@ -30,8 +30,7 @@ export default {
       type: Object,
       default: () => ({})
     }
-  },
-  emits: ['add-watchlist']
+  }
 }
 </script>
 
