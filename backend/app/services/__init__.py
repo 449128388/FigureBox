@@ -56,6 +56,14 @@ from .order_service import (
 # 从 storage_service 包导入存储服务
 from .storage_service import StorageService
 
+# 从 wishlist_service 包导入愿望清单服务
+from .wishlist_service import (
+    WishlistQueryService,
+    WishlistCrudService,
+    WishlistStatsService,
+    WishlistUrlFetchService,
+)
+
 __all__ = [
     "IndexService",
     "AssetCalculationService",
@@ -74,4 +82,9 @@ __all__ = [
     "OrderCrudService",
     # 存储服务
     "StorageService",
+    # 愿望清单服务
+    "WishlistQueryService",
+    "WishlistCrudService",
+    "WishlistStatsService",
+    "WishlistUrlFetchService",
 ]

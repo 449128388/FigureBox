@@ -12,6 +12,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - /etc/localtime:/etc/localtime:ro
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     ports:
       - "28630:3306"
     networks:

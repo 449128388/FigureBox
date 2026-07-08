@@ -9,6 +9,7 @@ import SoldOrders from '../views/SoldOrders.vue'
 import Profile from '../views/Profile.vue'
 import Dashboard from '../views/Dashboard.vue'
 import ShareProfile from '../views/ShareProfile.vue'
+import Wishlist from '../views/Wishlist/Wishlist.vue'
 import { useUserStore } from '../store'
 
 const routes = [
@@ -65,6 +66,12 @@ const routes = [
     path: '/dashboard',
     name: 'Dashboard',
     component: Dashboard,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/wishlist',
+    name: 'Wishlist',
+    component: Wishlist,
     meta: { requiresAuth: true }
   },
   {

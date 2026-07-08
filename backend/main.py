@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
-from app.api import auth, figures, orders, users, assets, asset_transactions, sold_orders, market, collector, records, upload
+from app.api import auth, figures, orders, users, assets, asset_transactions, sold_orders, market, collector, records, upload, wishlist
 from app.models.database import engine, Base
 from app.models.exchange_rate import ExchangeRateRealtime, ExchangeRateHistory
 from app.models.hpi import HPIDaily, HPIComponent
+from app.models.hpoi_cache import HpoiScrapeCache
 from app.utils.exception_handlers import register_exception_handlers
 from app.utils.middleware import TokenRefreshMiddleware
 from starlette.responses import Response
@@ -51,6 +52,7 @@ app.include_router(asset_transactions.router, prefix="/api/asset-transactions", 
 app.include_router(sold_orders.router, prefix="/api/sold-orders", tags=["sold-orders"])
 app.include_router(records.router, prefix="/api/trade_records", tags=["records"])
 app.include_router(upload.router, prefix="/api", tags=["upload"])
+app.include_router(wishlist.router, prefix="/api/wishlist", tags=["wishlist"])
 app.include_router(users.minio_config_router, prefix="/api", tags=["minio-config"])
 app.include_router(users.timeout_config_router, prefix="/api", tags=["timeout-config"])
 

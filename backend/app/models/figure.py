@@ -79,6 +79,11 @@ class Figure(Base):
     # 库存信息
     quantity = Column(Integer, default=1, comment="持有数量")
 
+    # 愿望清单扩展字段
+    wishlist_status = Column(String(20), nullable=True, comment="愿望清单状态：wish=愿望中, released=已发售, purchased=已购买, cancelled=已取消（仅purchase_type=wishlist生效）")
+    source_url = Column(String(500), nullable=True, comment="愿望清单来源URL（HPOI/Amiami/MFC/手动）")
+    note = Column(Text, nullable=True, comment="愿望清单备注")
+
     # 软删除标记
     is_active = Column(Integer, default=1, comment="是否激活：1=正常，0=已删除")
     deleted_at = Column(DateTime, nullable=True, comment="删除时间（软删除标记）")

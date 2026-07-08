@@ -17,7 +17,7 @@
   <div class="sector-ranking">
     <div class="sector-header">
       <span class="sector-title">板块涨幅排行</span>
-      <span v-if="hasData" class="sector-count-inline">共 {{ sectors.length }} 个板块</span>
+      <span v-if="hasData || totalSectors > 0" class="sector-count-inline">共 {{ totalSectors }} 个板块</span>
     </div>
 
     <!-- 维度切换 -->
@@ -53,7 +53,7 @@
           <div class="block-info">
             <div class="block-name">
               {{ sector.name }}
-              <span v-if="sector.figure_count" class="block-count">{{ sector.figure_count }}体</span>
+              <span v-if="sector.body_count" class="block-count">{{ sector.body_count }}体</span>
             </div>
             <div class="block-sub">{{ sector.stocks || '暂无代表手办' }}</div>
           </div>
@@ -81,6 +81,7 @@
                 <tr>
                   <th>手办名称</th>
                   <th>买入价</th>
+                  <th>卖出价</th>
                   <th>现价</th>
                   <th>涨跌幅</th>
                   <th>状态</th>
@@ -101,6 +102,12 @@
                     </div>
                   </td>
                   <td>¥{{ formatCurrency(fig.buy_price) }}</td>
+                  <td :class="['detail-sell', { 'detail-sell-empty': fig.sell_price === null || fig.sell_price === undefined }]">
+                    <template v-if="fig.sell_price !== null && fig.sell_price !== undefined">
+                      ¥{{ formatCurrency(fig.sell_price) }}
+                    </template>
+                    <template v-else>-</template>
+                  </td>
                   <td>¥{{ formatCurrency(fig.current_price) }}</td>
                   <td :class="['detail-pct', fig.change_pct >= 0 ? 'up' : 'down']">
                     {{ fig.change_pct >= 0 ? '+' : '' }}{{ fig.change_pct }}%
@@ -154,6 +161,7 @@ export default {
   setup(props) {
     const {
       sectors,
+      totalSectors,
       loading,
       hasData,
       activeDimension,
@@ -187,6 +195,7 @@ export default {
 
     return {
       sectors,
+      totalSectors,
       loading,
       hasData,
       activeDimension,
@@ -337,6 +346,9 @@ export default {
 .detail-pct { font-weight: 600; font-size: 13px; }
 .detail-pct.up { color: #F5222D; }
 .detail-pct.down { color: #52C41A; }
+
+.detail-sell { font-weight: 500; }
+.detail-sell-empty { color: #BBB; }
 
 .detail-tag {
   display: inline-flex; align-items: center; gap: 3px;

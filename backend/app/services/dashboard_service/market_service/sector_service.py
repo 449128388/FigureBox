@@ -101,14 +101,14 @@ class SectorService:
         user_id: int,
         dimension: str = "work",
         limit: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         获取用户持仓板块涨幅排行
 
         基于用户投资复盘（HPI 成分股）按指定维度聚合：
         - 板块收益率 = 板块内手办加权平均收益率
         - 权重 = 该手办历史交易金额 / 板块内手办历史总交易金额
-        - 板块手办数 = 板块内手办体数
+        - 板块体数 = 板块内手办体数（quantity 之和）
         - 代表手办 = 板块内权重 TOP3 的手办名称
 
         Args:
@@ -118,13 +118,12 @@ class SectorService:
             limit: 返回板块数量上限
 
         Returns:
-            List[Dict]: 板块列表，按 |板块收益率| 降序
-                - dimension: 当前维度 code
-                - dimension_name: 当前维度中文名
-                - name: 板块名
-                - change: 板块加权平均收益率（百分比，已保留 1 位小数）
-                - stocks: 代表手办名（用"、"连接）
-                - figure_count: 板块内手办体数
+            Dict:
+                - sectors: List，按 |板块收益率| 降序，最多 limit 个
+                    - dimension / dimension_name / name / change / stocks
+                    - body_count: 体数（quantity 之和）
+                    - figure_count: 唯一手办数（兼容旧字段）
+                - total: 全量板块数（不受 limit 限制）
         """
         # 取用户最新的 HPI 成分股（关联 Figure 获取维度字段）
         latest_date_subq = (
@@ -156,7 +155,7 @@ class SectorService:
         dim_label = DIMENSION_CONFIG[dimension][1]
 
         if not rows:
-            return []
+            return {"sectors": [], "total": 0}
 
         # 按指定维度分组
         groups: Dict[str, Dict[str, Any]] = {}
@@ -171,15 +170,20 @@ class SectorService:
                 "weighted_return_sum": 0.0,   # Σ(权重 × 收益率)
                 "weight_sum": 0.0,            # 板块内总权重
                 "figures": {},                # figure_id -> {name, weight, return_pct}
+                "body_count": 0,              # 板块内体数（quantity 之和）
+                "figure_count": 0,            # 板块内唯一手办数
             })
             weight = float(getattr(comp, "weight", 0) or 0)
             return_pct = float(getattr(comp, "return_pct", 0) or 0)
+            quantity = int(getattr(comp, "quantity", 0) or 0)
             bucket["weighted_return_sum"] += weight * return_pct
             bucket["weight_sum"] += weight
+            bucket["body_count"] += quantity
             existing = bucket["figures"].get(comp.figure_id)
             if existing:
                 existing["weight"] += weight
             else:
+                bucket["figure_count"] += 1
                 bucket["figures"][comp.figure_id] = {
                     "name": figure_name or f"手办 #{comp.figure_id}",
                     "weight": weight,
@@ -202,12 +206,19 @@ class SectorService:
                 "name": name,
                 "change": round(sector_change, 1),
                 "stocks": stocks,
-                "figure_count": len(data["figures"]),
+                # 体数 = 板块内全部 in-cabinet + sold 行的 quantity 之和
+                "body_count": data["body_count"],
+                # 唯一手办数（兼容旧字段）
+                "figure_count": data["figure_count"],
             })
 
         # 按 |板块收益率| 降序，TOP N
         sectors.sort(key=lambda x: abs(x["change"]), reverse=True)
-        return sectors[:limit]
+        total = len(sectors)  # 全量板块数（不受 limit 限制）
+        return {
+            "sectors": sectors[:limit],
+            "total": total,
+        }
 
     @classmethod
     def get_sector_figures(
@@ -305,6 +316,8 @@ class SectorService:
 
             buy_price = round(float(getattr(comp, "first_buy_price", 0) or 0), 2)
             current_price = round(float(getattr(comp, "current_price", 0) or 0), 2)
+            sell_price_raw = getattr(comp, "sell_price", None)
+            sell_price_val = round(float(sell_price_raw), 2) if sell_price_raw else None
             return_pct = round(float(getattr(comp, "return_pct", 0) or 0), 1)
             is_sold = bool(getattr(comp, "is_sold", 0))
             quantity = int(getattr(comp, "quantity", 1) or 1)
@@ -328,16 +341,17 @@ class SectorService:
                 "change_pct": return_pct,
                 "status": "sold" if is_sold else "holding",
                 "quantity": quantity,
+                "sell_price": sell_price_val,  # 已出价（在柜行为 null）
             })
 
-            total_buy += buy_price
-            total_current += current_price
+            total_buy += buy_price * quantity
+            total_current += current_price * quantity
             total_weighted_return += return_pct * weight
             total_weight += weight
             if is_sold:
-                sold_count += 1
+                sold_count += quantity
             else:
-                holding_count += 1
+                holding_count += quantity
 
         # 按 |涨跌幅| 降序展示
         figures.sort(key=lambda x: abs(x["change_pct"]), reverse=True)
@@ -359,6 +373,7 @@ class SectorService:
                 "change_pct": sector_change,
                 "holding_count": holding_count,
                 "sold_count": sold_count,
+                "body_count": holding_count + sold_count,
                 "figure_count": len(figures),
             },
         }

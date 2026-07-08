@@ -38,6 +38,7 @@ from sqlalchemy import func, desc
 from app.models.figure import Figure
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
+from app.models.asset import AssetTransaction
 from app.models.hpi import HPIDaily, HPIComponent
 from app.services.sold_order_service.currency_service import CurrencyService
 
@@ -260,8 +261,42 @@ class HPIService:
         # 3. 获取已出手办映射
         sold_figures = cls._get_sold_figure_map(db, user_id)
 
-        # 4. 计算历史总交易金额（权重分母）
-        total_amount = sum(fd["total_buy_amount"] for fd in figure_data)
+        # 4. 预计算每个手办的 FIFO 成本（在柜/已出分别取不同口径），
+        # 累加得到「总成本」，与每行 buy_amt（FIFO × 数量）严格一致
+        from app.services.dashboard_service.assets_service.holding_position_service import (
+            HoldingPositionService,
+        )
+        fifo_costs = {}  # figure_id -> (unit_cost_holding, unit_cost_sold, sold_qty, holding_qty)
+        total_amount = 0.0
+        for fd in figure_data:
+            figure_id = fd["figure_id"]
+            total_qty = max(int(fd["quantity"] or 1), 1)
+            sold_info = sold_figures.get(figure_id)
+            sold_qty = int((sold_info or {}).get("sold_qty") or 0)
+            sold_qty = max(min(sold_qty, total_qty), 0)
+            holding_qty = total_qty - sold_qty
+
+            unit_cost_holding = HoldingPositionService.calculate_remaining_cost_price(
+                db, figure_id, user_id
+            ) or 0.0
+            sell_txs = db.query(AssetTransaction).filter(
+                AssetTransaction.user_id == user_id,
+                AssetTransaction.figure_id == figure_id,
+                AssetTransaction.transaction_type == "sell",
+                AssetTransaction.is_active == True,
+            ).all()
+            sell_total_qty = sum(int(t.quantity or 0) for t in sell_txs)
+            sell_total_cost = sum((t.price or 0) * (t.quantity or 0) for t in sell_txs)
+            unit_cost_sold = (sell_total_cost / sell_total_qty) if sell_total_qty > 0 else 0.0
+
+            fifo_costs[figure_id] = {
+                "unit_cost_holding": unit_cost_holding,
+                "unit_cost_sold": unit_cost_sold,
+                "sold_qty": sold_qty,
+                "holding_qty": holding_qty,
+            }
+            total_amount += unit_cost_holding * holding_qty + unit_cost_sold * sold_qty
+
         if total_amount <= 0:
             return None
 
@@ -291,20 +326,29 @@ class HPIService:
             sell_price = (sold_info or {}).get("sell_price") if sold_info else None
             holding_qty = total_qty - sold_qty
 
-            # 单体均价（人民币）—— 作为该手办所有分片的成本参考基准
-            unit_cost = total_buy_amount / total_qty if total_qty > 0 else 0
+            # FIFO 成本（预计算结果）：在柜部分取 HoldingPositionService 计算的剩余持仓成本，
+            # 已出部分取 AssetTransaction 中 sell 记录记录的 FIFO 出库成本，
+            # 这样与「资产-持仓列表」口径完全一致。
+            fifo = fifo_costs.get(figure_id, {})
+            unit_cost_holding = fifo.get("unit_cost_holding", 0.0)
+            unit_cost_sold = fifo.get("unit_cost_sold", 0.0)
+            row_unit_costs = {
+                "holding": unit_cost_holding,
+                "sold": unit_cost_sold,
+            }
 
             # 准备本次手办要追加的成分股行
-            pending_rows = []  # (qty, buy_amt, is_sold, sell_price, return_pct)
+            pending_rows = []  # (qty, buy_amt, unit_cost, is_sold, sell_price, return_pct)
 
-            # 已出部分
+            # 已出部分（成本取 FIFO 出库成本）
             if sold_qty > 0:
-                sold_amt = round(unit_cost * sold_qty, 2)
+                row_unit_cost = row_unit_costs["sold"]
+                sold_amt = round(row_unit_cost * sold_qty, 2)
                 if sold_amt <= 0:
                     # 防御：成本无效时跳过该分片
                     sold_amt = 0
                 if sell_price is not None and sold_amt > 0:
-                    sold_return = (sell_price - unit_cost) / unit_cost * 100
+                    sold_return = (sell_price - row_unit_cost) / row_unit_cost * 100
                 elif sold_amt == 0 and sell_price:
                     sold_return = 0
                 else:
@@ -312,22 +356,25 @@ class HPIService:
                 pending_rows.append({
                     "qty": sold_qty,
                     "buy_amt": sold_amt,
+                    "unit_cost": row_unit_cost,
                     "is_sold": True,
                     "sell_price": sell_price,
                     "return_pct": sold_return,
                 })
 
-            # 在柜部分
+            # 在柜部分（成本取 HoldingPositionService 计算的剩余持仓成本）
             if holding_qty > 0:
-                holding_amt = round(unit_cost * holding_qty, 2)
-                # 在柜收益率：以「单体均价」为成本基准，与已出分片保持一致
+                row_unit_cost = row_unit_costs["holding"]
+                holding_amt = round(row_unit_cost * holding_qty, 2)
+                # 在柜收益率：以「剩余持仓成本」为成本基准，与已出分片保持 FIFO 一致
                 holding_return = (
-                    (current_price - unit_cost) / unit_cost * 100
-                    if unit_cost > 0 else 0
+                    (current_price - row_unit_cost) / row_unit_cost * 100
+                    if row_unit_cost > 0 else 0
                 )
                 pending_rows.append({
                     "qty": holding_qty,
                     "buy_amt": holding_amt,
+                    "unit_cost": row_unit_cost,
                     "is_sold": False,
                     "sell_price": None,
                     "return_pct": holding_return,
@@ -337,6 +384,7 @@ class HPIService:
             for row in pending_rows:
                 qty = row["qty"]
                 buy_amt = row["buy_amt"]
+                row_unit_cost = row["unit_cost"]
                 is_sold = row["is_sold"]
                 sp = row["sell_price"]
                 rpct = row["return_pct"]
@@ -351,8 +399,8 @@ class HPIService:
                 # = 1000 × (1 + 收益率) × 权重
                 chart_price = sp if is_sold and sp is not None else current_price
                 chart_contribution = (
-                    cls.BASE_INDEX * (chart_price / unit_cost) * weight
-                    if unit_cost > 0 else 0
+                    cls.BASE_INDEX * (chart_price / row_unit_cost) * weight
+                    if row_unit_cost > 0 else 0
                 )
 
                 # 盈亏分布（使用 ±1% 容差阈值）
@@ -384,8 +432,9 @@ class HPIService:
                     "figure_id": figure_id,
                     "figure_name": fd.get("figure_name", ""),
                     "first_image": fd.get("first_image", ""),
-                    # 单体均价（人民币），前端的「买入」展示以此为基准
-                    "first_buy_price": round(unit_cost, 2),
+                    # 单体 FIFO 成本（人民币），前端的「买入」展示以此为基准，
+                    # 与「资产-持仓列表」口径完全一致
+                    "first_buy_price": round(row_unit_cost, 2),
                     "first_buy_date": first_buy_date,
                     "quantity": qty,
                     "total_buy_amount": buy_amt,
@@ -455,7 +504,8 @@ class HPIService:
             .filter(
                 Order.user_id == user_id,
                 Order.is_active == 1,
-                Order.status.in_(['已完成', '已支付']),
+                # 与「资产-库存」口径保持一致：只统计尾款已结、手办已到手的订单
+                Order.status == "已完成",
             )
             .order_by(Order.created_at.asc())
             .all()

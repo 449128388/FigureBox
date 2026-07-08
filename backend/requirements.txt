@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+requests
 sqlalchemy
 pymysql
 python-jose[cryptography]
@@ -12,3 +13,4 @@ python-dotenv
 pytz
 apscheduler
 minio
+beautifulsoup4

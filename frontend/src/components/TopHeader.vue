@@ -8,6 +8,7 @@
       <router-link to="/figures">手办库</router-link>
       <router-link to="/orders">尾款管理</router-link>
       <router-link to="/sell">已出订单</router-link>
+      <router-link to="/wishlist">愿望清单</router-link>
       <router-link to="/dashboard">资产看板</router-link>
       <router-link to="/profile">个人中心</router-link>
     </nav>

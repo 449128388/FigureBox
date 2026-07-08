@@ -34,6 +34,7 @@ const DEFAULT_DIMENSIONS = [
 
 export function useSectorRanking(props) {
   const sectors = ref([])
+  const totalSectors = ref(0)  // 全量板块数（不受 limit 限制）
   const loading = ref(false)
   const activeDimension = ref('work')
   const dimensions = ref([...DEFAULT_DIMENSIONS])
@@ -56,6 +57,9 @@ export function useSectorRanking(props) {
     if (Array.isArray(incoming) && incoming.length > 0 && incomingDim === activeDimension.value) {
       sectors.value = incoming
     }
+    if (props?.marketData?.sector_total !== undefined) {
+      totalSectors.value = props.marketData.sector_total
+    }
   }
 
   /**
@@ -67,6 +71,9 @@ export function useSectorRanking(props) {
       const res = await axios.get(`/market/sector-ranking?dimension=${dimension}&limit=${limit}`)
       const data = res?.sectors || []
       sectors.value = data
+      if (res?.total !== undefined) {
+        totalSectors.value = res.total
+      }
       // 同步后端返回的当前维度
       if (res?.dimension && res.dimension !== activeDimension.value) {
         activeDimension.value = res.dimension
@@ -173,6 +180,7 @@ export function useSectorRanking(props) {
 
   return {
     sectors,
+    totalSectors,
     loading,
     hasData,
     activeDimension,

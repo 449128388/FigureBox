@@ -41,11 +41,12 @@ async def get_market_dashboard(
     - sectors：默认按作品出处的板块涨幅排行 TOP 5
     """
     hpi_data = HPIService.get_hpi_dashboard(db, current_user.id)
-    sectors = SectorService.get_user_sector_ranking(db, current_user.id, dimension="work", limit=5)
+    sector_data = SectorService.get_user_sector_ranking(db, current_user.id, dimension="work", limit=5)
 
     return {
         "index": hpi_data,
-        "sectors": sectors,
+        "sectors": sector_data.get("sectors", []),
+        "sector_total": sector_data.get("total", 0),
     }
 
 
@@ -78,8 +79,12 @@ async def get_sector_ranking(
     current_user: User = Depends(get_current_user)
 ):
     """获取用户持仓板块涨幅排行（按指定维度聚合）"""
-    sectors = SectorService.get_user_sector_ranking(db, current_user.id, dimension=dimension, limit=limit)
-    return {"sectors": sectors, "dimension": dimension}
+    data = SectorService.get_user_sector_ranking(db, current_user.id, dimension=dimension, limit=limit)
+    return {
+        "sectors": data.get("sectors", []),
+        "total": data.get("total", 0),
+        "dimension": dimension,
+    }
 
 
 @router.get("/sector-dimensions")

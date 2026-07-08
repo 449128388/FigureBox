@@ -216,8 +216,10 @@ class FigureExportService:
             Exception: 导出过程中发生错误时抛出
         """
         try:
-            # 获取所有手办数据
-            figures = db.query(Figure).all()
+            # 获取所有手办数据（不含愿望清单）
+            figures = db.query(Figure).filter(
+                Figure.purchase_type != 'wishlist',
+            ).all()
             
             # 转换为字典列表
             figures_data = []

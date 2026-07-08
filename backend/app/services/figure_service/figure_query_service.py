@@ -95,8 +95,11 @@ class FigureQueryService:
         Returns:
             Query对象
         """
-        # 只查询激活状态的手办
-        query = db.query(Figure).filter(Figure.is_active == True)
+        # 只查询激活状态的手办（不含愿望清单）
+        query = db.query(Figure).filter(
+            Figure.is_active == True,
+            Figure.purchase_type != 'wishlist',
+        )
 
         # 按名称搜索（模糊匹配）- 同时匹配中文名称和日文名称
         if name:

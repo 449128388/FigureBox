@@ -244,11 +244,14 @@ export default {
       const xAxisData = data.map(item => item.date)
       const seriesData = data.map(item => item.profit || item.value || 0)
 
-      // 计算数据范围，用于确定视觉映射
+      // 拆分为盈利/亏损两个 series，确保每个点根据正负值显示不同颜色
+      // （ECharts 的渐变 colorStops 是按像素坐标计算，无法做数据值驱动着色）
+      const positiveData = seriesData.map(v => (v >= 0 ? v : null))
+      const negativeData = seriesData.map(v => (v < 0 ? v : null))
+
+      // 计算数据范围，用于 Y 轴自适应
       const minProfit = Math.min(...seriesData)
       const maxProfit = Math.max(...seriesData)
-
-      // 判断是否有正负混合数据
       const hasPositive = maxProfit > 0
       const hasNegative = minProfit < 0
 
@@ -258,7 +261,8 @@ export default {
           formatter: function(params) {
             const value = params.value
             const color = value >= 0 ? '#FF4D4F' : '#52C41A'
-            return `${params.name}<br/>收益: <span style="color:${color}">¥${formatNumber(value)}</span>`
+            const sign = value >= 0 ? '盈利' : '亏损'
+            return `${params.name}<br/>${sign}: <span style="color:${color};font-weight:600">¥${formatNumber(value)}</span>`
           }
         },
         grid: {
@@ -278,30 +282,40 @@ export default {
             interval: 'auto',
             rotate: 0,
             formatter: function(value) {
-              // 确保日期格式正确显示
               return value
             }
           }
         },
         yAxis: {
           type: 'value',
+          // Y 轴自适应：当全部为正时强制 min=0；全部为负时强制 max=0；正负混合时由 ECharts 自动包含 0
+          ...(hasPositive && !hasNegative ? { min: 0 } : {}),
+          ...(hasNegative && !hasPositive ? { max: 0 } : {}),
           axisLabel: {
             formatter: '¥{value}',
             color: '#666'
           },
           splitLine: {
-            lineStyle: {
-              color: '#f0f0f0'
-            }
+            lineStyle: { color: '#f0f0f0' }
           }
         },
         series: [
           {
-            name: '收益',
-            data: seriesData,
+            name: '盈利',
+            data: positiveData,
             type: 'line',
             smooth: true,
-            // 零轴参考线 - 使用 markLine 强制显示在 Y=0 位置
+            symbol: 'circle',
+            symbolSize: 5,
+            connectNulls: false,
+            lineStyle: { color: '#FF4D4F', width: 2 },
+            itemStyle: { color: '#FF4D4F' },
+            // 盈利区域填充：浅红色 #FFE6E6
+            areaStyle: {
+              color: 'rgba(255, 230, 230, 0.6)',
+              origin: 'start'
+            },
+            // 零轴参考线（Y=0 灰色虚线）
             markLine: {
               symbol: 'none',
               silent: true,
@@ -314,66 +328,55 @@ export default {
                     type: 'dashed',
                     width: 1
                   },
-                  label: {
-                    show: false
-                  }
+                  label: { show: false }
                 }
               ]
-            },
-            // 使用 itemStyle 实现根据数据点正负值显示不同颜色
-            itemStyle: {
-              color: function(params) {
-                return params.value >= 0 ? '#FF4D4F' : '#52C41A'
-              }
-            },
-            lineStyle: {
-              width: 2,
-              // 使用渐变色实现线条根据正负值显示不同颜色
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [
-                  { offset: 0, color: '#FF4D4F' },  // 正值区域：红色
-                  { offset: 0.5, color: '#FF4D4F' }, // 中间过渡
-                  { offset: 0.5, color: '#52C41A' }, // 零轴位置切换颜色
-                  { offset: 1, color: '#52C41A' }    // 负值区域：绿色
-                ]
-              }
-            },
-            // 区域填充：根据正负值显示不同颜色
-            areaStyle: {
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [
-                  { offset: 0, color: '#FFE6E6' },      // 正值区域：浅红色
-                  { offset: 0.5, color: 'rgba(255, 230, 230, 0.1)' },
-                  { offset: 0.5, color: 'rgba(230, 247, 230, 0.1)' },
-                  { offset: 1, color: '#E6F7E6' }       // 负值区域：浅绿色
-                ]
-              }
-            },
+            }
+          },
+          {
+            name: '亏损',
+            data: negativeData,
+            type: 'line',
+            smooth: true,
             symbol: 'circle',
-            symbolSize: 4
+            symbolSize: 5,
+            connectNulls: false,
+            lineStyle: { color: '#52C41A', width: 2 },
+            itemStyle: { color: '#52C41A' },
+            // 亏损区域填充：浅绿色 #E6F7E6
+            areaStyle: {
+              color: 'rgba(230, 247, 230, 0.6)',
+              origin: 'start'
+            }
           }
         ]
       }
 
-      // 如果是空数据（全新用户），显示y=0直线
+      // 如果是空数据（全新用户），显示 y=0 灰色虚线
       if (isEmptyData) {
-        option.visualMap = null
-        option.series[0].lineStyle = {
-          color: '#999',
-          width: 1,
-          type: 'dashed'
-        }
-        option.series[0].areaStyle = null
+        option.series = [
+          {
+            name: '暂无收益',
+            data: seriesData,
+            type: 'line',
+            smooth: true,
+            symbol: 'none',
+            lineStyle: { color: '#999', width: 1, type: 'dashed' },
+            areaStyle: null,
+            markLine: {
+              symbol: 'none',
+              silent: true,
+              animation: false,
+              data: [
+                {
+                  yAxis: 0,
+                  lineStyle: { color: '#999', type: 'dashed', width: 1 },
+                  label: { show: false }
+                }
+              ]
+            }
+          }
+        ]
         option.title = {
           text: '暂无收益数据',
           left: 'center',
