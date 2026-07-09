@@ -20,8 +20,8 @@ export function useWishlist() {
   const filterName = ref('')
   const filterStatus = ref('')
   const filterMaker = ref('')
-  const filterStart = ref('')  // YYYY-MM
-  const filterEnd = ref('')
+  const filterStart = ref('')  // YYYY-MM-DD
+  const filterEnd = ref('')    // YYYY-MM-DD
 
   // ========== 选中 ==========
   const selectedIds = ref([])
@@ -43,13 +43,8 @@ export function useWishlist() {
       if (filterName.value) params.name = filterName.value
       if (filterStatus.value) params.status = filterStatus.value
       if (filterMaker.value) params.manufacturer = filterMaker.value
-      if (filterStart.value) params.release_start = filterStart.value + '-01'
-      if (filterEnd.value) {
-        // 区间结束处理
-        const [y, m] = filterEnd.value.split('-').map(Number)
-        const lastDay = new Date(y, m, 0).toISOString().slice(0, 10)
-        params.release_end = lastDay
-      }
+      if (filterStart.value) params.release_start = filterStart.value
+      if (filterEnd.value) params.release_end = filterEnd.value
 
       const res = await wishlistApi.list(params)
       items.value = res.items || []

@@ -177,7 +177,7 @@ onMounted(() => {
   line-height: 1.5;
 }
 .main-container {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 24px 32px;
 }

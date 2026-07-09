@@ -11,13 +11,15 @@ wishlist_router - 愿望清单路由注册层
 - POST   /wishlist/{id}/status          状态流转
 - POST   /wishlist/{id}/move-to-library 转入手办库
 - POST   /wishlist/url-fetch            URL 智能抓取（模拟）
+- GET    /wishlist/debug/raw-html       查看缓存原始 HTML（调试）
 """
 from fastapi import APIRouter
 
-from . import wishlist, wishlist_stats, wishlist_url
+from . import wishlist, wishlist_stats, wishlist_url, wishlist_url_debug
 
 router = APIRouter()
 
 router.include_router(wishlist_stats.router, prefix="", tags=["wishlist-stats"])
 router.include_router(wishlist.router, prefix="", tags=["wishlist"])
 router.include_router(wishlist_url.router, prefix="", tags=["wishlist-url"])
+router.include_router(wishlist_url_debug.router, prefix="", tags=["wishlist-debug"])

@@ -123,7 +123,7 @@ const onImgError = (e) => {
 .card-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.5s;
 }
 .wish-card:hover .card-image { transform: scale(1.05); }
@@ -198,6 +198,8 @@ const onImgError = (e) => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   flex: 1;
+  /* 固定高度为 2 行，避免因标题换行导致下方内容（备注）水平错位 */
+  height: 2.8em;
 }
 .card-meta {
   display: flex;

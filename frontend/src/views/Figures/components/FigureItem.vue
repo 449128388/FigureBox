@@ -273,7 +273,7 @@ export default {
 .figure-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   content-visibility: auto;
 }
 

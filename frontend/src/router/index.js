@@ -10,6 +10,7 @@ import Profile from '../views/Profile.vue'
 import Dashboard from '../views/Dashboard.vue'
 import ShareProfile from '../views/ShareProfile.vue'
 import Wishlist from '../views/Wishlist/Wishlist.vue'
+import WishlistDebug from '../views/Wishlist/WishlistDebug.vue'
 import { useUserStore } from '../store'
 
 const routes = [
@@ -72,6 +73,12 @@ const routes = [
     path: '/wishlist',
     name: 'Wishlist',
     component: Wishlist,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/wishlist/debug',
+    name: 'WishlistDebug',
+    component: WishlistDebug,
     meta: { requiresAuth: true }
   },
   {

@@ -43,7 +43,7 @@ export function useWishlistUrlFetch() {
       const data = await wishlistApi.urlFetch(url.value.trim())
       result.value = data
       if (data._cache_hit) {
-        ElMessage.info('使用缓存数据')
+        ElMessage.success('使用缓存数据')
       } else if (data._fallback) {
         ElMessage.warning('部分数据未能完整解析，请手动补充')
       }
@@ -66,16 +66,24 @@ export function useWishlistUrlFetch() {
       return false
     }
     try {
+      // 标准化 release_date：HPOI 可能返回 "2026-12"（仅年月），补成 "2026-12-01"
+      let releaseDate = result.value.release_date
+      if (releaseDate && /^\d{4}-\d{2}$/.test(releaseDate)) {
+        releaseDate = releaseDate + '-01'
+      }
       const payload = {
         name: result.value.name,
         japanese_name: result.value.japanese_name,
         manufacturer: result.value.manufacturer,
         scale: result.value.scale,
+        painting: result.value.painter,
+        original_art: result.value.original_art,
         work: result.value.work,
         material: result.value.material,
+        size: result.value.size,
         price: result.value.price,
         currency: result.value.currency,
-        release_date: result.value.release_date,
+        release_date: releaseDate,
         source_url: result.value.source_url,
         note: note.value,
         images: result.value.image ? [result.value.image] : [],

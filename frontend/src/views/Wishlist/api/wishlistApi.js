@@ -49,6 +49,11 @@ export const wishlistApi = {
   // URL 抓取
   urlFetch(url) {
     return axios.post(`${BASE}/url-fetch`, { url })
+  },
+
+  // 厂商列表
+  manufacturers() {
+    return axios.get(`${BASE}/manufacturers`)
   }
 }
 

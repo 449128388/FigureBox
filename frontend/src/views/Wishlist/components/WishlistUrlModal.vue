@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="visible"
     title="从链接添加愿望"
-    width="560px"
+    width="780px"
     :close-on-click-modal="false"
     @close="$emit('close')"
   >
@@ -19,7 +19,7 @@
           <i class="ri-magic-line"></i> 抓取
         </button>
       </div>
-      <p class="form-hint">支持 HPOI、Amiami、MyFigureCollection 等站点</p>
+      <p class="form-hint">支持 HPOI 等站点</p>
     </div>
 
     <div v-if="fetching" class="fetch-loading">
@@ -33,32 +33,80 @@
     </div>
 
     <div v-if="result" class="fetch-result">
-      <div class="result-title">
-        <i class="ri-check-double-line"></i>
-        抓取成功
+      <!-- 中文名称 -->
+      <div class="result-chinese-name">
+        <span class="label">中文名称:</span>
+        <span class="value">{{ result.name || '-' }}</span>
       </div>
-      <img v-if="result.image" :src="result.image" class="preview-image" alt="预览" />
-      <div class="result-item">
-        <span>名称</span>
-        <span style="font-weight:600">{{ result.name || '-' }}</span>
-      </div>
-      <div class="result-item">
-        <span>定价</span>
-        <span style="color:#ff4d4f;font-weight:600">
-          {{ result.price ? `¥${result.price.toLocaleString()}` : '-' }} {{ result.currency }}
-        </span>
-      </div>
-      <div class="result-item">
-        <span>发售时间</span>
-        <span>{{ result.release_date || '-' }}</span>
-      </div>
-      <div class="result-item">
-        <span>厂商</span>
-        <span>{{ result.manufacturer || '-' }}</span>
-      </div>
-      <div class="result-item">
-        <span>比例</span>
-        <span>{{ result.scale || '-' }}</span>
+
+      <!-- 左图右信息 -->
+      <div class="result-body">
+        <div class="result-image-wrap">
+          <img v-if="result.image" :src="result.image" class="preview-image" alt="预览" />
+          <div v-else class="preview-image preview-placeholder">
+            <i class="ri-image-line"></i>
+          </div>
+        </div>
+
+        <div class="result-info">
+          <div class="info-row">
+            <span class="info-label">名称</span>
+            <span class="info-value">{{ result.japanese_name || '-' }}</span>
+          </div>
+          <div v-if="result.attributes" class="info-row">
+            <span class="info-label">属性</span>
+            <span class="info-value text-green">{{ Array.isArray(result.attributes) ? result.attributes.join('、') : result.attributes }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">定价</span>
+            <span class="info-value">
+              <template v-if="result.price_text">
+                {{ result.price_text }}
+              </template>
+              <template v-else-if="result.price">
+                <template v-if="result.currency === 'CNY'">¥{{ result.price.toLocaleString() }} CNY</template>
+                <template v-else>¥{{ result.price.toLocaleString() }} JPY</template>
+              </template>
+              <template v-else>-</template>
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">出货日</span>
+            <span class="info-value text-green">{{ result.release_date_text || result.release_date || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">比例</span>
+            <span class="info-value text-green">{{ result.scale || '-' }}</span>
+          </div>
+          <div v-if="result.production" class="info-row">
+            <span class="info-label">制作</span>
+            <span class="info-value text-blue">{{ result.production }}</span>
+          </div>
+          <div v-if="result.manufacturer" class="info-row">
+            <span class="info-label">发行</span>
+            <span class="info-value text-blue">{{ result.manufacturer }}</span>
+          </div>
+          <div v-if="result.painter" class="info-row">
+            <span class="info-label">涂装</span>
+            <span class="info-value text-blue">{{ result.painter }}</span>
+          </div>
+          <div v-if="result.original_art" class="info-row">
+            <span class="info-label">原画</span>
+            <span class="info-value text-blue">{{ result.original_art }}</span>
+          </div>
+          <div v-if="result.work" class="info-row">
+            <span class="info-label">作品</span>
+            <span class="info-value text-blue">{{ result.work }}</span>
+          </div>
+          <div v-if="result.size" class="info-row">
+            <span class="info-label">尺寸</span>
+            <span class="info-value text-green">{{ result.size }}</span>
+          </div>
+          <div v-if="result.material" class="info-row">
+            <span class="info-label">材质</span>
+            <span class="info-value text-green">{{ result.material }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -198,35 +246,84 @@ const onSave = async () => {
   color: #ff4d4f;
   font-size: 13px;
 }
+
+/* === 抓取成功（深色主题） === */
 .fetch-result {
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
-  border-radius: 6px;
-  padding: 12px;
+  background: linear-gradient(135deg, #1a0f2e 0%, #2d1b4e 50%, #1a0f2e 100%);
+  border-radius: 10px;
+  padding: 18px 20px;
   margin-bottom: 16px;
+  color: #e0d9f0;
+  box-shadow: 0 4px 16px rgba(114, 46, 209, 0.15);
 }
-.result-title {
-  color: #52c41a;
-  font-weight: 600;
-  margin-bottom: 8px;
+.result-chinese-name {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.result-chinese-name .label {
+  font-size: 14px;
+  color: #b8a8d9;
+  flex-shrink: 0;
+}
+.result-chinese-name .value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  word-break: break-all;
+}
+.result-body {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+.result-image-wrap {
+  width: 180px;
+  flex-shrink: 0;
 }
 .preview-image {
-  width: 100%;
-  max-height: 200px;
-  object-fit: contain;
-  background: #fff;
-  border-radius: 4px;
-  margin-bottom: 8px;
+  width: 180px;
+  height: 240px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  display: block;
 }
-.result-item {
+.preview-placeholder {
   display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 13px;
-  color: #666;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 32px;
 }
-.result-item span:last-child { color: #333; }
+.result-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.info-row {
+  display: flex;
+  align-items: baseline;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.info-label {
+  color: #b8a8d9;
+  width: 56px;
+  flex-shrink: 0;
+  text-align: left;
+}
+.info-value {
+  color: #e8e0f5;
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+.text-green { color: #4ade80; }
+.text-blue { color: #60a5fa; }
 </style>

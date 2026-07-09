@@ -237,7 +237,13 @@ class WishlistCrudService:
         ).first()
         if not figure:
             return None
-        figure.purchase_type = purchase_type
+        # 映射为数据库标准大写值（与 PURCHASE_TYPE_MAP 一致）
+        type_mapping = {
+            "preorder": "PREORDER",
+            "spot": "INSTOCK",
+            "secondhand": "SECONDHAND",
+        }
+        figure.purchase_type = type_mapping.get(purchase_type, purchase_type.upper())
         figure.wishlist_status = None
         db.commit()
         db.refresh(figure)

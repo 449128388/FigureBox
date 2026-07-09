@@ -58,10 +58,23 @@ class HpoiScraperService:
         if not url.startswith("http"):
             raise ValueError("URL 格式错误，需以 http:// 或 https:// 开头")
 
-        # === 第 4 步（优先检查）：缓存命中 ===
+        # === 第 4 步（优先检查）：缓存命中 → 重新解析（兼容解析器升级） ===
         cached = CacheManager.get(db, url)
         if cached and cached.get("parsed_data"):
             logger.info(f"[HPOI Scraper] 缓存命中: {url}")
+            raw_html = cached.get("raw_html")
+            if raw_html:
+                try:
+                    parsed = HpoiParser.parse(raw_html)
+                    # 用新解析器结果覆盖缓存
+                    CacheManager.set(db, url, raw_html, parsed)
+                    parsed["source_url"] = url
+                    parsed["_cache_hit"] = True
+                    logger.info("[HPOI Scraper] 缓存重新解析成功")
+                    return parsed
+                except Exception as e:
+                    logger.warning(f"[HPOI Scraper] 缓存重新解析失败，使用旧数据: {e}")
+            # 降级：返回旧解析数据
             data = cached["parsed_data"]
             data["source_url"] = url
             data["_cache_hit"] = True
@@ -139,9 +152,16 @@ class HpoiScraperService:
             "scale": None,
             "price": 0,
             "currency": "CNY",
+            "price_text": None,
             "release_date": None,
+            "release_date_text": None,
+            "original_art": None,
             "work": None,
             "material": None,
             "image": None,
+            "attributes": [],
+            "production": None,
+            "painter": None,
+            "size": None,
             "_fallback": True,
         }

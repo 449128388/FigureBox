@@ -9,7 +9,7 @@ wishlist_query_service - 愿望清单查询服务
 from typing import List, Optional, Dict, Any
 from datetime import date
 from sqlalchemy.orm import Session
-from sqlalchemy import asc, desc, or_, func
+from sqlalchemy import desc, or_
 
 from app.models.figure import Figure
 from app.models.tag import Tag, figure_tag
@@ -106,11 +106,8 @@ class WishlistQueryService:
                          .join(Tag, Tag.id == figure_tag.c.tag_id) \
                          .filter(Tag.name.in_(tag_names))
 
-        # 排序：发售日期升序（最近的优先，无日期的放后面），再按创建时间倒序
-        query = query.order_by(
-            asc(func.coalesce(Figure.release_date, "9999-12-31")),
-            desc(Figure.created_at),
-        )
+        # 排序：新创建的在前面
+        query = query.order_by(desc(Figure.created_at))
 
         total = query.count()
         figures = query.offset(skip).limit(limit).all()
@@ -123,6 +120,17 @@ class WishlistQueryService:
             "skip": skip,
             "limit": limit,
         }
+
+    @staticmethod
+    def get_manufacturers(db: Session, user_id: int) -> List[str]:
+        """获取愿望清单中所有去重后的厂商列表"""
+        results = db.query(Figure.manufacturer).filter(
+            Figure.purchase_type == PURCHASE_TYPE,
+            Figure.is_active == 1,
+            Figure.manufacturer.isnot(None),
+            Figure.manufacturer != '',
+        ).distinct().order_by(Figure.manufacturer).all()
+        return [r[0] for r in results]
 
     @staticmethod
     def get_wishlist_detail(db: Session, user_id: int, figure_id: int) -> Optional[Dict[str, Any]]:

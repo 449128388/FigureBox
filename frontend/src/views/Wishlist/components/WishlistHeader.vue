@@ -17,6 +17,9 @@
         <i :class="loading ? 'ri-loader-4-line ri-spin' : 'ri-refresh-line'"></i>
         <span>{{ loading ? '刷新中' : '刷新' }}</span>
       </button>
+      <router-link to="/wishlist/debug" class="debug-link" title="HTML 抓取调试">
+        <i class="ri-bug-line"></i>
+      </router-link>
       <button class="btn btn-danger" :disabled="!hasSelected" @click="$emit('batch-delete')">
         <i class="ri-delete-bin-line"></i>
         <span>批量删除</span>
@@ -95,6 +98,20 @@ const onRefresh = async () => {
   border: 1px solid #d9d9d9;
 }
 .btn-default:hover:not(:disabled) { background: #e8e8e8; color: #333; }
+.debug-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  color: #999;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+.debug-link:hover { background: #e8e8e8; color: #722ed1; border-color: #722ed1; }
 .ri-spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 </style>

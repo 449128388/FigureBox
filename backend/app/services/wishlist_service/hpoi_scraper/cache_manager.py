@@ -45,9 +45,16 @@ class CacheManager:
             )
         ).first()
         if record:
+            raw_html_str = None
+            if record.raw_html:
+                try:
+                    raw_html_str = CacheManager._decompress(record.raw_html)
+                except Exception:
+                    pass
             return {
                 "url_hash": record.url_hash,
                 "source_url": record.source_url,
+                "raw_html": raw_html_str,
                 "parsed_data": json.loads(record.parsed_data) if record.parsed_data else None,
                 "cached_at": record.created_at.isoformat() if record.created_at else None,
             }

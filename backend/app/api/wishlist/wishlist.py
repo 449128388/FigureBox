@@ -72,6 +72,16 @@ class MoveToLibrary(BaseModel):
 
 
 # ========== Endpoints ==========
+
+@router.get("/manufacturers")
+def list_manufacturers(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取愿望清单中所有去重后的厂商列表"""
+    return WishlistQueryService.get_manufacturers(db, current_user.id)
+
+
 @router.get("/")
 def list_wishlist(
     skip: int = 0,
