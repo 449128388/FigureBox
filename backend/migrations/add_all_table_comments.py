@@ -21,7 +21,6 @@ TABLE_COMMENTS = {
     "sold_orders": "卖出订单表 - 存储手办卖出/转卖的记录",
     "asset_transactions": "资产交易记录表 - 记录手办的买卖交易（股票式补仓、买入卖出流水）",
     "asset_price_history": "资产价格历史表 - 记录手办价格变化历史，用于价格趋势图表",
-    "asset_alerts": "资产预警设置表 - 存储用户设置的价格预警规则",
     "asset_value_cache": "资产市值缓存表 - 缓存用户每日资产总市值，用于日涨跌计算",
     "stock_index_cache": "指数缓存表 - 缓存最新上证指数/沪深300指数数据",
     "stock_index_history": "指数历史记录表 - 保存每次请求的指数详细数据，用于趋势分析",
@@ -42,6 +41,14 @@ TABLE_COMMENTS = {
     "exchange_rate_history": "汇率历史记录表 - 记录每次从中国外汇交易中心获取的汇率快照",
     "hpi_daily": "HPI每日快照表 - 投资生涯全周期收益指数每日快照",
     "hpi_components": "HPI成分明细表 - 记录每手办对指数的贡献",
+    "hpoi_scrape_cache": "HPOI 抓取缓存表 - 存储 HPOI 页面抓取结果与解析数据（30 天 TTL）",
+}
+
+# 需要补充列注释的表（id 主键列无注释）
+COLUMN_COMMENTS = {
+    "hpoi_scrape_cache": {
+        "id": "缓存记录唯一标识ID",
+    },
 }
 
 
@@ -81,7 +88,44 @@ def upgrade():
             else:
                 print(f"  ⚠️ {table_name}: 表不存在，跳过")
 
-    print(f"\n🎉 共更新 {count} 张表的注释")
+        # 更新列注释
+        col_count = 0
+        for table_name, columns in COLUMN_COMMENTS.items():
+            if table_name not in existing_tables:
+                print(f"  ⚠️ {table_name}: 表不存在，跳过列注释")
+                continue
+            for col_name, col_comment in columns.items():
+                conn.execute(text(
+                    f"ALTER TABLE `{table_name}` MODIFY `{col_name}` "
+                    f"{get_column_type(conn, table_name, col_name)} "
+                    f"COMMENT '{col_comment}'"
+                ))
+                conn.commit()
+                print(f"  ✅ {table_name}.{col_name}: 列注释已更新")
+                col_count += 1
+
+    print(f"\n🎉 共更新 {count} 张表的注释，{col_count} 个列的注释")
+
+
+def get_column_type(conn, table_name: str, col_name: str) -> str:
+    """查询列定义（保留原类型/默认值/非空等属性）"""
+    result = conn.execute(text(
+        "SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA "
+        "FROM information_schema.columns "
+        "WHERE table_schema = DATABASE() AND table_name = :t AND column_name = :c"
+    ), {"t": table_name, "c": col_name}).first()
+    if not result:
+        return col_name
+    col_type, is_nullable, col_default, extra = result
+    parts = [col_type]
+    if is_nullable == "NO":
+        parts.append("NOT NULL")
+    if col_default is not None:
+        default_val = col_default if col_default != "CURRENT_TIMESTAMP" else "CURRENT_TIMESTAMP"
+        parts.append(f"DEFAULT {default_val}")
+    if extra:
+        parts.append(extra)
+    return " ".join(parts)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ from sqlalchemy import func
 from app.models.user_asset_snapshot import UserAssetSnapshot
 from app.models.asset import AssetTransaction
 from app.models.figure import Figure
+from app.models.order import Order
 
 
 class DailyChangeService:
@@ -316,6 +317,25 @@ class DailyChangeService:
             total_asset=current_total_assets,
             total_cost=0
         )
+
+    @staticmethod
+    def has_any_orders(db: Session, user_id: int) -> bool:
+        """
+        判断用户是否曾经有过任何订单（不论状态）
+
+        用于过滤纯测试账户（无任何交易记录），避免为这些账户产生冗余快照。
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+
+        Returns:
+            True=有过订单，False=从未下过单
+        """
+        return db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.is_active == 1,
+        ).first() is not None
 
     @staticmethod
     def calculate_total_assets_from_transactions(

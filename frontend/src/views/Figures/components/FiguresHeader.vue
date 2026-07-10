@@ -21,7 +21,7 @@
 -->
 <template>
   <div class="header">
-    <h2>手办管理</h2>
+    <h2>手办库</h2>
     <div class="header-actions">
       <div class="action-buttons">
         <button class="btn btn-add" @click="$emit('open-add-form')">添加手办</button>

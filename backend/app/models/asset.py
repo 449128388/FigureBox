@@ -31,43 +31,6 @@ class AssetPriceHistory(Base):
     figure = relationship("Figure")  # 关联手办对象
 
 
-class AssetAlert(Base):
-    """
-    资产预警设置模型 - 用户设置的价格预警
-    
-    功能说明：
-    - 允许用户为手办设置价格预警
-    - 当价格达到设定阈值时触发提醒
-    - 支持价格上涨和下跌预警
-    
-    预警类型说明：
-    - price_drop: 价格下跌预警（低于设定值提醒）
-    - price_rise: 价格上涨预警（高于设定值提醒）
-    
-    关联关系：
-    - user: 多对一关联 User 表
-    - figure: 多对一关联 Figure 表
-    """
-    __tablename__ = "asset_alerts"
-
-    # 主键
-    id = Column(Integer, primary_key=True, index=True, comment="预警设置唯一标识ID")
-    
-    # 外键关联
-    user_id = Column(Integer, ForeignKey("users_info.id"), nullable=False, comment="关联用户ID")
-    figure_id = Column(Integer, ForeignKey("figures.id"), nullable=False, comment="关联手办ID")
-    
-    # 预警配置
-    alert_type = Column(String(50), nullable=False, comment="预警类型：price_drop（价格下跌）、price_rise（价格上涨）等")
-    threshold = Column(Float, nullable=False, comment="预警阈值（触发提醒的价格值）")
-    is_active = Column(Integer, default=1, comment="是否激活（1=激活，0=禁用）")
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="创建时间")
-
-    # 关系
-    user = relationship("User")  # 关联用户对象
-    figure = relationship("Figure")  # 关联手办对象
-
-
 class AssetTransaction(Base):
     """
     资产交易记录模型 - 记录手办的买卖交易

@@ -1,95 +1,119 @@
-<!--
-  Home.vue - 应用首页/欢迎页面
-
-  功能说明：
-  - 应用入口页面，展示欢迎信息和系统名称
-  - 根据用户登录状态动态显示不同导航选项
-  - 未登录用户：显示登录、注册入口
-  - 已登录用户：显示手办管理、订单管理、资产看板、个人资料等快捷入口
-  - 提供退出登录功能
-
-  维护提示：
-  - 使用 userStore.isAuthenticated 判断登录状态
-  - 所有导航使用 router-link 实现客户端路由
-  - 样式简洁，居中布局
--->
 <template>
-  <div class="home-container">
-    <h1>欢迎来到 FigureBox</h1>
-    <p>手办管理系统</p>
-    <div class="nav-buttons">
-      <router-link to="/login" class="btn" v-if="!userStore.isAuthenticated">登录</router-link>
-      <router-link to="/register" class="btn" v-if="!userStore.isAuthenticated">注册</router-link>
-      <router-link to="/figures" class="btn" v-if="userStore.isAuthenticated">手办管理</router-link>
-      <router-link to="/orders" class="btn" v-if="userStore.isAuthenticated">订单管理</router-link>
-      <router-link to="/sell" class="btn" v-if="userStore.isAuthenticated">卖出管理</router-link>
-      <router-link to="/wishlist" class="btn" v-if="userStore.isAuthenticated">愿望清单</router-link>
-      <router-link to="/dashboard" class="btn" v-if="userStore.isAuthenticated">资产看板</router-link>
-      <router-link to="/profile" class="btn" v-if="userStore.isAuthenticated">个人资料</router-link>
-      <button class="btn btn-logout" v-if="userStore.isAuthenticated" @click="userStore.logout()">退出登录</button>
+  <div class="home-page">
+    <TopHeader />
+    <HomeHero :username="summary?.username" :stats="summary || {}" :greeting="summary?.greeting" />
+    <div class="main-container">
+      <QuickStats :stats="summary || {}" />
+      <div class="section-grid">
+        <div class="card animate-in">
+          <div class="card-header">
+            <div class="card-title"><i class="ri-apps-line"></i> 功能模块</div>
+            <span class="card-title-sub">点击快速进入</span>
+          </div>
+          <div class="card-body">
+            <ModuleGrid />
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <HpiMini
+            :hpi-value="summary?.hpi_index_value"
+            :hpi-change="hpiPointsChange"
+            :hpi-change-pct="summary?.hpi_return || 0"
+          />
+          <DateCard />
+        </div>
+      </div>
+      <div class="section-grid-2">
+        <ActivityFeed :activities="activities" />
+        <TopHoldings :holdings="topHoldings" />
+      </div>
     </div>
   </div>
 </template>
 
-<script>
-import { useUserStore } from '../store'
+<script setup>
+import { computed } from 'vue'
+import TopHeader from '../components/TopHeader.vue'
+import HomeHero from './Home/components/HomeHero.vue'
+import QuickStats from './Home/components/QuickStats.vue'
+import ModuleGrid from './Home/components/ModuleGrid.vue'
+import ActivityFeed from './Home/components/ActivityFeed.vue'
+import TopHoldings from './Home/components/TopHoldings.vue'
+import HpiMini from './Home/components/HPIMini.vue'
+import DateCard from './Home/components/DateCard.vue'
+import { useHome } from './Home/composables/useHome'
 
-export default {
-  name: 'Home',
-  computed: {
-    userStore() {
-      return useUserStore()
-    }
-  }
-}
+const { summary, activities, topHoldings } = useHome()
+
+const hpiPointsChange = computed(() => {
+  const idx = summary.value?.hpi_index_value
+  if (!idx) return 0
+  return idx - 1000
+})
 </script>
 
 <style scoped>
-.home-container {
-  text-align: center;
-  margin-top: 100px;
+.home-page {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1f1f1f;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-top: 64px;
 }
-
-h1 {
-  font-size: 36px;
-  margin-bottom: 20px;
-  color: #333;
+.main-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px 40px;
+  position: relative;
+  z-index: 2;
 }
-
-p {
-  font-size: 18px;
-  margin-bottom: 40px;
-  color: #666;
-}
-
-.nav-buttons {
-  display: flex;
-  justify-content: center;
+.section-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
   gap: 20px;
-  flex-wrap: wrap;
+  margin-bottom: 24px;
 }
-
-.btn {
-  padding: 10px 20px;
-  background-color: #4CAF50;
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  font-size: 16px;
-  transition: background-color 0.3s;
+.section-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
 }
-
-.btn:hover {
-  background-color: #45a049;
+.card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow: hidden;
 }
-
-.btn-logout {
-  background-color: #f44336;
-  border: none;
-  cursor: pointer;
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-
-.btn-logout:hover {
-  background-color: #da190b;
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title i { color: #1890ff; }
+.card-title-sub { font-size: 12px; color: #999; }
+.card-body { padding: 16px 20px; }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.5s ease-out; }
+@media (max-width: 1024px) {
+  .section-grid { grid-template-columns: 1fr; }
+  .section-grid-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .main-container { padding: 0 16px 40px; }
 }
 </style>

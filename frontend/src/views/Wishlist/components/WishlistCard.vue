@@ -20,7 +20,7 @@
           :checked="selected"
           @change="$emit('toggle-select', item.id)"
         />
-        <div class="card-title-link">{{ item.name }}</div>
+        <router-link :to="'/figures/' + item.id" class="card-title-link">{{ item.name }}</router-link>
       </div>
       <div class="card-meta">
         <div class="meta-row">
@@ -195,11 +195,13 @@ const onImgError = (e) => {
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   flex: 1;
   /* 固定高度为 2 行，避免因标题换行导致下方内容（备注）水平错位 */
   height: 2.8em;
+  text-decoration: none;
 }
 .card-meta {
   display: flex;
@@ -241,6 +243,7 @@ const onImgError = (e) => {
   border-left: 3px solid #1890ff;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 36px;

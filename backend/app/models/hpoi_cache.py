@@ -13,8 +13,9 @@ class HpoiScrapeCache(Base):
     """HPOI 抓取缓存"""
 
     __tablename__ = "hpoi_scrape_cache"
+    __table_comment__ = "HPOI 抓取缓存表 - 存储 HPOI 页面抓取结果与解析数据（30 天 TTL）"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="缓存记录唯一标识ID")
     url_hash = Column(String(64), nullable=False, unique=True, index=True, comment="URL 的 SHA256 哈希")
     source_url = Column(String(2048), nullable=False, comment="原始 URL")
     raw_html = Column(LargeBinary, nullable=True, comment="抓取的原始 HTML（gzip 压缩后）")

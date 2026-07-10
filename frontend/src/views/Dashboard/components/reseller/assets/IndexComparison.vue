@@ -107,7 +107,7 @@
           🔴 跑赢大盘+{{ dashboardData?.summary?.outperform_percentage }}%
         </template>
         <template v-else-if="(dashboardData?.summary?.outperform_percentage || 0) < 0">
-          🟢 跑输大盘{{ dashboardData?.summary?.outperform_percentage }}%
+          🟢 跑输大盘-{{ dashboardData?.summary?.outperform_percentage }}%
         </template>
         <template v-else>
           ➖ 持平

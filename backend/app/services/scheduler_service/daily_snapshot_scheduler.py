@@ -99,6 +99,11 @@ class DailySnapshotScheduler:
             snapshot_date: 快照日期
         """
         try:
+            # 跳过从未有过任何订单的"空用户"（纯测试账户），避免产生冗余 total_asset=0 快照
+            if not DailyChangeService.has_any_orders(db, user_id):
+                logger.info(f"用户 {user_id} 无任何订单记录，跳过快照保存")
+                return
+
             # 计算当前总资产
             total_assets = DailyChangeService.calculate_total_assets_from_transactions(db, user_id)
 

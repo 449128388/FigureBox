@@ -22,7 +22,7 @@ class User(Base):
     - Secret Key 仅保存在用户自己的配置中，供前端直接连接 MinIO 使用
 
     关联关系：
-    - 被 Order、AssetAlert、AssetTransaction 等模型关联
+    - 被 Order、AssetTransaction 等模型关联
     """
     __tablename__ = "users_info"
 

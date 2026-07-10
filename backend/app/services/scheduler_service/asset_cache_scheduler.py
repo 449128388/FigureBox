@@ -1,9 +1,11 @@
 """
 资产缓存定时任务调度器
-每天晚上北京时间23:30自动保存所有用户的总资产到asset_value_cache表
+
+每天北京时间 23:59 主动保存所有用户的总资产到 asset_value_cache 表，
+用于次日的日涨跌计算。同时在 00:10 兜底补一次昨日缺失的缓存。
 """
 import logging
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pytz import timezone
@@ -11,113 +13,149 @@ from sqlalchemy.orm import Session
 
 from app.models.database import SessionLocal
 from app.models.user import User
-from app.services.dashboard_service.assets_service import (
-    TotalAssetsCalculator,
-    DailyCacheService
-)
 from app.models.order import Order
+from app.models.asset import AssetValueCache
+from app.services.dashboard_service.assets_service.asset_core_calculations import (
+    TotalAssetsCalculator,
+    DailyCacheService,
+)
 
 logger = logging.getLogger(__name__)
-
-# 北京时间时区
-BEIJING_TZ = timezone('Asia/Shanghai')
+BEIJING_TZ = timezone("Asia/Shanghai")
 
 
 class AssetCacheScheduler:
-    """资产缓存定时任务调度器"""
-
-    _instance = None
-    _scheduler = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    """每日总资产缓存主动写入调度器"""
 
     def __init__(self):
-        if self._scheduler is None:
-            # 使用北京时间时区
-            self._scheduler = BackgroundScheduler(timezone=BEIJING_TZ)
+        self._scheduler: BackgroundScheduler | None = None
 
     def start(self):
         """启动定时任务调度器"""
-        if not self._scheduler.running:
-            # 添加每日北京时间23:30执行的任务
+        if not self._scheduler or not self._scheduler.running:
+            self._scheduler = BackgroundScheduler(timezone=BEIJING_TZ)
+            # 主任务：每天 23:59 写入当日收盘缓存
             self._scheduler.add_job(
                 func=self._daily_save_asset_cache,
-                trigger=CronTrigger(hour=23, minute=30, timezone=BEIJING_TZ),
+                trigger=CronTrigger(hour=23, minute=59, timezone=BEIJING_TZ),
                 id='daily_asset_cache_save',
                 name='每日总资产缓存保存',
-                replace_existing=True
+                replace_existing=True,
+            )
+            # 兜底任务：每天 00:10 补一次昨日缺失缓存（防止容器在 23:59 重启等异常）
+            self._scheduler.add_job(
+                func=self._backfill_yesterday_cache,
+                trigger=CronTrigger(hour=0, minute=10, timezone=BEIJING_TZ),
+                id='backfill_yesterday_cache',
+                name='兜底补全昨日缓存',
+                replace_existing=True,
             )
             self._scheduler.start()
-            logger.info("资产缓存定时任务调度器已启动，每日北京时间23:30执行")
+            logger.info("资产缓存定时任务调度器已启动：每日 23:59 主动写入，00:10 兜底补齐")
 
     def stop(self):
         """停止定时任务调度器"""
-        if self._scheduler.running:
+        if self._scheduler and self._scheduler.running:
             self._scheduler.shutdown()
             logger.info("资产缓存定时任务调度器已停止")
 
+    # ── 23:59 主任务 ──────────────────────────────────────────
     def _daily_save_asset_cache(self):
         """
-        每日保存所有用户的总资产缓存
+        每日 23:59 主动保存所有用户的总资产缓存
 
-        执行逻辑：
-        1. 获取所有用户
-        2. 对每个用户计算当前总资产
-        3. 保存到asset_value_cache表
+        与"被动生成"的区别：此处由调度器主动触发，**不依赖任何用户访问**。
+        写入的 total_value 即代表当日 23:59 时的真实持仓市值。
         """
         db = SessionLocal()
         try:
-            logger.info(f"开始执行每日总资产缓存保存任务 - {datetime.now()}")
-
-            # 获取所有用户
+            logger.info(f"[主任务] 开始执行每日总资产缓存保存 - {datetime.now(BEIJING_TZ)}")
             users = db.query(User).all()
-            logger.info(f"共找到 {len(users)} 个用户")
+            logger.info(f"[主任务] 共找到 {len(users)} 个用户")
 
+            success, skipped, failed = 0, 0, 0
             for user in users:
                 try:
-                    self._save_user_asset_cache(db, user.id)
+                    if self._save_user_cache_for_date(db, user.id, date.today()):
+                        success += 1
+                    else:
+                        skipped += 1
                 except Exception as e:
-                    logger.error(f"保存用户 {user.id} 的资产缓存失败: {e}")
+                    logger.error(f"[主任务] 保存用户 {user.id} 的资产缓存失败: {e}")
+                    failed += 1
                     continue
 
-            logger.info(f"每日总资产缓存保存任务完成 - {datetime.now()}")
-
+            logger.info(
+                f"[主任务] 完成 - 成功 {success} / 跳过 {skipped} / 失败 {failed}"
+            )
         except Exception as e:
-            logger.error(f"执行每日总资产缓存保存任务失败: {e}")
+            logger.error(f"[主任务] 执行失败: {e}")
         finally:
             db.close()
 
-    def _save_user_asset_cache(self, db: Session, user_id: int):
+    # ── 00:10 兜底任务 ──────────────────────────────────────────
+    def _backfill_yesterday_cache(self):
         """
-        保存指定用户的总资产缓存
+        兜底补全昨日缺失缓存
 
-        Args:
-            db: 数据库会话
-            user_id: 用户ID
+        场景：调度器在 23:59 因容器重启、crash 等原因未成功执行；
+        次日 00:10 检查每个用户昨日是否已有缓存，没有则补算并写入。
         """
-        # 获取用户的所有有效订单
+        db = SessionLocal()
+        try:
+            yesterday = date.today() - timedelta(days=1)
+            logger.info(f"[兜底] 检查 {yesterday} 的资产缓存")
+
+            users = db.query(User).all()
+            backfilled = 0
+            for user in users:
+                exists = db.query(AssetValueCache).filter(
+                    AssetValueCache.user_id == user.id,
+                    AssetValueCache.cache_date == yesterday,
+                ).first()
+                if exists:
+                    continue
+                try:
+                    if self._save_user_cache_for_date(db, user.id, yesterday):
+                        backfilled += 1
+                except Exception as e:
+                    logger.error(f"[兜底] 补全用户 {user.id} 昨日缓存失败: {e}")
+
+            if backfilled > 0:
+                logger.info(f"[兜底] 已补全 {backfilled} 个用户的 {yesterday} 缓存")
+            else:
+                logger.info(f"[兜底] 所有用户 {yesterday} 缓存已存在，无需补全")
+        except Exception as e:
+            logger.error(f"[兜底] 兜底任务执行失败: {e}")
+        finally:
+            db.close()
+
+    # ── 通用写入逻辑 ──────────────────────────────────────────
+    def _save_user_cache_for_date(self, db: Session, user_id: int, target_date: date) -> bool:
+        """
+        保存指定用户在指定日期的资产缓存
+
+        Returns:
+            True=成功写入, False=用户无有效订单跳过
+        """
         valid_orders = db.query(Order).filter(
             Order.user_id == user_id,
             Order.is_active == 1,
-            Order.status != "已取消"
+            Order.status != "已取消",
         ).all()
 
         if not valid_orders:
-            logger.debug(f"用户 {user_id} 没有有效订单，跳过保存")
-            return
+            logger.debug(f"用户 {user_id} 无有效订单，跳过 {target_date} 缓存")
+            return False
 
-        # 计算总资产（基于已完成订单，扣除已出售数量）
         total_assets = TotalAssetsCalculator.calculate_by_orders(
             db, user_id, valid_orders
         )
-
-        # 保存到缓存表
         DailyCacheService.save(db, user_id, total_assets)
-
-        logger.info(f"用户 {user_id} 的资产缓存已保存: ¥{total_assets:.2f}")
+        logger.info(
+            f"用户 {user_id} 的 {target_date} 资产缓存已保存: ¥{total_assets:.2f}"
+        )
+        return True
 
 
 # 全局调度器实例

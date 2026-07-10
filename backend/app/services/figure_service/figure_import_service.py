@@ -229,6 +229,50 @@ class FigureImportService:
                     import traceback
                     traceback.print_exc()
             
+            # 记录动态流 BUY 事件（与订单 CRUD 保持一致的 event_type 和状态映射）
+            try:
+                from app.services.collector_service.collector_activity_service import CollectorActivityService
+                status_map = {
+                    "未支付": "等待补款",
+                    "已支付": "等待补款",
+                    "已完成": "已付清"
+                }
+                feed_status = status_map.get(order.status, order.status)
+                paid_type = "定金" if order.order_type == "定金预定" else "全款"
+                CollectorActivityService.record_buy_event(
+                    db=db,
+                    user_id=user_id,
+                    figure_id=figure.id,
+                    figure_name=figure.name,
+                    order_id=order.id,
+                    order_no=order.order_number or order.display_order_number or "",
+                    amount=order.deposit or 0,
+                    paid_type=paid_type,
+                    status=feed_status,
+                    character=figure.work,
+                    scale=figure.scale,
+                    maker=figure.manufacturer,
+                    currency=order.deposit_currency or "CNY",
+                    balance=order.balance or 0,
+                    balance_currency=order.balance_currency or "CNY"
+                )
+
+                # 已完成订单额外记录 IN_STOCK 到库事件
+                if order.status == "已完成":
+                    CollectorActivityService.record_in_stock_event(
+                        db=db,
+                        user_id=user_id,
+                        figure_id=figure.id,
+                        figure_name=figure.name,
+                        in_date=datetime.now().strftime("%Y-%m-%d"),
+                        order_no=order.order_number or order.display_order_number or "",
+                        cost=order.balance or 0,
+                        target_id=order.id,
+                        target_type="order"
+                    )
+            except Exception as e:
+                print(f"导入订单时记录动态流事件失败: {e}")
+            
             imported_count += 1
         
         # 更新手办数量为实际入库数量（仅统计"已完成"订单，与asset_transactions保持一致）
@@ -318,6 +362,34 @@ class FigureImportService:
                     print(f"导入已出售订单时创建交易记录失败: {e}")
                     import traceback
                     traceback.print_exc()
+            
+            # 记录动态流 SELL 事件（与 sold_order CRUD 保持一致）
+            try:
+                from app.services.collector_service.collector_activity_service import CollectorActivityService
+                hold_days = 0
+                if figure.purchase_date and sold_order.created_at:
+                    out_date = sold_order.created_at.date()
+                    hold_days = max((out_date - figure.purchase_date).days, 0)
+                CollectorActivityService.record_sell_event(
+                    db=db,
+                    user_id=user_id,
+                    figure_id=figure.id,
+                    figure_name=figure.name,
+                    sell_price=sold_order.sell_price,
+                    cost_price=sold_order.cost_price,
+                    profit=sold_order.net_profit or 0,
+                    buyer=sold_order.buyer_phone or "",
+                    out_date=sold_order.created_at.strftime("%Y-%m-%d") if sold_order.created_at else "",
+                    hold_days=hold_days,
+                    order_no=sold_order.order_number or sold_order.display_order_number or "",
+                    status=sold_order.status or "",
+                    target_id=sold_order.id,
+                    tracking_number=sold_order.tracking_number or "",
+                    logistics_company=sold_order.logistics_company or "",
+                    refund_amount=0
+                )
+            except Exception as e:
+                print(f"导入已出售订单时记录动态流事件失败: {e}")
 
             imported_count += 1
 

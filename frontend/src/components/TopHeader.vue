@@ -5,6 +5,7 @@
       FigureBox
     </router-link>
     <nav class="header-nav">
+      <router-link to="/home">首页</router-link>
       <router-link to="/figures">手办库</router-link>
       <router-link to="/orders">尾款管理</router-link>
       <router-link to="/sell">已出订单</router-link>
