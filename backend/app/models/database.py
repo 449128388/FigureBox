@@ -17,7 +17,14 @@ DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://admin:password@localho
 # 创建数据库引擎
 # 说明：引擎是 SQLAlchemy 与数据库交互的核心组件
 # 负责管理连接池、执行 SQL 语句等
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,      # 每次取连接前 SELECT 1，自动剔除失效连接
+    pool_recycle=1800,       # 30 分钟回收连接，避开 MySQL wait_timeout
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+)
 
 # 创建会话工厂
 # 说明：SessionLocal 用于创建数据库会话实例

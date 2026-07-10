@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError, DBAPIError
 from datetime import timedelta
 from app.models.database import get_db
 from app.models.user import User
@@ -11,50 +12,68 @@ router = APIRouter()
 
 @router.post("/register", response_model=Token)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    # 检查用户是否已存在
-    db_user = db.query(User).filter(User.email == user.email).first()
-    if db_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+    try:
+        # 检查用户是否已存在
+        db_user = db.query(User).filter(User.email == user.email).first()
+        if db_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # 创建新用户
+        hashed_password = get_password_hash(user.password)
+        db_user = User(
+            username=user.username,
+            email=user.email,
+            password_hash=hashed_password
         )
-    
-    # 创建新用户
-    hashed_password = get_password_hash(user.password)
-    db_user = User(
-        username=user.username,
-        email=user.email,
-        password_hash=hashed_password
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    
-    # 创建访问令牌（使用用户配置的超时时间）
-    timeout_minutes = db_user.session_timeout_minutes
-    if timeout_minutes is None or timeout_minutes <= 0:
-        expires_delta = timedelta(days=365)  # 永不超时 ≈ 365天
-    else:
-        expires_delta = timedelta(minutes=timeout_minutes)
-    access_token = create_access_token(data={"sub": str(db_user.id)}, expires_delta=expires_delta)
-    return {"access_token": access_token, "token_type": "bearer"}
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+
+        # 创建访问令牌（使用用户配置的超时时间）
+        timeout_minutes = db_user.session_timeout_minutes
+        if timeout_minutes is None or timeout_minutes <= 0:
+            expires_delta = timedelta(days=365)  # 永不超时 ≈ 365天
+        else:
+            expires_delta = timedelta(minutes=timeout_minutes)
+        access_token = create_access_token(data={"sub": str(db_user.id)}, expires_delta=expires_delta)
+        return {"access_token": access_token, "token_type": "bearer"}
+    except HTTPException:
+        raise
+    except (OperationalError, DBAPIError):
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="服务暂不可用，请稍后重试",
+        )
 
 @router.post("/login", response_model=Token)
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    # 查找用户
-    db_user = db.query(User).filter(User.email == user.email).first()
-    if not db_user or not verify_password(user.password, db_user.password_hash):
+    try:
+        # 查找用户
+        db_user = db.query(User).filter(User.email == user.email).first()
+        if not db_user or not verify_password(user.password, db_user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="登录失败，请检查邮箱和密码",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # 创建访问令牌（使用用户配置的超时时间）
+        timeout_minutes = db_user.session_timeout_minutes
+        if timeout_minutes is None or timeout_minutes <= 0:
+            expires_delta = timedelta(days=365)  # 永不超时 ≈ 365天
+        else:
+            expires_delta = timedelta(minutes=timeout_minutes)
+        access_token = create_access_token(data={"sub": str(db_user.id)}, expires_delta=expires_delta)
+        return {"access_token": access_token, "token_type": "bearer"}
+    except HTTPException:
+        raise
+    except (OperationalError, DBAPIError):
+        db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="登录失败，请检查邮箱和密码",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="服务暂不可用，请稍后重试",
         )
-    
-    # 创建访问令牌（使用用户配置的超时时间）
-    timeout_minutes = db_user.session_timeout_minutes
-    if timeout_minutes is None or timeout_minutes <= 0:
-        expires_delta = timedelta(days=365)  # 永不超时 ≈ 365天
-    else:
-        expires_delta = timedelta(minutes=timeout_minutes)
-    access_token = create_access_token(data={"sub": str(db_user.id)}, expires_delta=expires_delta)
-    return {"access_token": access_token, "token_type": "bearer"}

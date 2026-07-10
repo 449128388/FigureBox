@@ -54,7 +54,7 @@ const fallbackGreeting = computed(() => {
   margin-bottom: -40px;
   position: relative; overflow: hidden;
   /* 突破父容器宽度限制，铺满整个视口（与 home.html 原型一致） */
-  width: 100vw;
+  width: calc(100vw - 5px);
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
 }

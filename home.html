@@ -51,7 +51,12 @@
     font-size: 20px; font-weight: 700; color: #1a1a1a;
     display: flex; align-items: center; gap: 8px; margin-right: 40px;
   }
-  .logo i { color: var(--accent); font-size: 24px; }
+  .logo-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, #1890ff, #36cfc9);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 18px;
+  }
   .nav-menu { display: flex; gap: 4px; }
   .nav-item {
     padding: 8px 16px; color: #666; text-decoration: none; border-radius: 6px;
@@ -59,12 +64,53 @@
   }
   .nav-item:hover { color: var(--accent); background: #f0f7ff; }
   .nav-item.active { color: var(--accent); background: var(--accent-light); font-weight: 500; }
-  .nav-right { display: flex; align-items: center; gap: 16px; color: #666; }
+
+  /* ===== User Dropdown ===== */
+  .nav-right { display: flex; align-items: center; gap: 16px; color: #666; position: relative; }
   .nav-icon {
     width: 32px; height: 32px; border-radius: 50%; background: #f5f5f5;
     display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s;
   }
   .nav-icon:hover { background: #e8e8e8; }
+  .user-trigger {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 4px 8px 4px 12px; border-radius: 20px;
+    transition: all 0.3s; border: 1px solid transparent;
+  }
+  .user-trigger:hover { background: #f5f5f5; border-color: #e8e8e8; }
+  .user-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, #1890ff, #36cfc9);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 12px; font-weight: 600;
+  }
+  .user-name { font-size: 13px; color: #333; font-weight: 500; }
+  .user-dropdown {
+    position: absolute; top: 48px; right: 0;
+    background: #fff; border-radius: 10px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    min-width: 180px; padding: 8px 0;
+    opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: all 0.25s ease;
+    z-index: 200;
+  }
+  .user-dropdown.open {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .dropdown-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; font-size: 14px; color: #333;
+    cursor: pointer; transition: all 0.2s; text-decoration: none;
+  }
+  .dropdown-item:hover { background: #f5f7fa; color: var(--accent); }
+  .dropdown-item i { font-size: 16px; color: #999; width: 20px; text-align: center; }
+  .dropdown-item:hover i { color: var(--accent); }
+  .dropdown-divider {
+    height: 1px; background: #f0f0f0; margin: 6px 12px;
+  }
+  .dropdown-item.logout { color: var(--red); }
+  .dropdown-item.logout i { color: var(--red); }
+  .dropdown-item.logout:hover { background: var(--red-light); }
 
   /* ===== Hero Section ===== */
   .hero {
@@ -143,7 +189,6 @@
   .q-stat-icon.green { background: var(--green-light); color: var(--green); }
   .q-stat-icon.orange { background: var(--orange-light); color: var(--orange); }
   .q-stat-icon.purple { background: var(--purple-light); color: var(--purple); }
-  .q-stat-icon.red { background: var(--red-light); color: var(--red); }
   .q-stat-info h3 { font-size: 24px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
   .q-stat-info p { color: #999; font-size: 13px; }
   .q-stat-trend {
@@ -210,7 +255,6 @@
   .module-icon.purple { background: var(--purple-light); color: var(--purple); }
   .module-icon.pink { background: var(--pink-light); color: var(--pink); }
   .module-icon.cyan { background: var(--cyan-light); color: var(--cyan); }
-  .module-icon.red { background: var(--red-light); color: var(--red); }
   .module-name { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
   .module-desc { font-size: 12px; color: #999; }
 
@@ -281,7 +325,7 @@
   }
   .mini-bar:hover { background: rgba(255,255,255,0.6); }
 
-  /* ===== Calendar / Date ===== */
+  /* ===== Date Card ===== */
   .date-card {
     background: #fff; border-radius: var(--radius); padding: 16px;
     box-shadow: var(--shadow); text-align: center;
@@ -291,28 +335,118 @@
   .date-weekday { font-size: 13px; color: #666; margin-top: 2px; }
   .date-greeting { font-size: 12px; color: #999; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
 
-  /* ===== Responsive ===== */
-  @media (max-width: 1024px) {
-    .section-grid { grid-template-columns: 1fr; }
-    .section-grid-2 { grid-template-columns: 1fr; }
-    .quick-stats { grid-template-columns: repeat(2, 1fr); }
-    .module-grid { grid-template-columns: repeat(2, 1fr); }
+  /* ===== About Modal ===== */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; opacity: 0; visibility: hidden;
+    transition: all 0.3s ease;
   }
-  @media (max-width: 768px) {
-    .hero-content { flex-direction: column; text-align: center; gap: 24px; }
-    .hero-stats { justify-content: center; }
-    .quick-stats { grid-template-columns: 1fr; }
-    .module-grid { grid-template-columns: 1fr; }
-    .main-container { padding: 0 16px 40px; }
-    .top-nav { padding: 0 16px; }
-    .nav-menu { display: none; }
+  .modal-overlay.active { opacity: 1; visibility: visible; }
+  .about-modal {
+    background: #fff; border-radius: 16px; width: 90%; max-width: 520px;
+    max-height: 85vh; overflow: hidden;
+    transform: scale(0.92) translateY(20px);
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
   }
+  .modal-overlay.active .about-modal {
+    transform: scale(1) translateY(0);
+  }
+  .about-header {
+    padding: 24px 24px 0; text-align: center; position: relative;
+  }
+  .about-close {
+    position: absolute; top: 16px; right: 16px;
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: #f5f5f5; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; color: #666;
+  }
+  .about-close:hover { background: #e8e8e8; color: #333; }
+  .about-logo {
+    width: 72px; height: 72px; border-radius: 20px;
+    background: linear-gradient(135deg, #1890ff 0%, #36cfc9 100%);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px; font-size: 36px; color: #fff;
+    box-shadow: 0 4px 16px rgba(24,144,255,0.3);
+  }
+  .about-title { font-size: 22px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+  .about-version {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #999; background: #f5f5f5;
+    padding: 3px 10px; border-radius: 12px; margin-bottom: 4px;
+  }
+  .about-slogan { font-size: 13px; color: #999; }
+
+  .about-body {
+    padding: 20px 24px 24px; overflow-y: auto; max-height: 50vh;
+  }
+  .about-section { margin-bottom: 20px; }
+  .about-section:last-child { margin-bottom: 0; }
+  .about-section-title {
+    font-size: 13px; font-weight: 600; color: #999;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 10px; padding-bottom: 6px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .about-info-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; font-size: 14px;
+  }
+  .about-info-label { color: #666; }
+  .about-info-value { color: #1a1a1a; font-weight: 500; }
+  .about-info-value a {
+    color: var(--accent); text-decoration: none;
+  }
+  .about-info-value a:hover { text-decoration: underline; }
+  .about-desc {
+    font-size: 13px; color: #666; line-height: 1.7;
+  }
+  .about-team {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .team-tag {
+    padding: 4px 12px; background: var(--accent-light); color: var(--accent);
+    border-radius: 6px; font-size: 12px; font-weight: 500;
+  }
+  .about-footer {
+    padding: 16px 24px; background: #fafafa;
+    border-top: 1px solid #f0f0f0; text-align: center;
+  }
+  .about-copyright {
+    font-size: 12px; color: #bbb;
+  }
+  .about-links {
+    display: flex; justify-content: center; gap: 16px; margin-bottom: 8px;
+  }
+  .about-link {
+    font-size: 13px; color: var(--accent); text-decoration: none;
+    display: flex; align-items: center; gap: 4px;
+    transition: all 0.2s;
+  }
+  .about-link:hover { color: var(--accent-dark); }
+  .about-link i { font-size: 16px; }
 
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
   }
   .animate-in { animation: fadeInUp 0.5s ease-out; }
+
+  @media (max-width: 768px) {
+    .main-container { padding: 0 16px 40px; }
+    .top-nav { padding: 0 16px; }
+    .nav-menu { display: none; }
+    .hero-content { flex-direction: column; text-align: center; gap: 24px; }
+    .hero-stats { justify-content: center; }
+    .quick-stats { grid-template-columns: 1fr; }
+    .module-grid { grid-template-columns: 1fr; }
+    .section-grid { grid-template-columns: 1fr; }
+    .section-grid-2 { grid-template-columns: 1fr; }
+    .about-modal { max-width: 95%; }
+  }
 </style>
 <base target="_blank">
 </head>
@@ -322,21 +456,39 @@
 <nav class="top-nav">
   <div class="nav-left">
     <div class="logo">
-      <i class="ri-box-3-fill"></i> FigureBox
+      <div class="logo-icon"><i class="ri-box-3-fill"></i></div>
+      FigureBox
     </div>
     <div class="nav-menu">
       <a class="nav-item active">首页</a>
       <a class="nav-item">手办库</a>
       <a class="nav-item">尾款管理</a>
       <a class="nav-item">已出订单</a>
-      <a class="nav-item">资产看板</a>
       <a class="nav-item">愿望清单</a>
+      <a class="nav-item">资产看板</a>
       <a class="nav-item">个人中心</a>
     </div>
   </div>
   <div class="nav-right">
     <div class="nav-icon"><i class="ri-notification-3-line"></i></div>
-    <div class="nav-icon"><i class="ri-user-3-line"></i></div>
+    <div class="user-trigger" id="userTrigger" onclick="toggleUserDropdown()">
+      <span class="user-name">449128388</span>
+      <div class="user-avatar"><i class="ri-user-smile-line"></i></div>
+      <i class="ri-arrow-down-s-line" style="color:#999;font-size:14px;"></i>
+    </div>
+    <div class="user-dropdown" id="userDropdown">
+      <a class="dropdown-item" href="/profile">
+        <i class="ri-user-settings-line"></i> 个人资料
+      </a>
+      <div class="dropdown-divider"></div>
+      <div class="dropdown-item" onclick="openAboutModal()">
+        <i class="ri-information-line"></i> 关于 FigureBox
+      </div>
+      <div class="dropdown-divider"></div>
+      <a class="dropdown-item logout" href="/logout">
+        <i class="ri-logout-box-r-line"></i> 退出登录
+      </a>
+    </div>
   </div>
 </nav>
 
@@ -345,7 +497,7 @@
   <div class="hero-content">
     <div class="hero-text">
       <h1>欢迎回来，小样往哪跑</h1>
-      <p id="dynamicGreeting">中文名称：桐宫美月 写实版 已到货，记得入库更新持仓</p>
+      <p>中文名称：桐宫美月 写实版 已到货，记得入库更新持仓</p>
       <div class="hero-stats">
         <div class="hero-stat">
           <div class="hero-stat-num">7</div>
@@ -370,7 +522,7 @@
 <!-- Main Container -->
 <div class="main-container">
 
-  <!-- Quick Stats: 操作导向，与 Hero 数据错位 -->
+  <!-- Quick Stats -->
   <div class="quick-stats">
     <div class="q-stat-card" onclick="location.href='/orders'">
       <div class="q-stat-icon orange"><i class="ri-shopping-bag-3-line"></i></div>
@@ -397,19 +549,17 @@
       </div>
     </div>
     <div class="q-stat-card" onclick="location.href='/dashboard'">
-      <div class="q-stat-icon red"><i class="ri-check-double-line"></i></div>
+      <div class="q-stat-icon blue"><i class="ri-check-double-line"></i></div>
       <div class="q-stat-info">
-        <h3>3</h3>
+        <h3>1</h3>
         <p>卖对次数</p>
-        <div class="q-stat-trend trend-up">75% <span style="color:#999">胜率</span></div>
+        <div class="q-stat-trend trend-up">100% <span style="color:#999">胜率</span></div>
       </div>
     </div>
   </div>
 
   <!-- Section Grid -->
   <div class="section-grid">
-
-    <!-- Left: Module Quick Access -->
     <div class="card animate-in">
       <div class="card-header">
         <div class="card-title"><i class="ri-apps-line"></i> 功能模块</div>
@@ -451,7 +601,6 @@
       </div>
     </div>
 
-    <!-- Right: HPI + Date -->
     <div style="display: flex; flex-direction: column; gap: 16px;">
       <div class="hpi-mini animate-in">
         <div class="hpi-mini-header">
@@ -472,7 +621,6 @@
           <div class="mini-bar" style="height: 100%"></div>
         </div>
       </div>
-
       <div class="date-card animate-in">
         <div class="date-day" id="currentDay">09</div>
         <div class="date-month" id="currentMonth">2026年7月</div>
@@ -484,8 +632,6 @@
 
   <!-- Section Grid 2 -->
   <div class="section-grid-2">
-
-    <!-- Recent Activity -->
     <div class="card animate-in">
       <div class="card-header">
         <div class="card-title"><i class="ri-history-line"></i> 最近动态</div>
@@ -529,7 +675,6 @@
       </div>
     </div>
 
-    <!-- Top Holdings -->
     <div class="card animate-in">
       <div class="card-header">
         <div class="card-title"><i class="ri-trophy-line"></i> 持仓 TOP5</div>
@@ -538,7 +683,7 @@
       <div class="card-body">
         <div class="figure-list">
           <div class="figure-row">
-            <div class="figure-img"><img src="https://img.hpoi.net/gc/n/116383.jpg" alt="花嫁心美" onerror="this.style.display='none'; this.parentElement.innerHTML='👰'"></div>
+            <div class="figure-img">👰</div>
             <div class="figure-info">
               <div class="figure-name">花嫁心美</div>
               <div class="figure-meta">Native · 1/7 · 在柜</div>
@@ -549,7 +694,7 @@
             </div>
           </div>
           <div class="figure-row">
-            <div class="figure-img"><img src="https://img.hpoi.net/gc/n/115200.jpg" alt="桐宫美月" onerror="this.style.display='none'; this.parentElement.innerHTML='🎭'"></div>
+            <div class="figure-img">🎭</div>
             <div class="figure-info">
               <div class="figure-name">桐宫美月 写实版</div>
               <div class="figure-meta">BINDing · 1/4 · 在柜 2体</div>
@@ -599,6 +744,119 @@
 
 </div>
 
+<!-- ===== About Modal ===== -->
+<div class="modal-overlay" id="aboutModal" onclick="closeAboutModal(event)">
+  <div class="about-modal" onclick="event.stopPropagation()">
+    <div class="about-header">
+      <button class="about-close" onclick="closeAboutModal()">
+        <i class="ri-close-line"></i>
+      </button>
+      <div class="about-logo">
+        <i class="ri-box-3-fill"></i>
+      </div>
+      <div class="about-title">FigureBox</div>
+      <div class="about-version">
+        <i class="ri-git-commit-line"></i>
+        v2.1.0 (Build 20260701)
+      </div>
+      <div class="about-slogan">为二次元手办爱好者打造的资产管理工具</div>
+    </div>
+
+    <div class="about-body">
+      <!-- 产品信息 -->
+      <div class="about-section">
+        <div class="about-section-title">产品信息</div>
+        <div class="about-info-row">
+          <span class="about-info-label">产品名称</span>
+          <span class="about-info-value">FigureBox 手办管理系统</span>
+        </div>
+        <div class="about-info-row">
+          <span class="about-info-label">当前版本</span>
+          <span class="about-info-value">v2.1.0</span>
+        </div>
+        <div class="about-info-row">
+          <span class="about-info-label">更新日期</span>
+          <span class="about-info-value">2026-07-01</span>
+        </div>
+        <div class="about-info-row">
+          <span class="about-info-label">运行环境</span>
+          <span class="about-info-value">Web / Docker / MySQL 8.0</span>
+        </div>
+      </div>
+
+      <!-- 开发团队 -->
+      <div class="about-section">
+        <div class="about-section-title">开发团队</div>
+        <div class="about-desc" style="margin-bottom: 10px;">
+          FigureBox 由一群热爱二次元手办的开发者共同打造，致力于用专业的资产管理思维管理你的塑料小人。
+        </div>
+        <div class="about-team">
+          <span class="team-tag">产品经理</span>
+          <span class="team-tag">前端开发</span>
+          <span class="team-tag">后端开发</span>
+          <span class="team-tag">UI 设计</span>
+        </div>
+      </div>
+
+      <!-- 联系方式 -->
+      <div class="about-section">
+        <div class="about-section-title">联系我们</div>
+        <div class="about-info-row">
+          <span class="about-info-label">官方邮箱</span>
+          <span class="about-info-value">
+            <a href="mailto:hello@figurebox.app">hello@figurebox.app</a>
+          </span>
+        </div>
+        <div class="about-info-row">
+          <span class="about-info-label">GitHub</span>
+          <span class="about-info-value">
+            <a href="https://github.com/figurebox/figurebox" target="_blank">github.com/figurebox</a>
+          </span>
+        </div>
+        <div class="about-info-row">
+          <span class="about-info-label">问题反馈</span>
+          <span class="about-info-value">
+            <a href="https://github.com/figurebox/figurebox/issues" target="_blank">提交 Issue</a>
+          </span>
+        </div>
+      </div>
+
+      <!-- 开源协议 -->
+      <div class="about-section">
+        <div class="about-section-title">开源协议</div>
+        <div class="about-desc">
+          FigureBox 前端与后端核心代码采用 <strong>MIT License</strong> 开源，欢迎社区贡献。HPI 指数算法与塑料小人估值模型受相关知识产权保护。
+        </div>
+      </div>
+
+      <!-- 致谢 -->
+      <div class="about-section">
+        <div class="about-section-title">特别致谢</div>
+        <div class="about-desc">
+          感谢 HPOI、MyFigureCollection 等社区提供的数据支持；感谢 ECharts、Remix Icon 等开源项目的贡献者。
+        </div>
+      </div>
+    </div>
+
+    <div class="about-footer">
+      <div class="about-links">
+        <a class="about-link" href="#" target="_blank">
+          <i class="ri-github-fill"></i> GitHub
+        </a>
+        <a class="about-link" href="#" target="_blank">
+          <i class="ri-telegram-line"></i> 交流群
+        </a>
+        <a class="about-link" href="#" target="_blank">
+          <i class="ri-file-text-line"></i> 使用文档
+        </a>
+      </div>
+      <div class="about-copyright">
+        © 2024-2026 FigureBox Team. All rights reserved.
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   // Date display
   const now = new Date();
@@ -612,6 +870,41 @@
   if (hour >= 12 && hour < 18) greeting = '下午好，记得补尾款哦';
   if (hour >= 18) greeting = '晚上好，来看看今天的资产复盘吧';
   document.getElementById('greeting').textContent = greeting;
+
+  // User dropdown
+  function toggleUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    dropdown.classList.toggle('open');
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    const trigger = document.getElementById('userTrigger');
+    const dropdown = document.getElementById('userDropdown');
+    if (!trigger.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
+
+  // About modal
+  function openAboutModal() {
+    document.getElementById('aboutModal').classList.add('active');
+    document.getElementById('userDropdown').classList.remove('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeAboutModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('aboutModal').classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  // ESC to close modal
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeAboutModal();
+    }
+  });
 </script>
 
 </body>
