@@ -4,11 +4,7 @@ storage_service.py - MinIO 对象存储服务
 功能说明：
 - 封装 MinIO SDK，提供图片上传、删除、URL 生成等操作
 - 自动初始化 bucket，无需手动创建
-- 配置通过环境变量注入，生产环境需修改 MINIO_PUBLIC_URL
-
-容器间通信：
-- backend → minio: 通过 Docker 内部网络访问 minio:9000
-- 前端浏览器 → minio: 通过 Nginx 反向代理 /minio/ → minio:9000
+- 图片 URL 优先使用请求的 Host 动态构造，支持多域名/NAT 部署
 """
 
 import os
@@ -16,6 +12,7 @@ import logging
 from uuid import uuid4
 from typing import Optional
 from io import BytesIO
+from fastapi import Request
 
 from minio import Minio
 from minio.error import S3Error
@@ -88,7 +85,22 @@ class StorageService:
         return bucket
 
     @classmethod
-    def upload_image(cls, file_data: bytes, content_type: str, original_filename: str = "") -> str:
+    def _build_public_url(cls, bucket: str, filename: str, request: Optional[Request] = None) -> str:
+        """
+        构造图片对外访问 URL
+
+        优先使用请求的 Host 头动态构造（保留原始端口，适配 NAT/多域名/NAS 虚拟组网），
+        兜底使用 MINIO_PUBLIC_URL 环境变量。
+        """
+        if request:
+            scheme = request.headers.get("x-forwarded-proto", "http")
+            host = request.headers.get("host", "localhost:28620")
+            return f"{scheme}://{host}/minio/{bucket}/{filename}"
+        public_url = os.getenv("MINIO_PUBLIC_URL", "http://localhost:28620/minio")
+        return f"{public_url}/{bucket}/{filename}"
+
+    @classmethod
+    def upload_image(cls, file_data: bytes, content_type: str, original_filename: str = "", request: Optional[Request] = None) -> str:
         """
         上传图片到 MinIO
 
@@ -96,6 +108,7 @@ class StorageService:
             file_data: 图片二进制数据
             content_type: MIME 类型 (image/jpeg, image/png 等)
             original_filename: 原始文件名（仅用于提取扩展名）
+            request: FastAPI Request 对象（可选），用于动态构造图片访问 URL
 
         Returns:
             str: 图片的公开访问 URL
@@ -130,9 +143,8 @@ class StorageService:
             content_type=content_type,
         )
 
-        # 返回对外访问 URL（通过 Nginx 代理）
-        public_url = os.getenv("MINIO_PUBLIC_URL", "http://localhost:28640")
-        url = f"{public_url}/{bucket}/{filename}"
+        # 返回对外访问 URL（优先使用请求 Host 动态构造）
+        url = cls._build_public_url(bucket, filename, request)
         logger.info(f"图片上传成功: {url}")
         return url
 
@@ -150,7 +162,7 @@ class StorageService:
         try:
             bucket = os.getenv("MINIO_BUCKET", "figurebox-images")
             # 从 URL 中提取 object name
-            # URL 格式: http://host/bucket/filename
+            # URL 格式: http://host/bucket/filename 或 http://host/path/bucket/filename
             parts = url.split(f"/{bucket}/")
             if len(parts) < 2:
                 logger.warning(f"无法从 URL 解析文件名: {url}")
@@ -167,6 +179,6 @@ class StorageService:
 
     @classmethod
     def is_minio_url(cls, url: str) -> bool:
-        """判断 URL 是否为 MinIO 存储的图片"""
-        public_url = os.getenv("MINIO_PUBLIC_URL", "http://localhost:28640")
-        return url.startswith(public_url)
+        """判断 URL 是否为 MinIO 存储的图片（通过 URL 中是否包含 bucket 名称判断）"""
+        bucket = os.getenv("MINIO_BUCKET", "figurebox-images")
+        return f"/{bucket}/" in url

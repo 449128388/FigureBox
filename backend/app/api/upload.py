@@ -14,7 +14,7 @@ upload.py - 图片上传接口
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
@@ -38,6 +38,7 @@ except Exception as e:
 async def upload_image(
     file: UploadFile = File(..., description="图片文件，支持 jpg/png/gif/webp，最大 20MB"),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """
     上传单张图片到 MinIO 对象存储
@@ -69,7 +70,7 @@ async def upload_image(
     # 上传到 MinIO
     try:
         content_type = file.content_type or "image/jpeg"
-        url = StorageService.upload_image(file_data, content_type, file.filename)
+        url = StorageService.upload_image(file_data, content_type, file.filename, request)
         return {"url": url}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -82,6 +83,7 @@ async def upload_image(
 async def upload_images(
     files: List[UploadFile] = File(..., description="多张图片文件，最多 10 张，单张最大 20MB"),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """
     批量上传多张图片到 MinIO 对象存储
@@ -106,7 +108,7 @@ async def upload_images(
                 continue
 
             content_type = file.content_type or "image/jpeg"
-            url = StorageService.upload_image(file_data, content_type, file.filename)
+            url = StorageService.upload_image(file_data, content_type, file.filename, request)
             urls.append(url)
         except ValueError as e:
             errors.append({"file": file.filename, "error": str(e)})

@@ -9,21 +9,6 @@ echo "🚀 执行数据库迁移..."
 echo "→ 检查所有表注释..."
 python migrations/add_all_table_comments.py
 
-# 清理废弃表（asset_alerts 已无代码使用）
-echo "→ 清理废弃表..."
-python -c "
-from app.models.database import engine
-from sqlalchemy import inspect, text
-inspector = inspect(engine)
-if inspector.has_table('asset_alerts'):
-    with engine.connect() as conn:
-        conn.execute(text('DROP TABLE IF EXISTS asset_alerts'))
-        conn.commit()
-        print('  ✅ asset_alerts 表已删除')
-else:
-    print('  · asset_alerts 表不存在，跳过')
-"
-
 echo "✅ 数据库迁移完成"
 
 # 启动 uvicorn

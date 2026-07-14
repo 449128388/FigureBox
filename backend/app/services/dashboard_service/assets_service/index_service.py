@@ -143,7 +143,7 @@ class IndexService:
                 if lock_key in _index_fetch_locks:
                     # 等待锁释放
                     time.sleep(1)  # 等待1秒后重新检查
-                    db.refresh(cache)
+                    db.refresh(cache) if cache else None
                     return cls._get_cached_response(cache) if cache else cls._default_response(index_code)
                 _index_fetch_locks[lock_key] = True
             
