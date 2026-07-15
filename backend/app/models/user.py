@@ -68,7 +68,6 @@ class User(Base):
     minio_bucket = Column(String(100), default=os.getenv("MINIO_BUCKET", ""), comment="MinIO Bucket 名称")
     minio_public_url = Column(String(255), default=os.getenv("MINIO_PUBLIC_URL", ""), comment="图片访问域名")
     minio_secure = Column(Boolean, default=os.getenv("MINIO_SECURE", "false").lower() in ("true", "1", "yes"), comment="是否使用 HTTPS")
-    minio_region = Column(String(50), default=os.getenv("MINIO_REGION", "us-east-1"), comment="MinIO 区域代码")
 
     # ===== 超时登出配置 =====
     session_timeout_minutes = Column(Integer, default=30, comment="会话超时时间（分钟），0 表示永不超时")
@@ -84,7 +83,6 @@ class User(Base):
             "minio_bucket": os.getenv("MINIO_BUCKET", ""),
             "minio_public_url": os.getenv("MINIO_PUBLIC_URL", ""),
             "minio_secure": os.getenv("MINIO_SECURE", "false").lower() in ("true", "1", "yes"),
-            "minio_region": os.getenv("MINIO_REGION", "us-east-1"),
         }
         for key, val in defaults.items():
             if key not in kwargs:

@@ -2,11 +2,12 @@
 minio_config_service.py - MinIO 配置服务
 
 功能说明：
-- 提供 MinIO 配置的读取、更新、测试连接等业务逻辑
+- 提供 MinIO 配置的读取、更新、重置为默认、测试连接等业务逻辑
 - 遵循企业级服务层架构，与 API 层分离
 - 支持配置验证和连接测试
 """
 
+import os
 import logging
 from typing import Dict, Any
 from datetime import datetime
@@ -19,6 +20,18 @@ from app.schemas.user import MinIOConfigUpdate
 logger = logging.getLogger(__name__)
 
 
+def _get_env_defaults() -> Dict[str, Any]:
+    """读取系统环境变量中的 MinIO 默认配置"""
+    return {
+        "endpoint": os.getenv("MINIO_PUBLIC_ENDPOINT", "http://localhost:28640"),
+        "access_key": os.getenv("MINIO_ACCESS_KEY", ""),
+        "secret_key": os.getenv("MINIO_SECRET_KEY", ""),
+        "bucket": os.getenv("MINIO_BUCKET", ""),
+        "public_url": os.getenv("MINIO_PUBLIC_URL", ""),
+        "secure": os.getenv("MINIO_SECURE", "false").lower() in ("true", "1", "yes"),
+    }
+
+
 class MinIOConfigService:
     """MinIO 配置服务类"""
 
@@ -26,13 +39,6 @@ class MinIOConfigService:
     def get_minio_config(db: Session, user: User) -> Dict[str, Any]:
         """
         获取用户的 MinIO 配置
-
-        Args:
-            db: 数据库会话
-            user: 当前用户对象
-
-        Returns:
-            Dict: MinIO 配置数据
         """
         return {
             "endpoint": user.minio_endpoint or "",
@@ -41,21 +47,12 @@ class MinIOConfigService:
             "bucket": user.minio_bucket or "",
             "public_url": user.minio_public_url or "",
             "secure": bool(user.minio_secure) if user.minio_secure is not None else False,
-            "region": user.minio_region or "us-east-1",
         }
 
     @staticmethod
     def update_minio_config(db: Session, user: User, config_data: MinIOConfigUpdate) -> Dict[str, Any]:
         """
         更新用户的 MinIO 配置
-
-        Args:
-            db: 数据库会话
-            user: 当前用户对象
-            config_data: 更新的配置数据
-
-        Returns:
-            Dict: 更新后的配置
         """
         update_dict = config_data.model_dump(exclude_unset=True)
 
@@ -66,7 +63,6 @@ class MinIOConfigService:
             "bucket": "minio_bucket",
             "public_url": "minio_public_url",
             "secure": "minio_secure",
-            "region": "minio_region",
         }
 
         for field, db_field in field_mapping.items():
@@ -82,15 +78,35 @@ class MinIOConfigService:
         return MinIOConfigService.get_minio_config(db, user)
 
     @staticmethod
+    def reset_minio_config(db: Session, user: User) -> Dict[str, Any]:
+        """
+        将用户的 MinIO 配置重置为系统环境变量默认值
+        """
+        defaults = _get_env_defaults()
+
+        field_mapping = {
+            "endpoint": "minio_endpoint",
+            "access_key": "minio_access_key",
+            "secret_key": "minio_secret_key",
+            "bucket": "minio_bucket",
+            "public_url": "minio_public_url",
+            "secure": "minio_secure",
+        }
+
+        for field, db_field in field_mapping.items():
+            if hasattr(user, db_field):
+                setattr(user, db_field, defaults.get(field))
+
+        db.commit()
+        db.refresh(user)
+        logger.info(f"用户 {user.id} MinIO 配置已重置为默认值")
+
+        return MinIOConfigService.get_minio_config(db, user)
+
+    @staticmethod
     def test_connection(config_data: MinIOConfigUpdate) -> Dict[str, Any]:
         """
         测试 MinIO 连接
-
-        Args:
-            config_data: 连接配置数据
-
-        Returns:
-            Dict: 测试结果，包含成功状态和延迟
         """
         config = config_data.model_dump(exclude_unset=True)
 
@@ -120,7 +136,6 @@ class MinIOConfigService:
                 access_key=access_key,
                 secret_key=secret_key,
                 secure=secure,
-                region=config.get("region", "us-east-1"),
             )
 
             start_time = datetime.now()

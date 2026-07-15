@@ -42,6 +42,17 @@ def update_minio_config(
     return MinIOConfigService.update_minio_config(db, current_user, config_data)
 
 
+@router.post("/minio/reset", response_model=dict)
+def reset_minio_config(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    将当前用户的 MinIO 配置重置为系统默认值
+    """
+    return MinIOConfigService.reset_minio_config(db, current_user)
+
+
 @router.post("/minio/test", response_model=dict)
 def test_minio_connection(
     config_data: MinIOConfigUpdate,

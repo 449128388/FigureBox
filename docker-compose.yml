@@ -37,7 +37,6 @@ services:
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
       MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
       MINIO_SECURE: ${MINIO_SECURE}
-      MINIO_REGION: ${MINIO_REGION}
       TZ: Asia/Shanghai
     volumes:
       - /etc/localtime:/etc/localtime:ro

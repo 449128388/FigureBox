@@ -48,24 +48,13 @@
       <div class="form-group">
         <label class="form-label">厂商 (manufacturer)</label>
         <el-select v-model="form.manufacturer" allow-create filterable placeholder="请选择" style="width: 100%">
-          <el-option value="Alter" label="Alter" />
-          <el-option value="GSC" label="GSC" />
-          <el-option value="Max Factory" label="Max Factory" />
-          <el-option value="Native" label="Native" />
-          <el-option value="BINDing" label="BINDing" />
-          <el-option value="Other" label="Other" />
+          <el-option v-for="m in manufacturers" :key="m" :value="m" :label="m" />
         </el-select>
       </div>
       <div class="form-group">
         <label class="form-label">比例 (scale)</label>
         <el-select v-model="form.scale" allow-create filterable placeholder="请选择" style="width: 100%">
-          <el-option value="1/1" label="1/1" />
-          <el-option value="1/4" label="1/4" />
-          <el-option value="1/6" label="1/6" />
-          <el-option value="1/7" label="1/7" />
-          <el-option value="1/8" label="1/8" />
-          <el-option value="1/12" label="1/12" />
-          <el-option value="Non" label="Non" />
+          <el-option v-for="s in scales" :key="s" :value="s" :label="s" />
         </el-select>
       </div>
     </div>
@@ -122,6 +111,9 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+import { wishlistApi } from '../api/wishlistApi'
+
 const props = defineProps({
   visible: { type: Boolean, default: false },
   isEditing: { type: Boolean, default: false },
@@ -129,6 +121,24 @@ const props = defineProps({
   saving: { type: Boolean, default: false }
 })
 const emit = defineEmits(['close', 'save'])
+
+const manufacturers = ref([])
+const scales = ref([])
+
+onMounted(async () => {
+  try {
+    const mfrRes = await wishlistApi.manufacturers()
+    manufacturers.value = mfrRes || []
+  } catch {
+    manufacturers.value = []
+  }
+  try {
+    const scaleRes = await wishlistApi.scales()
+    scales.value = scaleRes || []
+  } catch {
+    scales.value = []
+  }
+})
 </script>
 
 <style scoped>

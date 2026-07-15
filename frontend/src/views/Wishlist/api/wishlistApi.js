@@ -54,6 +54,11 @@ export const wishlistApi = {
   // 厂商列表
   manufacturers() {
     return axios.get(`${BASE}/manufacturers`)
+  },
+
+  // 比例列表
+  scales() {
+    return axios.get(`${BASE}/scales`)
   }
 }
 

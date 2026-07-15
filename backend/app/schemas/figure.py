@@ -198,6 +198,7 @@ class FigureUpdate(BaseModel):
     work: str | None = None
     material: str | None = None
     size: str | None = None
+    note: str | None = None
     images: List[str] | None = None
 
     @field_validator('name', mode='before')
@@ -302,12 +303,27 @@ class FigureListItem(BaseModel):
     work: str | None = None
     material: str | None = None
     size: str | None = None
+    note: str | None = None
     # 图片只返回第一张或空，减少数据量
     image: str | None = None
     tags: List[Tag] = []
     # 订单相关字段
     order_count: int = 0  # 关联订单数量
     average_purchase_price: float = 0  # 平均入手价格
+
+    class Config:
+        from_attributes = True
+
+
+# 完整的手办详情响应模型（用于详情查询）
+class FigureDetailResponse(FigureListItem):
+    """包含所有字段的完整手办详情"""
+    images: list = []
+    source_url: str | None = None
+    wishlist_status: str | None = None
+    is_active: int = 1
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True

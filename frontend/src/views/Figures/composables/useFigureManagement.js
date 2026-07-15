@@ -68,7 +68,8 @@ export function useFigureManagement() {
     material: '',
     size: '',
     images: [],
-    tag_ids: []
+    tag_ids: [],
+    note: ''
   }
 
   const newFigure = ref({ ...defaultFigure })

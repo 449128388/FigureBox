@@ -216,8 +216,14 @@ export default {
   width: 100%;
   max-width: 900px;
   max-height: 90vh;
-  overflow: hidden;
   margin: 20px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.form-container::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .form-container h3 {

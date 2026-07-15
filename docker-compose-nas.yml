@@ -36,7 +36,6 @@ services:
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
       MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
       MINIO_SECURE: ${MINIO_SECURE}
-      MINIO_REGION: ${MINIO_REGION}
       TZ: Asia/Shanghai
     ports:
       - "28610:8000"

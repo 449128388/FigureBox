@@ -82,6 +82,15 @@ def list_manufacturers(
     return WishlistQueryService.get_manufacturers(db, current_user.id)
 
 
+@router.get("/scales")
+def list_scales(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取愿望清单中所有去重后的比例列表"""
+    return WishlistQueryService.get_scales(db, current_user.id)
+
+
 @router.get("/")
 def list_wishlist(
     skip: int = 0,

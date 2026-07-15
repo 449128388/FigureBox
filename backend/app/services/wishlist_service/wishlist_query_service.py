@@ -123,13 +123,22 @@ class WishlistQueryService:
 
     @staticmethod
     def get_manufacturers(db: Session, user_id: int) -> List[str]:
-        """获取愿望清单中所有去重后的厂商列表"""
+        """获取所有手办中去重后的厂商列表"""
         results = db.query(Figure.manufacturer).filter(
-            Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
             Figure.manufacturer.isnot(None),
             Figure.manufacturer != '',
         ).distinct().order_by(Figure.manufacturer).all()
+        return [r[0] for r in results]
+
+    @staticmethod
+    def get_scales(db: Session, user_id: int) -> List[str]:
+        """获取所有手办中去重后的比例列表"""
+        results = db.query(Figure.scale).filter(
+            Figure.is_active == 1,
+            Figure.scale.isnot(None),
+            Figure.scale != '',
+        ).distinct().order_by(Figure.scale).all()
         return [r[0] for r in results]
 
     @staticmethod

@@ -3,7 +3,7 @@
 
   功能说明：
   - 提供手办规格相关信息的输入表单
-  - 包含制造商、比例、材质、尺寸等字段
+  - 包含制造商、比例、材质、尺寸、备注等字段
   - 支持表单验证和错误提示
 
   组件依赖：
@@ -56,6 +56,15 @@
       ></el-input>
       <div v-if="sizeError" class="error-message">{{ sizeError }}</div>
     </div>
+    <div class="form-group full-width">
+      <label>备注</label>
+      <el-input
+        v-model="localFigure.note"
+        type="textarea"
+        :rows="3"
+        placeholder="手办备注信息"
+      ></el-input>
+    </div>
   </div>
 </template>
 
@@ -102,6 +111,10 @@ export default {
 
 .form-group {
   margin-bottom: 0;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
 }
 
 .form-group label {

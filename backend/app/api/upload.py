@@ -70,7 +70,8 @@ async def upload_image(
     # 上传到 MinIO
     try:
         content_type = file.content_type or "image/jpeg"
-        url = StorageService.upload_image(file_data, content_type, file.filename, request)
+        user_config = StorageService._extract_user_config(current_user)
+        url = StorageService.upload_image(file_data, content_type, file.filename, request, user_config)
         return {"url": url}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -100,6 +101,8 @@ async def upload_images(
     urls = []
     errors = []
 
+    user_config = StorageService._extract_user_config(current_user)
+
     for file in files:
         try:
             file_data = await file.read()
@@ -108,7 +111,7 @@ async def upload_images(
                 continue
 
             content_type = file.content_type or "image/jpeg"
-            url = StorageService.upload_image(file_data, content_type, file.filename, request)
+            url = StorageService.upload_image(file_data, content_type, file.filename, request, user_config)
             urls.append(url)
         except ValueError as e:
             errors.append({"file": file.filename, "error": str(e)})

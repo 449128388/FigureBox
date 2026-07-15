@@ -7,8 +7,8 @@ from typing import List, Dict, Any
 from app.models.database import get_db
 from app.models.figure import Figure
 from app.schemas.figure import (
-    Figure as FigureSchema, FigureCreate, FigureUpdate, 
-    Tag as TagSchema, TagCreate, FigureListItem
+    FigureCreate, FigureUpdate, 
+    Tag as TagSchema, TagCreate, FigureListItem, FigureDetailResponse
 )
 from app.api.users import get_current_user
 from app.models.user import User
@@ -190,8 +190,8 @@ def delete_tag(
 
 # ========== 手办CRUD接口 ==========
 
-@router.get("/{figure_id}", response_model=FigureSchema)
-@router.get("/{figure_id}/", response_model=FigureSchema)
+@router.get("/{figure_id}", response_model=FigureDetailResponse, response_model_exclude={'image'})
+@router.get("/{figure_id}/", response_model=FigureDetailResponse, response_model_exclude={'image'})
 def get_figure(figure_id: int, db: Session = Depends(get_db)):
     """
     获取手办详情
@@ -222,7 +222,7 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
     return figure
 
 
-@router.post("/", response_model=FigureSchema)
+@router.post("/", response_model=FigureDetailResponse, response_model_exclude={'image'})
 def create_figure(
     figure: FigureCreate, 
     current_user: User = Depends(get_current_user), 
@@ -237,7 +237,7 @@ def create_figure(
     return FigureService.create_figure(db, figure_data, user_id=current_user.id)
 
 
-@router.put("/{figure_id}", response_model=FigureSchema)
+@router.put("/{figure_id}", response_model=FigureDetailResponse, response_model_exclude={'image'})
 def update_figure(
     figure_id: int,
     figure: FigureUpdate,

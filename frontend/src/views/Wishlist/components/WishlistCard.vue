@@ -49,7 +49,7 @@
       </div>
       <div v-if="item.note" class="card-note">{{ item.note }}</div>
       <div class="card-actions">
-        <button v-if="item.status !== 'purchased' && item.status !== 'cancelled'" class="card-btn card-btn-buy" @click="$emit('move-to-library', item)">
+        <button v-if="item.status !== 'cancelled'" class="card-btn card-btn-buy" @click="$emit('move-to-library', item)">
           <i class="ri-shopping-bag-3-line"></i> 转入手办库
         </button>
         <button class="card-btn card-btn-edit" @click="$emit('edit', item)">

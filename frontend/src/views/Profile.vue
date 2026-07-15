@@ -338,22 +338,16 @@
             </div>
           </div>
 
-          <div class="form-row">
-            <label class="form-label">区域 Region</label>
-            <div class="form-control">
-              <div class="input-wrap small">
-                <input type="text" v-model="minioConfig.region" placeholder="us-east-1">
-              </div>
-              <div class="form-hint">一般使用默认即可，MinIO 单节点通常填 us-east-1</div>
-            </div>
-          </div>
-
           <div class="form-actions" style="margin-top:24px;">
             <button class="btn btn-success" @click="testMinIOConnection" :disabled="testingConnection">
               <span v-if="testingConnection">测试中...</span>
               <span v-else>测试连接</span>
             </button>
             <button class="btn btn-primary" @click="saveMinIOConfig">保存配置</button>
+            <button class="btn btn-outline" @click="resetMinIOConfig" :disabled="resettingMinIO">
+              <span v-if="resettingMinIO">恢复中...</span>
+              <span v-else>恢复默认</span>
+            </button>
           </div>
         </div>
       </div>
@@ -541,7 +535,6 @@ export default {
       bucket: '',
       public_url: '',
       secure: false,
-      region: 'us-east-1'
     })
 
     const minioStatusText = ref('当前连接状态未知')
@@ -601,8 +594,7 @@ export default {
             secret_key: response.secret_key || '',
             bucket: response.bucket || '',
             public_url: response.public_url || '',
-            secure: response.secure || false,
-            region: response.region || 'us-east-1'
+            secure: response.secure || false
           }
         }
       } catch (error) {
@@ -623,8 +615,7 @@ export default {
           access_key: minioConfig.value.access_key,
           secret_key: minioConfig.value.secret_key,
           bucket: minioConfig.value.bucket,
-          secure: minioConfig.value.secure,
-          region: minioConfig.value.region
+          secure: minioConfig.value.secure
         })
 
         if (response.success) {
@@ -659,13 +650,35 @@ export default {
           secret_key: minioConfig.value.secret_key,
           bucket: minioConfig.value.bucket,
           public_url: minioConfig.value.public_url,
-          secure: minioConfig.value.secure,
-          region: minioConfig.value.region
+          secure: minioConfig.value.secure
         })
         ElMessage.success('MinIO 配置已保存')
       } catch (error) {
         console.error('保存 MinIO 配置失败:', error)
         ElMessage.error('保存失败，请稍后重试')
+      }
+    }
+
+    const resettingMinIO = ref(false)
+
+    async function resetMinIOConfig() {
+      resettingMinIO.value = true
+      try {
+        const response = await axios.post('/minio/reset')
+        minioConfig.value = {
+          endpoint: response.endpoint || '',
+          access_key: response.access_key || '',
+          secret_key: response.secret_key || '',
+          bucket: response.bucket || '',
+          public_url: response.public_url || '',
+          secure: response.secure || false
+        }
+        ElMessage.success('已恢复为默认配置')
+      } catch (error) {
+        console.error('重置 MinIO 配置失败:', error)
+        ElMessage.error('重置失败，请稍后重试')
+      } finally {
+        resettingMinIO.value = false
       }
     }
 
@@ -693,6 +706,8 @@ export default {
       loadMinIOConfig,
       testMinIOConnection,
       saveMinIOConfig,
+      resettingMinIO,
+      resetMinIOConfig,
       timeoutConfig,
       savingTimeout,
       selectTimeout,

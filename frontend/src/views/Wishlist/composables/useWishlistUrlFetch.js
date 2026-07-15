@@ -74,7 +74,7 @@ export function useWishlistUrlFetch() {
       const payload = {
         name: result.value.name,
         japanese_name: result.value.japanese_name,
-        manufacturer: result.value.manufacturer,
+        manufacturer: result.value.production || result.value.manufacturer,
         scale: result.value.scale,
         painting: result.value.painter,
         original_art: result.value.original_art,

@@ -120,7 +120,6 @@ class MinIOConfigUpdate(BaseModel):
     bucket: Optional[str] = None
     public_url: Optional[str] = None
     secure: Optional[bool] = None
-    region: Optional[str] = None
 
 
 class TimeoutConfigUpdate(BaseModel):
