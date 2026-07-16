@@ -5,8 +5,13 @@ hpoi_cache.py - HPOI 抓取缓存模型
 缓存有效期默认 30 天。
 """
 from sqlalchemy import Column, Integer, String, Text, LargeBinary, DateTime, Index
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.models.database import Base
+
+
+def _now_cst():
+    """返回东八区（CST）当前时间"""
+    return datetime.utcnow() + timedelta(hours=8)
 
 
 class HpoiScrapeCache(Base):
@@ -20,7 +25,7 @@ class HpoiScrapeCache(Base):
     source_url = Column(String(2048), nullable=False, comment="原始 URL")
     raw_html = Column(LargeBinary, nullable=True, comment="抓取的原始 HTML（gzip 压缩后）")
     parsed_data = Column(Text, nullable=True, comment="解析后的 JSON 数据")
-    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    created_at = Column(DateTime, default=_now_cst, comment="创建时间")
     expires_at = Column(DateTime, nullable=False, comment="过期时间")
 
     __table_args__ = (

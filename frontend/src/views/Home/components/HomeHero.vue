@@ -17,6 +17,10 @@
             <div class="hero-stat-num">{{ stats.invest_days || 0 }}</div>
             <div class="hero-stat-label">投资天数</div>
           </div>
+          <div class="hero-stat">
+            <div class="hero-stat-num">¥{{ formatDue(stats.monthly_due) }}</div>
+            <div class="hero-stat-label">本月补款</div>
+          </div>
         </div>
       </div>
       <div class="hero-avatar">
@@ -44,6 +48,11 @@ const fallbackGreeting = computed(() => {
   if (hour >= 14 && hour < 18) return '下午好，记得检查尾款到期日'
   return '晚上好，来看看今天的资产复盘'
 })
+
+const formatDue = (v) => {
+  if (!v && v !== 0) return '0'
+  return Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
 </script>
 
 <style scoped>

@@ -78,7 +78,7 @@
               </span>
             </div>
             <div class="info-row">
-              <span class="info-label">购买平台</span>
+              <span class="info-label">购买店铺</span>
               <span class="info-value">{{ orderData.order_info?.platform }}</span>
             </div>
             <div class="info-row">

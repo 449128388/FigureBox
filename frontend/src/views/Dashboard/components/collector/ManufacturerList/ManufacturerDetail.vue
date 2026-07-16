@@ -299,7 +299,7 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: 8px;
+  padding: 0;
 }
 
 .maker-hero-info {
@@ -331,6 +331,7 @@ export default {
   font-size: 14px;
   color: #666;
   line-height: 1.6;
+  white-space: pre-line;
 }
 
 .maker-hero-links {
@@ -471,7 +472,7 @@ export default {
 .figure-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .figure-img-placeholder {

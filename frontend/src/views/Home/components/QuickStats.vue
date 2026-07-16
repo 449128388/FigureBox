@@ -5,14 +5,14 @@
       <div class="q-stat-info">
         <h3>{{ stats.pending_orders || 0 }}</h3>
         <p>待付尾款</p>
-        <div class="q-stat-trend" :class="stats.weekly_unpaid < 0 ? 'trend-down' : 'trend-up'">{{ stats.weekly_unpaid || 0 }} <span class="trend-label">较上周</span></div>
+        <div class="q-stat-trend" :class="stats.monthly_unpaid < 0 ? 'trend-down' : 'trend-up'">{{ stats.monthly_unpaid || 0 }} <span class="trend-label">较上月</span></div>
       </div>
     </div>
     <div class="q-stat-card" @click="$router.push('/figures')">
       <div class="q-stat-icon green"><i class="ri-add-circle-line"></i></div>
       <div class="q-stat-info">
         <h3>+{{ stats.monthly_new || 0 }}</h3>
-        <p>本月新增</p>
+        <p>本月新增入库</p>
         <div class="q-stat-trend trend-down">持平 <span class="trend-label">较上月</span></div>
       </div>
     </div>

@@ -72,6 +72,8 @@ class BuyOrderService:
         # 获取展示订单编号（只使用数据库中的）
         display_order_number = order.display_order_number or "-"
 
+        purchase_method = figure_info.get("purchase_method", "")
+
         # 构建订单详情
         order_detail = {
             # 头部区信息
@@ -81,7 +83,7 @@ class BuyOrderService:
                 "figure_name": figure_info.get("name", "未知手办"),
                 "figure_series": figure_info.get("series", ""),
                 "quantity": 1,
-                "platform": order.shop_name or "-"
+                "platform": purchase_method or "-"
             },
 
             # 订单信息区
@@ -89,7 +91,7 @@ class BuyOrderService:
                 "order_id": order.id,
                 "order_number": display_order_number,
                 "order_type": cls._get_order_type(order),
-                "platform": order.shop_name or "-",
+                "platform": f"{purchase_method}-{order.shop_name}" if purchase_method and order.shop_name else (purchase_method or order.shop_name or "-"),
                 "order_time": order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-",
                 "status": cls._format_status(order.status),
                 "status_code": order.status
@@ -125,7 +127,8 @@ class BuyOrderService:
         return {
             "name": figure.name or "未知手办",
             "series": figure.work or "",
-            "image": image_url
+            "image": image_url,
+            "purchase_method": figure.purchase_method or ""
         }
 
     @classmethod
@@ -235,6 +238,9 @@ class BuyOrderService:
                         "transaction_no": tx.order_id or f"TRX-{tx.id}"
                     })
                 else:
+                    # 跳过定金/尾款的变更、退款、调整等非初始交易，避免将差额显示为实际金额
+                    if tx.transaction_type in ("deposit", "balance") and tx.transaction_subtype and tx.transaction_subtype != "initial":
+                        continue
                     payment_items.append({
                         "type": cls._map_payment_type(tx.transaction_type),
                         "amount": tx.total_amount or 0,
@@ -294,11 +300,10 @@ class BuyOrderService:
             curr = item["currency"]
             total_by_currency[curr] = total_by_currency.get(curr, 0) + item["amount"]
 
-        # 按汇率换算为人民币总金额
-        total_amount_cny = 0
-        for curr, amount in total_by_currency.items():
-            rate = ExchangeRateService.get_rate(db, curr)
-            total_amount_cny += amount * rate
+        # 按汇率换算为人民币总金额（直接使用订单的定金和尾款按币种换算）
+        deposit_cny = FigurePriceService.convert_to_cny(deposit, order.deposit_currency or 'CNY')
+        balance_cny = FigurePriceService.convert_to_cny(balance, order.balance_currency or 'CNY')
+        total_amount_cny = deposit_cny + balance_cny
 
         return {
             "payment_type": order_type_name,

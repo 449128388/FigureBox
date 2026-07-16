@@ -77,7 +77,7 @@ class HomeService:
         """
         activities: List[Dict[str, Any]] = []
 
-        # 1. 新入手 - 用户的有效订单（排除愿望清单类型的手办）
+        # 1. 订单动态 - 用户的有效订单（排除愿望清单类型的手办）
         orders = (
             db.query(Order)
             .filter(Order.user_id == user_id, Order.is_active == 1)
@@ -92,10 +92,29 @@ class HomeService:
             # 跳过愿望清单类型的关联手办
             if figure.purchase_type == "wishlist":
                 continue
-            total_price = (o.deposit or 0) + (o.balance or 0)
+            deposit = o.deposit or 0
+            balance = o.balance or 0
+            total_price = deposit + balance
+
+            if o.status == "未支付":
+                text = f"新预定手办 {figure.name}，定金 ¥{deposit:,.0f}"
+                act_type = "buy"
+            elif o.status == "已支付":
+                text = f"完成 {figure.name} 补款，尾款 ¥{balance:,.0f}"
+                act_type = "buy"
+            elif o.status == "已取消":
+                text = f"取消 {figure.name} 补款"
+                act_type = "cancel"
+            elif o.status == "已完成":
+                text = f"完成 {figure.name} 入库，共计花费 ¥{total_price:,.0f}"
+                act_type = "buy"
+            else:
+                text = f"新入手 {figure.name}，花费 ¥{total_price:,.0f}"
+                act_type = "buy"
+
             activities.append({
-                "type": "buy",
-                "text": f"新入手 {figure.name}，花费 ¥{total_price:,.0f}",
+                "type": act_type,
+                "text": text,
                 "figure_name": figure.name,
                 "time_label": _human_time(o.created_at),
                 "created_at": o.created_at.isoformat() if o.created_at else "",
@@ -185,12 +204,13 @@ class HomeService:
         Returns:
             持仓列表，按市值降序
         """
-        # 找到用户有订单的所有手办 ID（排除愿望清单）
+        # 找到用户已入库（订单状态为"已完成"）的所有手办 ID（排除愿望清单）
         order_figure_ids = (
             db.query(Order.figure_id)
             .filter(
                 Order.user_id == user_id,
                 Order.is_active == 1,
+                Order.status == "已完成",
             )
             .distinct()
             .subquery()
@@ -409,36 +429,55 @@ class HomeService:
             .count()
         )
 
-        # weekly_unpaid：未支付订单与上周对比的变化量
+        # monthly_unpaid：未支付订单与上月对比的变化量
         today = date.today()
-        # 本周一
-        monday = today - timedelta(days=today.weekday())
-        # 上周一
-        last_monday = monday - timedelta(days=7)
+        # 本月1号
+        first_of_this_month = today.replace(day=1)
+        # 上月1号
+        last_month = first_of_this_month - timedelta(days=1)
+        first_of_last_month = last_month.replace(day=1)
 
-        this_week_unpaid = (
+        this_month_unpaid = (
             db.query(Order)
             .filter(
                 Order.user_id == user_id,
                 Order.is_active == 1,
                 Order.status == "未支付",
-                Order.created_at >= monday,
+                Order.created_at >= first_of_this_month,
             )
             .count()
         )
-        last_week_unpaid = (
+        last_month_unpaid = (
             db.query(Order)
             .filter(
                 Order.user_id == user_id,
                 Order.is_active == 1,
                 Order.status == "未支付",
-                Order.created_at >= last_monday,
-                Order.created_at < monday,
+                Order.created_at >= first_of_last_month,
+                Order.created_at < first_of_this_month,
             )
             .count()
         )
 
-        weekly_unpaid = this_week_unpaid - last_week_unpaid
+        monthly_unpaid = this_month_unpaid - last_month_unpaid
+
+        # monthly_due：本月待付尾款总额（未支付订单，到期日在本月内）
+        import calendar
+        _, last_day_of_month = calendar.monthrange(today.year, today.month)
+        month_end = date(today.year, today.month, last_day_of_month)
+        monthly_due_orders = (
+            db.query(func.coalesce(func.sum(Order.balance), 0))
+            .filter(
+                Order.user_id == user_id,
+                Order.is_active == 1,
+                Order.status == "未支付",
+                Order.due_date.isnot(None),
+                Order.due_date >= first_of_this_month,
+                Order.due_date <= month_end,
+            )
+            .scalar() or 0
+        )
+        monthly_due = round(float(monthly_due_orders), 2)
 
         # sell_correct_count：卖对次数（盈利卖出订单数）
         # win_rate：胜率（盈利卖出 / 总卖出 × 100）
@@ -491,7 +530,8 @@ class HomeService:
             "hpi_index_value": hpi_index_value,
             "hpi_return": hpi_return,
             "monthly_new": monthly_new,
-            "weekly_unpaid": weekly_unpaid,
+            "monthly_unpaid": monthly_unpaid,
+            "monthly_due": monthly_due,
             "sell_correct_count": sell_correct_count,
             "win_rate": win_rate,
             "username": username,

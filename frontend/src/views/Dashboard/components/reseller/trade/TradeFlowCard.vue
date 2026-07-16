@@ -56,8 +56,8 @@
 
       <!-- 交易信息 -->
       <div class="card-info">
-        <span v-if="record.order_number" class="info-item">
-          <span class="info-label">订单流水号:</span> {{ record.order_number }}
+        <span v-if="record.order_number || record.display_order_number" class="info-item">
+          <span class="info-label">订单流水号:</span> {{ record.order_number || record.display_order_number }}
         </span>
         <span class="info-item">
           <span class="info-label">订单状态:</span> {{ record.status }}

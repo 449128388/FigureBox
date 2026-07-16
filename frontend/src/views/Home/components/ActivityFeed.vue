@@ -57,6 +57,7 @@ defineProps({
 .activity-dot.sell { background: #fa8c16; }
 .activity-dot.wish { background: #1890ff; }
 .activity-dot.price { background: #ff4d4f; }
+.activity-dot.cancel { background: #ff4d4f; }
 .activity-content { flex: 1; }
 .activity-text { font-size: 13px; color: #333; line-height: 1.5; }
 .activity-text :deep(strong) { color: #1a1a1a; }

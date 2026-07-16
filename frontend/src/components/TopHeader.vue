@@ -72,11 +72,7 @@
             </svg>
           </button>
           <div class="about-logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-              <line x1="12" y1="22.08" x2="12" y2="12"/>
-            </svg>
+            <img src="/imgs/logo.png" alt="FigureBox" class="about-logo-img">
           </div>
           <div class="about-title">FigureBox</div>
           <div class="about-version">
@@ -596,15 +592,16 @@ export default {
   width: 72px;
   height: 72px;
   border-radius: 20px;
-  background: linear-gradient(135deg, #1890ff 0%, #36cfc9 100%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
+  overflow: hidden;
   margin-bottom: 12px;
   box-shadow: 0 4px 12px rgba(24,144,255,0.3);
 }
-.about-logo svg { width: 36px; height: 36px; }
+.about-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .about-title {
   font-size: 22px;
   font-weight: 700;

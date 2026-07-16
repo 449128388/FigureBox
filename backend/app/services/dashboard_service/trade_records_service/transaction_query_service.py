@@ -271,13 +271,38 @@ class TransactionQueryService:
             balance_currency = order.balance_currency or "CNY"
             deposit_rate = ExchangeRateService.get_rate(db, deposit_currency)
             balance_rate = ExchangeRateService.get_rate(db, balance_currency)
-            # 根据订单状态确定已支付的金额：
+
+            # 查询该订单的支付交易记录，判断定金是否已支付
+            deposit_paid_txn = db.query(OrderTransaction).filter(
+                OrderTransaction.user_id == user_id,
+                OrderTransaction.order_id == order.id,
+                OrderTransaction.is_active == True,
+                OrderTransaction.transaction_type.in_(["deposit", "buy"]),
+                OrderTransaction.direction == "out"
+            ).first()
+            deposit_paid = deposit_paid_txn is not None
+
+            # 查询该订单的尾款交易记录，判断尾款是否已支付
+            balance_paid_txn = db.query(OrderTransaction).filter(
+                OrderTransaction.user_id == user_id,
+                OrderTransaction.order_id == order.id,
+                OrderTransaction.is_active == True,
+                OrderTransaction.transaction_type == "balance",
+                OrderTransaction.direction == "out"
+            ).first()
+            balance_paid = balance_paid_txn is not None
+
+            # 根据订单状态和交易记录确定已支付的金额：
             # 已完成 → 定金+尾款均已支付
-            # 已支付 → 仅定金已支付
-            # 未支付 → 均未支付
+            # 已支付或存在定金交易 → 仅定金已支付
+            # 未支付且无交易记录 → 均未支付
             # 已取消 → 仅定金已支付
-            paid_deposit = deposit * deposit_rate if order.status in ["已完成", "已支付", "已取消"] else 0
-            paid_balance = balance * balance_rate if order.status == "已完成" else 0
+            paid_deposit = deposit * deposit_rate if (
+                order.status in ["已完成", "已支付", "已取消"] or deposit_paid
+            ) else 0
+            paid_balance = balance * balance_rate if (
+                order.status == "已完成" or balance_paid
+            ) else 0
             total_amount = round(paid_deposit + paid_balance, 2)
 
             # 查询该订单关联的费用明细（从 OrderTransaction 表）
@@ -321,7 +346,8 @@ class TransactionQueryService:
                 "date": order_date,
                 "type": "buy",
                 "card_type": "buy",  # 买入卡片样式
-                "order_number": order.display_order_number,
+                "order_number": order.order_number or "",
+                "display_order_number": order.display_order_number,
                 "filter_category": "expense",  # 用于筛选：income/expense/fee
 
                 # 金额信息

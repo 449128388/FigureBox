@@ -274,20 +274,21 @@ class OrderCrudService:
         db.commit()
         db.refresh(db_order)
 
-        # 检测并记录资金变更
-        try:
-            OrderTransactionService.detect_and_record_changes(
-                db=db,
-                order=db_order,
-                old_deposit=old_deposit,
-                old_deposit_currency=old_deposit_currency,
-                old_balance=old_balance,
-                old_balance_currency=old_balance_currency,
-                current_user=current_user,
-                change_reason="订单编辑"
-            )
-        except Exception as e:
-            print(f"记录资金变更失败: {e}")
+        # 检测并记录资金变更（仅当订单状态不是"未支付"时才记录，未支付状态修改金额不产生实际资金流动）
+        if old_status != "未支付":
+            try:
+                OrderTransactionService.detect_and_record_changes(
+                    db=db,
+                    order=db_order,
+                    old_deposit=old_deposit,
+                    old_deposit_currency=old_deposit_currency,
+                    old_balance=old_balance,
+                    old_balance_currency=old_balance_currency,
+                    current_user=current_user,
+                    change_reason="订单编辑"
+                )
+            except Exception as e:
+                print(f"记录资金变更失败: {e}")
 
         # 创建资金流水记录（order_transactions）和/或资产交易记录（asset_transactions）
         # 处理编辑时首次创建初始记录的场景（例如从"未支付"改为"已支付"/"已取消"/"已完成"）

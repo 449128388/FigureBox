@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from app.models.hpoi_cache import HpoiScrapeCache
+from app.models.hpoi_cache import HpoiScrapeCache, _now_cst
 
 
 class CacheManager:
@@ -37,7 +37,7 @@ class CacheManager:
     def get(db: Session, url: str) -> Optional[Dict[str, Any]]:
         """获取缓存（自动判断过期）"""
         url_hash = CacheManager.url_to_hash(url)
-        now = datetime.utcnow()
+        now = _now_cst()
         record = db.query(HpoiScrapeCache).filter(
             and_(
                 HpoiScrapeCache.url_hash == url_hash,
@@ -71,7 +71,7 @@ class CacheManager:
         """写入缓存（raw_html 自动 gzip 压缩）"""
         url_hash = CacheManager.url_to_hash(url)
         ttl = ttl_days or CacheManager.CACHE_TTL_DAYS
-        expires_at = datetime.utcnow() + timedelta(days=ttl)
+        expires_at = _now_cst() + timedelta(days=ttl)
 
         # 删除旧缓存
         db.query(HpoiScrapeCache).filter(
@@ -103,7 +103,7 @@ class CacheManager:
     @staticmethod
     def clean_expired(db: Session):
         """清理过期缓存"""
-        now = datetime.utcnow()
+        now = _now_cst()
         deleted = db.query(HpoiScrapeCache).filter(
             HpoiScrapeCache.expires_at <= now
         ).delete()
