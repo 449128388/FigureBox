@@ -230,8 +230,8 @@ export default {
     const statusOptions = [
       { label: '✅ 已完成', value: '已完成' },
       { label: '⏳ 待发货', value: '待发货' },
-      { label: '⏳ 已支付定金', value: '已支付' },
-      { label: '⏳ 未支付定金', value: '未支付' },
+      { label: '⏳ 已支付尾款,待发货', value: '已支付' },
+      { label: '⏳ 未支付尾款', value: '未支付' },
       { label: '❌ 已取消', value: '已取消' },
       { label: '↩️ 已退款', value: '已退款' }
     ]

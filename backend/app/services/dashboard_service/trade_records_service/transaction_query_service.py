@@ -322,16 +322,17 @@ class TransactionQueryService:
                     "color": "green"
                 })
 
-            # 订单时间（使用创建时间）
+            # 订单时间（优先使用支付时间，降级到创建时间）
             order_date = ""
-            if order.created_at:
-                order_date = order.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            payment_source = order.payment_time or order.created_at
+            if payment_source:
+                order_date = payment_source.strftime("%Y-%m-%d %H:%M:%S")
 
             # 订单状态映射
             status_map = {
                 "已完成": "✅ 已完成",
-                "已支付": "⏳ 已支付定金",
-                "未支付": "⏳ 未支付定金",
+                "已支付": "⏳ 已支付尾款,待发货",
+                "未支付": "⏳ 未支付尾款",
                 "已取消": "❌ 已取消"
             }
             order_status = status_map.get(order.status, order.status) or "-"

@@ -124,6 +124,7 @@
       :dueDateError="dueDateError"
       @saveOrder="handleSaveOrder"
       @cancel="showAddForm = false"
+      @validateStep="handleValidateStep"
     />
 
     <!-- 删除确认对话框 -->
@@ -179,6 +180,7 @@ const {
   searchDueDateRange,
 
   openAddForm,
+  validateForm,
   handleSaveOrder,
   openDeleteConfirmDialog,
   cancelDelete,
@@ -211,6 +213,17 @@ const route = useRoute()
 // 导航到个人资料页面
 const navigateToProfile = () => {
   router.push('/profile')
+}
+
+/**
+ * 处理 OrderForm 抛出的步骤校验事件
+ * OrderForm 在用户点击「下一步」/ 点击未达步骤 / 保存前会 emit 此事件
+ * 这里调用 validateForm 来设置 figureError / dueDateError,使步骤 1 的错误提示在表单中显示
+ */
+const handleValidateStep = (step) => {
+  if (step === 1) {
+    validateForm()
+  }
 }
 
 // 生命周期

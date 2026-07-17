@@ -51,6 +51,10 @@ class Order(Base):
     logistics_company = Column(String(50), comment="物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他")
     order_number = Column(String(100), comment="订单编号（外部系统订单号，如淘宝订单号）")
     display_order_number = Column(String(100), comment="展示订单编号（系统生成，格式：ORDER-YYYYMMDD-XXX）")
+    payment_method = Column(String(20), comment="定金支付方式：支付宝、微信、银行卡转账、现金")
+    payment_time = Column(DateTime, nullable=True, comment="定金支付时间")
+    balance_payment_method = Column(String(20), comment="尾款支付方式：支付宝、微信、银行卡转账、现金")
+    balance_payment_time = Column(DateTime, nullable=True, comment="尾款支付时间")
     remarks = Column(String(500), comment="订单备注（用户自定义备注信息）")
 
     # 时间戳

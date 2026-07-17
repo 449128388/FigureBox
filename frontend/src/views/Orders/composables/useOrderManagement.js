@@ -52,7 +52,11 @@ export function useOrderManagement() {
     shop_name: '',
     shop_contact: '',
     tracking_number: '',
-    logistics_company: ''
+    logistics_company: '',
+    payment_method: '',
+    payment_time: '',
+    balance_payment_method: '',
+    balance_payment_time: ''
   })
 
   // 删除确认对话框状态
@@ -283,7 +287,11 @@ export function useOrderManagement() {
       shop_name: '',
       shop_contact: '',
       tracking_number: '',
-      logistics_company: ''
+      logistics_company: '',
+      payment_method: '',
+      payment_time: '',
+      balance_payment_method: '',
+      balance_payment_time: ''
     }
   }
   
@@ -334,10 +342,19 @@ export function useOrderManagement() {
       if (!validateForm()) {
         return
       }
-      
+
+      // 规范化空值:把 undefined / 空字符串统一转为 null,确保 el-select × 清空后能正确提交到后端
+      // 避免 exclude_unset=True 时字段未传导致后端保留旧值
+      const normalizedData = Object.fromEntries(
+        Object.entries(orderData).map(([k, v]) => [
+          k,
+          v === '' || v === undefined ? null : v
+        ])
+      )
+
       const formattedOrderData = {
-        ...orderData,
-        due_date: formatDate(orderData.due_date)
+        ...normalizedData,
+        due_date: formatDate(normalizedData.due_date)
       }
       
       if (isEditing.value) {
@@ -397,13 +414,16 @@ export function useOrderManagement() {
   }
   
   const handleEditOrder = (order) => {
+    // 先重置表单到初始状态,避免上次编辑/新增的数据残留
+    resetForm()
     // 打开编辑表单
     showAddForm.value = true
     isEditing.value = true
     currentEditOrderId.value = order.id
-    
-    // 填充表单数据
+
+    // 填充表单数据（覆盖重置后的默认值）
     newOrder.value = {
+      ...newOrder.value,
       ...order,
       figure_id: order.figure_id
     }

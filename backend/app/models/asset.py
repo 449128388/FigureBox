@@ -232,6 +232,9 @@ class OrderTransaction(Base):
 
     # 交易详情
     payment_method = Column(String(50), comment="支付方式：支付宝/微信/银行卡/现金等")
+    payment_time = Column(DateTime, nullable=True, comment="定金支付时间")
+    balance_payment_method = Column(String(20), comment="尾款支付方式：支付宝、微信、银行卡转账、现金")
+    balance_payment_time = Column(DateTime, nullable=True, comment="尾款支付时间")
     platform = Column(String(50), comment="交易平台：淘宝/闲鱼/AmiAmi/京东/线下等")
 
     # 时间字段

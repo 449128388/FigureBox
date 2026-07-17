@@ -37,7 +37,6 @@
       <div class="drawer-header">
         <div class="header-top">
           <span class="header-title">查看买入订单</span>
-          <span class="order-number-tag">#{{ orderData.header?.order_number }}</span>
         </div>
         <div class="header-info">
           <div class="figure-image">
@@ -557,14 +556,6 @@ export default {
   color: #333;
 }
 
-.order-number-tag {
-  font-size: 14px;
-  color: #666;
-  background-color: #e0e0e0;
-  padding: 4px 10px;
-  border-radius: 4px;
-}
-
 .header-info {
   display: flex;
   gap: 15px;
@@ -850,6 +841,8 @@ export default {
   margin: 0;
   color: #666;
   line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .remarks-actions {

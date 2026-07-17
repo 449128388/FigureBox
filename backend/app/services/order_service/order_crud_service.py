@@ -104,13 +104,17 @@ class OrderCrudService:
                         unit_price=db_order.deposit,
                         total_amount=db_order.deposit,
                         currency=db_order.deposit_currency or "CNY",
+                        payment_method=db_order.payment_method,
                         platform=db_order.shop_name,
                         transaction_date=now,
                         created_at=now,
                         updated_at=now,
                         notes=f"订单 #{db_order.id} 定金",
                         transaction_subtype="initial",
-                        changed_field="deposit"
+                        changed_field="deposit",
+                        payment_time=db_order.payment_time,
+                        balance_payment_method=db_order.balance_payment_method,
+                        balance_payment_time=db_order.balance_payment_time
                     )
                     db.add(deposit_txn)
 
@@ -127,13 +131,17 @@ class OrderCrudService:
                         unit_price=db_order.balance,
                         total_amount=db_order.balance,
                         currency=db_order.balance_currency or "CNY",
+                        payment_method=db_order.payment_method,
                         platform=db_order.shop_name,
                         transaction_date=now,
                         created_at=now,
                         updated_at=now,
                         notes=f"订单 #{db_order.id} 尾款",
                         transaction_subtype="initial",
-                        changed_field="balance"
+                        changed_field="balance",
+                        payment_time=db_order.payment_time,
+                        balance_payment_method=db_order.balance_payment_method,
+                        balance_payment_time=db_order.balance_payment_time
                     )
                     db.add(balance_txn)
 
@@ -320,13 +328,17 @@ class OrderCrudService:
                         unit_price=db_order.deposit,
                         total_amount=db_order.deposit,
                         currency=db_order.deposit_currency or "CNY",
+                        payment_method=db_order.payment_method,
                         platform=db_order.shop_name,
                         transaction_date=now,
                         created_at=now,
                         updated_at=now,
                         notes=f"订单 #{db_order.id} 定金",
                         transaction_subtype="initial",
-                        changed_field="deposit"
+                        changed_field="deposit",
+                        payment_time=db_order.payment_time,
+                        balance_payment_method=db_order.balance_payment_method,
+                        balance_payment_time=db_order.balance_payment_time
                     )
                     db.add(deposit_txn)
 
@@ -349,13 +361,17 @@ class OrderCrudService:
                             unit_price=db_order.balance,
                             total_amount=db_order.balance,
                             currency=db_order.balance_currency or "CNY",
+                            payment_method=db_order.payment_method,
                             platform=db_order.shop_name,
                             transaction_date=now,
                             created_at=now,
                             updated_at=now,
                             notes=f"订单 #{db_order.id} 尾款",
                             transaction_subtype="initial",
-                            changed_field="balance"
+                            changed_field="balance",
+                            payment_time=db_order.payment_time,
+                            balance_payment_method=db_order.balance_payment_method,
+                            balance_payment_time=db_order.balance_payment_time
                         )
                         db.add(balance_txn)
 

@@ -388,6 +388,8 @@ export default {
 
 .remarks-content {
   color: #666;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* 费用明细区域 */

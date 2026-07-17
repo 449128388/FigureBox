@@ -6,7 +6,7 @@
 from datetime import date
 from typing import Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 
 from app.models.asset import OrderTransaction
 from app.models.order import Order
@@ -54,12 +54,20 @@ class MonthlyStatsService:
             Order, OrderTransaction.order_id == Order.id
         ).filter(
             OrderTransaction.user_id == user_id,
-            OrderTransaction.transaction_type.in_(["deposit", "buy"]),
+            OrderTransaction.transaction_type.in_(["deposit", "buy", "balance"]),
             OrderTransaction.direction == "out",
             OrderTransaction.is_active == True,
             Order.is_active == 1,
-            func.date(OrderTransaction.transaction_date) >= month_start,
-            func.date(OrderTransaction.transaction_date) <= month_end
+            or_(
+                and_(
+                    func.date(OrderTransaction.payment_time) >= month_start,
+                    func.date(OrderTransaction.payment_time) <= month_end
+                ),
+                and_(
+                    func.date(OrderTransaction.balance_payment_time) >= month_start,
+                    func.date(OrderTransaction.balance_payment_time) <= month_end
+                )
+            ),
         ).scalar() or 0
 
         # 买入笔数统计
@@ -69,12 +77,20 @@ class MonthlyStatsService:
             Order, OrderTransaction.order_id == Order.id
         ).filter(
             OrderTransaction.user_id == user_id,
-            OrderTransaction.transaction_type.in_(["deposit", "buy"]),
+            OrderTransaction.transaction_type.in_(["deposit", "buy", "balance"]),
             OrderTransaction.direction == "out",
             OrderTransaction.is_active == True,
             Order.is_active == 1,
-            func.date(OrderTransaction.transaction_date) >= month_start,
-            func.date(OrderTransaction.transaction_date) <= month_end
+            or_(
+                and_(
+                    func.date(OrderTransaction.payment_time) >= month_start,
+                    func.date(OrderTransaction.payment_time) <= month_end
+                ),
+                and_(
+                    func.date(OrderTransaction.balance_payment_time) >= month_start,
+                    func.date(OrderTransaction.balance_payment_time) <= month_end
+                )
+            ),
         ).scalar() or 0
 
         # 2. 获取变更/调整类交易记录，按 subtype 分类处理
@@ -84,8 +100,16 @@ class MonthlyStatsService:
             OrderTransaction.user_id == user_id,
             OrderTransaction.is_active == True,
             Order.is_active == 1,
-            func.date(OrderTransaction.transaction_date) >= month_start,
-            func.date(OrderTransaction.transaction_date) <= month_end,
+            or_(
+                and_(
+                    func.date(OrderTransaction.payment_time) >= month_start,
+                    func.date(OrderTransaction.payment_time) <= month_end
+                ),
+                and_(
+                    func.date(OrderTransaction.balance_payment_time) >= month_start,
+                    func.date(OrderTransaction.balance_payment_time) <= month_end
+                )
+            ),
             OrderTransaction.transaction_subtype.in_(["supplement", "refund", "adjust", "currency_change"])
         ).all()
 

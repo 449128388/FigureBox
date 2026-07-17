@@ -28,7 +28,10 @@
     <div v-else-if="profileData" class="profile-wrapper">
       <div class="profile-hero">
         <div class="profile-left">
-          <div class="avatar">🧸</div>
+          <div class="avatar">
+            <img v-if="profileData.avatar_url" :src="profileData.avatar_url" class="avatar-img" />
+            <span v-else>🧸</span>
+          </div>
           <div class="profile-info">
             <div class="profile-title">{{ profileData.nickname }} 的塑料资产</div>
             <div class="profile-sub">藏品陈列室 · 以热爱为尺，不以涨跌为度</div>
@@ -202,7 +205,10 @@ export default {
   width: 56px; height: 56px; border-radius: 50%;
   background: linear-gradient(135deg, #E8D5C0, #C49A6C);
   display: flex; align-items: center; justify-content: center;
-  font-size: 24px; color: #fff; flex-shrink: 0;
+  font-size: 24px; color: #fff; flex-shrink: 0; overflow: hidden;
+}
+.avatar-img {
+  width: 100%; height: 100%; object-fit: cover;
 }
 .profile-info { display: flex; flex-direction: column; gap: 2px; }
 .profile-title { font-size: 20px; font-weight: 600; color: #1F1F1F; }

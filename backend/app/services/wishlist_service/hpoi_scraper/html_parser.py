@@ -180,7 +180,8 @@ class HpoiParser:
                     fields[key] = val
 
         # 定价：专用模式，处理数字内的逗号（如 "33,000日元 （含税，1385元）"）
-        price_pat = r"(?:^|,\s*)定价\s*[:：]\s*([\d,]+(?:日元|円)\s*(?:（[^）]*）)?)"
+        # 也支持直接人民币定价（如 "599人民币"）
+        price_pat = r"(?:^|,\s*)定价\s*[:：]\s*((?:[\d,]+(?:日元|円)\s*(?:（[^）]*）)?|[\d,]+人民币))"
         m = re.search(price_pat, desc)
         if m:
             fields["price_raw"] = m.group(1).strip()
@@ -200,6 +201,15 @@ class HpoiParser:
         """
         if not price_raw:
             return {"price": 0, "currency": "CNY"}
+
+        # 尝试提取人民币定价：xxx人民币
+        cny_full = re.search(r"(\d[\d,]*)\s*人民币", price_raw)
+        if cny_full:
+            price_str = cny_full.group(1).replace(",", "")
+            try:
+                return {"price": float(price_str), "currency": "CNY"}
+            except ValueError:
+                pass
 
         # 尝试提取人民币定价：xxx元（可能在括号内如 "（含税，1385元）"）
         cny = re.search(r"(\d[\d,]*)\s*元", price_raw)

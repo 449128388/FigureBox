@@ -135,7 +135,8 @@ async def get_shared_profile(
     return {
         "visible": True,
         "user_id": user_id,
-        "nickname": user.username or "收藏家",
+        "nickname": user.nickname or user.username or "收藏家",
+        "avatar_url": user.avatar_url or "",
         "home_visibility": privacy.home_visibility,
         "from_poster": poster == "1",
         "show_total": privacy.show_total,

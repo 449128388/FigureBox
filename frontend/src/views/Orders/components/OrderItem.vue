@@ -249,6 +249,11 @@ export default {
   color: #666;
 }
 
+.order-remarks {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .figure-name-link {
   color: #333;
   text-decoration: none;

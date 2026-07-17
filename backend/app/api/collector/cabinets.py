@@ -287,11 +287,11 @@ async def get_collector_cabinets(
             })
 
     # ====== 5. 预定中（空气谷） ======
-    # 订单类型为"定金预定"、尾款状态为未付款的订单
+    # 订单类型为"定金预定"、尾款状态为未支付的订单
     air_orders = db.query(Order).filter(
         Order.user_id == current_user.id,
         Order.order_type == '定金预定',
-        Order.status.in_(['未支付', '已支付']),
+        Order.status == '未支付',
         Order.is_active == 1
     ).all()
 
@@ -360,10 +360,10 @@ async def get_collector_cabinets(
             })
 
     # ====== 7. 待出荷 ======
-    # 钱已付清（已完成），等待出荷发货
+    # 钱已付清（已支付），等待出荷发货
     wait_orders = db.query(Order).filter(
         Order.user_id == current_user.id,
-        Order.status == '已完成',
+        Order.status == '已支付',
         Order.is_active == 1
     ).all()
 
@@ -539,7 +539,7 @@ async def get_collector_cabinets(
             "icon_bg": "#E6F7FF",
             "count": len(wait_figures),
             "companion_days": 0,
-            "meta": f"{len(wait_figures)} 体 · 等待出货" if wait_figures else "暂无待出荷",
+            "meta": f"{len(wait_figures)} 体 · 已付尾款待出荷" if wait_figures else "暂无待出荷",
             "items": sliced_items(wait_figures)
         },
         {

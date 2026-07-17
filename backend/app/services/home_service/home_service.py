@@ -388,13 +388,12 @@ class HomeService:
             (fig.market_price or 0) * (fig.quantity or 1) for fig in owned_figures
         )
 
-        # wishlist_count：仅统计"愿望中"+"已发售"未转采购的记录
+        # wishlist_count：统计所有愿望清单记录（与愿望清单页面统计口径一致）
         wishlist_count = (
             db.query(Figure)
             .filter(
                 Figure.purchase_type == "wishlist",
                 Figure.is_active == 1,
-                Figure.wishlist_status.in_(["wish", "released"]),
             )
             .count()
         )
@@ -500,13 +499,12 @@ class HomeService:
         # 用户名
         username = user.nickname or user.username if user else "胶佬"
 
-        # invest_days：首次成功买入（"已完成"订单）到今天的自然日天数
+        # invest_days：首次下单到今天的天数（统计所有有效订单，含未支付）
         first_order = (
             db.query(func.min(Order.created_at))
             .filter(
                 Order.user_id == user_id,
                 Order.is_active == 1,
-                Order.status == "已完成",
             )
             .scalar()
         )

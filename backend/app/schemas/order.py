@@ -14,6 +14,10 @@ class OrderBase(BaseModel):
     shop_name: str | None = None
     shop_contact: str | None = None
     logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
+    payment_method: str | None = None  # 定金支付方式：支付宝、微信、银行卡转账、现金
+    payment_time: datetime | None = None  # 定金支付时间
+    balance_payment_method: str | None = None  # 尾款支付方式：支付宝、微信、银行卡转账、现金
+    balance_payment_time: datetime | None = None  # 尾款支付时间
     remarks: str | None = None
 
 class OrderCreate(OrderBase):
@@ -24,6 +28,10 @@ class OrderCreate(OrderBase):
     tracking_number: str | None = None
     logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     order_number: str | None = None
+    payment_method: str | None = None  # 定金支付方式：支付宝、微信、银行卡转账、现金
+    payment_time: datetime | None = None  # 定金支付时间
+    balance_payment_method: str | None = None  # 尾款支付方式：支付宝、微信、银行卡转账、现金
+    balance_payment_time: datetime | None = None  # 尾款支付时间
     remarks: str | None = None
 
 class OrderUpdate(BaseModel):
@@ -39,6 +47,10 @@ class OrderUpdate(BaseModel):
     tracking_number: str | None = None
     logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     order_number: str | None = None
+    payment_method: str | None = None  # 定金支付方式：支付宝、微信、银行卡转账、现金
+    payment_time: datetime | None = None  # 定金支付时间
+    balance_payment_method: str | None = None  # 尾款支付方式：支付宝、微信、银行卡转账、现金
+    balance_payment_time: datetime | None = None  # 尾款支付时间
     remarks: str | None = None
 
 class Order(OrderBase):
@@ -49,6 +61,10 @@ class Order(OrderBase):
     tracking_number: str | None = None
     logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     order_number: str | None = None
+    payment_method: str | None = None  # 定金支付方式：支付宝、微信、银行卡转账、现金
+    payment_time: datetime | None = None  # 定金支付时间
+    balance_payment_method: str | None = None  # 尾款支付方式：支付宝、微信、银行卡转账、现金
+    balance_payment_time: datetime | None = None  # 尾款支付时间
     remarks: str | None = None
     figure: Figure
     due_date: date | None = None  # 允许为空
@@ -66,6 +82,10 @@ class OrderListItem(OrderBase):
     tracking_number: str | None = None
     logistics_company: str | None = None  # 物流公司：顺丰、圆通、中通、申通、韵达、EMS、其他
     order_number: str | None = None
+    payment_method: str | None = None  # 定金支付方式：支付宝、微信、银行卡转账、现金
+    payment_time: datetime | None = None  # 定金支付时间
+    balance_payment_method: str | None = None  # 尾款支付方式：支付宝、微信、银行卡转账、现金
+    balance_payment_time: datetime | None = None  # 尾款支付时间
     remarks: str | None = None
     figure_name: str
     figure_image: str | None = None

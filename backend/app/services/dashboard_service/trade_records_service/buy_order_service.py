@@ -74,6 +74,12 @@ class BuyOrderService:
 
         purchase_method = figure_info.get("purchase_method", "")
 
+        # 现货订单的下单时间使用尾款支付时间
+        if order.order_type == "现货":
+            order_time = order.balance_payment_time.strftime("%Y-%m-%d %H:%M:%S") if order.balance_payment_time else "-"
+        else:
+            order_time = order.payment_time.strftime("%Y-%m-%d %H:%M:%S") if order.payment_time else (order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-")
+
         # 构建订单详情
         order_detail = {
             # 头部区信息
@@ -92,7 +98,7 @@ class BuyOrderService:
                 "order_number": display_order_number,
                 "order_type": cls._get_order_type(order),
                 "platform": f"{purchase_method}-{order.shop_name}" if purchase_method and order.shop_name else (purchase_method or order.shop_name or "-"),
-                "order_time": order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-",
+                "order_time": order_time,
                 "status": cls._format_status(order.status),
                 "status_code": order.status
             },
@@ -172,8 +178,8 @@ class BuyOrderService:
         """
         status_map = {
             "已完成": {"label": "已入库", "color": "green", "icon": "✅"},
-            "已支付": {"label": "待付尾款", "color": "orange", "icon": "⏳"},
-            "未支付": {"label": "待支付", "color": "gray", "icon": "⏳"},
+            "已支付": {"label": "已支付尾款,待发货", "color": "orange", "icon": "⏳"},
+            "未支付": {"label": "待付尾款", "color": "gray", "icon": "⏳"},
             "已取消": {"label": "已取消", "color": "gray", "icon": "❌"}
         }
         return status_map.get(status, {"label": status, "color": "gray", "icon": ""})
@@ -209,6 +215,12 @@ class BuyOrderService:
             OrderTransaction.is_active == True
         ).order_by(OrderTransaction.transaction_date.asc()).all()
 
+        # 获取订单流水号（优先使用外部订单号）
+        order_no = order.order_number or order.display_order_number or "-"
+        # 获取订单支付方式 - 现货使用尾款支付方式
+        is_spot = order.order_type == "现货"
+        order_payment_method = (order.balance_payment_method if is_spot else order.payment_method) or "-"
+
         # 构建支付明细列表
         payment_items = []
         for tx in transactions:
@@ -222,9 +234,9 @@ class BuyOrderService:
                         "currency": order.deposit_currency or tx.currency or "CNY",
                         "date": tx.transaction_date.strftime("%Y-%m-%d") if tx.transaction_date else "-",
                         "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
-                        "method": tx.payment_method or "-",
+                        "method": order_payment_method,
                         "status": "paid" if tx.direction == "out" else "pending",
-                        "transaction_no": tx.order_id or f"TRX-{tx.id}"
+                        "transaction_no": order_no
                     })
                     # 添加尾款记录
                     payment_items.append({
@@ -233,9 +245,9 @@ class BuyOrderService:
                         "currency": order.balance_currency or tx.currency or "CNY",
                         "date": tx.transaction_date.strftime("%Y-%m-%d") if tx.transaction_date else "-",
                         "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
-                        "method": tx.payment_method or "-",
+                        "method": order_payment_method,
                         "status": "paid" if tx.direction == "out" else "pending",
-                        "transaction_no": tx.order_id or f"TRX-{tx.id}"
+                        "transaction_no": order_no
                     })
                 else:
                     # 跳过定金/尾款的变更、退款、调整等非初始交易，避免将差额显示为实际金额
@@ -247,9 +259,9 @@ class BuyOrderService:
                         "currency": tx.currency or "CNY",
                         "date": tx.transaction_date.strftime("%Y-%m-%d") if tx.transaction_date else "-",
                         "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
-                        "method": tx.payment_method or "-",
+                        "method": order_payment_method,
                         "status": "paid" if tx.direction == "out" else "pending",
-                        "transaction_no": tx.order_id or f"TRX-{tx.id}"
+                        "transaction_no": order_no
                     })
 
         # 非补仓订单：确保定金和尾款条目都存在（已取消订单等场景）
@@ -263,9 +275,9 @@ class BuyOrderService:
                     "currency": order.deposit_currency or "CNY",
                     "date": order.created_at.strftime("%Y-%m-%d") if order.created_at else "-",
                     "full_date": order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-",
-                    "method": "-",
+                    "method": order_payment_method,
                     "status": "paid" if order.status in ["已支付", "已完成"] else "pending",
-                    "transaction_no": "-"
+                    "transaction_no": order_no
                 })
             if "尾款" not in existing_types:
                 payment_items.append({
@@ -275,9 +287,9 @@ class BuyOrderService:
                     "currency": order.balance_currency or "CNY",
                     "date": order.due_date.strftime("%Y-%m-%d") if order.due_date else "-",
                     "full_date": order.due_date.strftime("%Y-%m-%d") if order.due_date else "-",
-                    "method": "-",
+                    "method": order_payment_method,
                     "status": "paid" if order.status == "已完成" else "pending",
-                    "transaction_no": "-"
+                    "transaction_no": order_no
                 })
 
             # 已取消订单的状态修正：定金已支付，尾款已取消
@@ -291,6 +303,29 @@ class BuyOrderService:
             # 固定排序：定金始终排在尾款前面
             type_order = {"定金": 0, "全款": 1, "尾款": 2}
             payment_items.sort(key=lambda x: type_order.get(x["type"], 99))
+
+        # 现货订单：支付明细的支付方式和支付时间统一使用尾款支付字段
+        if is_spot:
+            for item in payment_items:
+                if order.balance_payment_time:
+                    item["date"] = order.balance_payment_time.strftime("%Y-%m-%d")
+                    item["full_date"] = order.balance_payment_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # 定金预定：定金使用定金支付字段，尾款根据状态使用对应日期字段
+        if order.order_type == "定金预定" and order.status in ("已支付", "未支付"):
+            for item in payment_items:
+                if item["type"] == "定金":
+                    if order.payment_time:
+                        item["date"] = order.payment_time.strftime("%Y-%m-%d")
+                        item["full_date"] = order.payment_time.strftime("%Y-%m-%d %H:%M:%S")
+                    item["method"] = order.payment_method or "-"
+                elif item["type"] == "尾款":
+                    is_paid = order.status == "已支付"
+                    tail_date = order.balance_payment_time if is_paid else order.due_date
+                    if tail_date:
+                        item["date"] = tail_date.strftime("%Y-%m-%d")
+                        item["full_date"] = tail_date.strftime("%Y-%m-%d %H:%M:%S") if is_paid else tail_date.strftime("%Y-%m-%d")
+                    item["method"] = order.balance_payment_method or "-"
 
         # 按币种汇总实付金额（只统计已支付的条目）
         total_by_currency = {}
@@ -610,6 +645,9 @@ class BuyOrderService:
                     currency='CNY',
                     direction='out',
                     transaction_date=datetime.now(),
+                    payment_time=new_order.payment_time,
+                    balance_payment_method=new_order.balance_payment_method,
+                    balance_payment_time=new_order.balance_payment_time,
                     is_active=True,
                     created_at=datetime.now()
                 )
@@ -627,6 +665,9 @@ class BuyOrderService:
                         currency='CNY',
                         direction='out',
                         transaction_date=datetime.now(),
+                        payment_time=new_order.payment_time,
+                        balance_payment_method=new_order.balance_payment_method,
+                        balance_payment_time=new_order.balance_payment_time,
                         is_active=True,
                         created_at=datetime.now()
                     )
@@ -643,6 +684,9 @@ class BuyOrderService:
                     currency='CNY',
                     direction='out',
                     transaction_date=datetime.now(),
+                    payment_time=new_order.payment_time,
+                    balance_payment_method=new_order.balance_payment_method,
+                    balance_payment_time=new_order.balance_payment_time,
                     is_active=True,
                     created_at=datetime.now()
                 )

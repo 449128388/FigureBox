@@ -1,337 +1,563 @@
 <!--
-  OrderForm.vue - 订单表单组件
+  OrderForm.vue - 订单表单弹窗（三步向导外壳）
 
-  功能说明：
-  - 提供订单添加和编辑功能
-  - 包含手办选择、定金、尾款、购买日期、出货日期、状态等字段
-  - 支持表单验证和错误提示
-  - 编辑模式下禁用手办选择
+  职责：
+  - 弹窗蒙层 / 卡片容器
+  - 头部标题 + 关闭按钮
+  - 步骤进度条
+  - 左侧步骤导航栏
+  - 右侧渲染当前步骤子组件
+  - 底部操作栏（取消 / 上一步 / 下一步 / 保存）
+  - 全局表单数据源管理（newOrder）
+  - 步骤切换校验入口
 
-  组件依赖：
-  - 使用 Element Plus 的 el-select、el-input-number、el-date-picker 组件
-
-  维护提示：
-  - 通过 visible 属性控制显示
-  - 通过 isEditing 属性判断是添加还是编辑模式
-  - 表单提交通过 saveOrder 事件向父组件传递
-  - 手办选择在编辑模式下被禁用
-  - 表单容器最大宽度 800px，禁止水平滚动
+  数据流：
+  - 父组件通过 props 传入 visible / newOrder / availableFigures 等
+  - 子步骤组件通过 props 接收字段值，通过 emit 通知父组件更新
+  - 本组件在 template 中使用 v-model / @update 模式完成双向绑定
 -->
 <template>
-  <div class="form-overlay" v-if="visible">
-    <div class="form-container">
-      <h3>{{ isEditing ? '编辑订单' : '添加订单' }}</h3>
-      <form @submit.prevent="$emit('saveOrder', newOrder)">
-        <div class="form-grid">
-          <div class="form-group">
-            <label>手办</label>
-            <el-select
-              v-model="newOrder.figure_id"
-              placeholder="请选择手办"
-              style="width: 100%;"
-              :class="{ 'error-input': figureError }"
-              :disabled="isEditing"
-            >
-              <el-option 
-                v-for="figure in availableFigures" 
-                :key="figure.id" 
-                :label="figure.name" 
-                :value="figure.id" 
-              />
-            </el-select>
-            <div v-if="figureError" class="error-message">{{ figureError }}</div>
-          </div>
-          <div class="form-group">
-            <label>定金</label>
-            <div class="price-currency-container">
-              <el-input-number v-model="newOrder.deposit" placeholder="请输入定金" :min="0" :step="1" style="flex: 1;"></el-input-number>
-              <el-select v-model="newOrder.deposit_currency" placeholder="选择币种" style="width: 100px;">
-                <el-option value="CNY" label="人民币" />
-                <el-option value="JPY" label="日元" />
-                <el-option value="USD" label="美元" />
-                <el-option value="EUR" label="欧元" />
-              </el-select>
+  <div class="modal-overlay" v-if="visible">
+    <div class="modal-card">
+      <!-- 头部 -->
+      <div class="modal-header">
+        <div class="modal-title">{{ isEditing ? '编辑订单' : '添加订单' }}</div>
+        <button class="close-btn" @click="$emit('cancel')" type="button">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- 进度条 -->
+      <div class="progress-bar">
+        <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+      </div>
+
+      <!-- 主体 -->
+      <div class="modal-body">
+        <!-- 左侧步骤导航 -->
+        <div class="step-sidebar">
+          <div
+            v-for="step in steps"
+            :key="step.index"
+            class="step-item"
+            :class="{
+              active: currentStep === step.index,
+              completed: currentStep > step.index,
+              disabled: !isStepReachable(step.index)
+            }"
+            @click="onStepClick(step.index)"
+          >
+            <div class="step-num">{{ step.index }}</div>
+            <div>
+              <div class="step-text">{{ step.title }}</div>
+              <div class="step-desc">{{ step.desc }}</div>
             </div>
-          </div>
-          <div class="form-group">
-            <label>尾款</label>
-            <div class="price-currency-container">
-              <el-input-number v-model="newOrder.balance" placeholder="请输入尾款" :min="0" :step="1" style="flex: 1;"></el-input-number>
-              <el-select v-model="newOrder.balance_currency" placeholder="选择币种" style="width: 100px;">
-                <el-option value="CNY" label="人民币" />
-                <el-option value="JPY" label="日元" />
-                <el-option value="USD" label="美元" />
-                <el-option value="EUR" label="欧元" />
-              </el-select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>出荷日期</label>
-            <el-date-picker
-              v-model="newOrder.due_date"
-              type="date"
-              placeholder="选择出荷日期"
-              style="width: 100%;"
-              :class="{ 'error-input': dueDateError }"
-            ></el-date-picker>
-            <div v-if="dueDateError" class="error-message">{{ dueDateError }}</div>
-          </div>
-          <div class="form-group">
-            <label>订单类型</label>
-            <el-select v-model="newOrder.order_type" placeholder="请选择订单类型" style="width: 100%;">
-              <el-option value="定金预定" label="定金预定" />
-              <el-option value="全款预定" label="全款预定" />
-              <el-option value="现货" label="现货" />
-              <el-option value="补仓" label="补仓" />
-            </el-select>
-          </div>
-          <div class="form-group">
-            <label>尾款状态</label>
-            <el-select v-model="newOrder.status" placeholder="请选择尾款状态" style="width: 100%;">
-              <el-option value="未支付" label="未支付" />
-              <el-option value="已支付" label="已支付" />
-              <el-option value="已取消" label="已取消" />
-              <el-option value="已完成" label="已完成" />
-            </el-select>
-          </div>
-          <div class="form-group">
-            <label>购买店铺</label>
-            <el-input v-model="newOrder.shop_name" placeholder="请输入购买店铺" style="width: 100%;"></el-input>
-          </div>
-          <div class="form-group">
-            <label>店铺联系方式</label>
-            <el-input v-model="newOrder.shop_contact" placeholder="请输入店铺联系方式" style="width: 100%;"></el-input>
-          </div>
-          <div class="form-group" v-if="newOrder.status !== '未支付' && newOrder.status !== '已取消'">
-            <label>物流订单</label>
-            <el-input v-model="newOrder.tracking_number" placeholder="请输入物流订单号" style="width: 100%;"></el-input>
-          </div>
-          <div class="form-group" v-if="newOrder.status !== '未支付' && newOrder.status !== '已取消'">
-            <label>物流公司</label>
-            <el-select v-model="newOrder.logistics_company" placeholder="请选择物流公司" style="width: 100%;" clearable>
-              <el-option value="顺丰" label="顺丰" />
-              <el-option value="圆通" label="圆通" />
-              <el-option value="中通" label="中通" />
-              <el-option value="申通" label="申通" />
-              <el-option value="韵达" label="韵达" />
-              <el-option value="EMS" label="EMS" />
-              <el-option value="其他" label="其他" />
-            </el-select>
-          </div>
-          <div class="form-group">
-            <label>订单编号</label>
-            <el-input v-model="newOrder.order_number" placeholder="请输入订单编号（非必填）" style="width: 100%;"></el-input>
-          </div>
-          <div class="form-group">
-            <label>订单备注</label>
-            <el-input v-model="newOrder.remarks" placeholder="请输入订单备注" style="width: 100%;"></el-input>
           </div>
         </div>
 
-        <div class="form-actions">
-          <el-button class="btn-cancel" @click="$emit('cancel')">取消</el-button>
-          <el-button class="btn-submit" type="primary" native-type="submit">保存</el-button>
+        <!-- 右侧表单区域 -->
+        <div class="form-area">
+          <!-- 步骤 1：核心信息 -->
+          <Step1CoreInfo
+            v-show="currentStep === 1"
+            :figure-id="newOrder.figure_id"
+            :deposit="newOrder.deposit"
+            :deposit-currency="newOrder.deposit_currency"
+            :balance="newOrder.balance"
+            :balance-currency="newOrder.balance_currency"
+            :due-date="newOrder.due_date"
+            :order-type="newOrder.order_type"
+            :status="newOrder.status"
+            :is-editing="isEditing"
+            :available-figures="availableFigures"
+            :figure-error="figureError"
+            :due-date-error="dueDateError"
+            @update:figure-id="newOrder.figure_id = $event"
+            @update:deposit="newOrder.deposit = $event"
+            @update:deposit-currency="newOrder.deposit_currency = $event"
+            @update:balance="newOrder.balance = $event"
+            @update:balance-currency="newOrder.balance_currency = $event"
+            @update:due-date="newOrder.due_date = $event"
+            @update:order-type="newOrder.order_type = $event"
+            @update:status="newOrder.status = $event"
+          />
+
+          <!-- 步骤 2：店铺与支付 -->
+          <Step2ShopPayment
+            v-show="currentStep === 2"
+            :shop-name="newOrder.shop_name"
+            :shop-contact="newOrder.shop_contact"
+            :payment-method="newOrder.payment_method"
+            :payment-time="newOrder.payment_time"
+            @update:shop-name="newOrder.shop_name = $event"
+            @update:shop-contact="newOrder.shop_contact = $event"
+            @update:payment-method="newOrder.payment_method = $event"
+            @update:payment-time="newOrder.payment_time = $event"
+          />
+
+          <!-- 步骤 3：物流与备注 -->
+          <Step3LogisticsNotes
+            v-show="currentStep === 3"
+            :status="newOrder.status"
+            :tracking-number="newOrder.tracking_number"
+            :logistics-company="newOrder.logistics_company"
+            :balance-payment-method="newOrder.balance_payment_method"
+            :balance-payment-time="newOrder.balance_payment_time"
+            :order-number="newOrder.order_number"
+            :remarks="newOrder.remarks"
+            @update:status="newOrder.status = $event"
+            @update:tracking-number="newOrder.tracking_number = $event"
+            @update:logistics-company="newOrder.logistics_company = $event"
+            @update:balance-payment-method="newOrder.balance_payment_method = $event"
+            @update:balance-payment-time="newOrder.balance_payment_time = $event"
+            @update:order-number="newOrder.order_number = $event"
+            @update:remarks="newOrder.remarks = $event"
+          />
         </div>
-      </form>
+      </div>
+
+      <!-- 底部操作栏 -->
+      <div class="modal-footer">
+        <div class="footer-left">
+          <button class="btn btn-ghost" @click="$emit('cancel')" type="button">取消</button>
+        </div>
+        <div class="footer-right">
+          <button
+            class="btn btn-default"
+            v-show="!isFirstStep"
+            @click="prevStep"
+            type="button"
+          >上一步</button>
+          <button
+            class="btn btn-primary"
+            v-show="!isLastStep"
+            @click="handleNext"
+            type="button"
+          >下一步</button>
+          <button
+            class="btn btn-primary"
+            v-show="isLastStep"
+            @click="handleSave"
+            type="button"
+          >保存订单</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import { watch } from 'vue'
+import { useStepForm } from '../composables/useStepForm'
+import Step1CoreInfo from './OrderFormSteps/Step1CoreInfo.vue'
+import Step2ShopPayment from './OrderFormSteps/Step2ShopPayment.vue'
+import Step3LogisticsNotes from './OrderFormSteps/Step3LogisticsNotes.vue'
+
 export default {
   name: 'OrderForm',
+  components: {
+    Step1CoreInfo,
+    Step2ShopPayment,
+    Step3LogisticsNotes
+  },
   props: {
-    visible: {
-      type: Boolean,
-      default: false
-    },
-    isEditing: {
-      type: Boolean,
-      default: false
-    },
-    newOrder: {
-      type: Object,
-      required: true
-    },
-    availableFigures: {
-      type: Array,
-      default: () => []
-    },
-    figureError: {
-      type: String,
-      default: ''
-    },
-    dueDateError: {
-      type: String,
-      default: ''
+    visible: { type: Boolean, default: false },
+    isEditing: { type: Boolean, default: false },
+    newOrder: { type: Object, required: true },
+    availableFigures: { type: Array, default: () => [] },
+    figureError: { type: String, default: '' },
+    dueDateError: { type: String, default: '' }
+  },
+  emits: ['saveOrder', 'cancel', 'validateStep'],
+  setup() {
+    const {
+      currentStep,
+      totalSteps,
+      steps,
+      isFirstStep,
+      isLastStep,
+      progressPercent,
+      canJumpTo,
+      goToStep,
+      nextStep,
+      prevStep,
+      resetStep
+    } = useStepForm(3)
+
+    return {
+      currentStep,
+      totalSteps,
+      steps,
+      isFirstStep,
+      isLastStep,
+      progressPercent,
+      canJumpTo,
+      goToStep,
+      nextStep,
+      prevStep,
+      resetStep
     }
   },
-  emits: ['saveOrder', 'cancel']
+  computed: {
+    /**
+     * 步骤 1 必填字段是否都已填写
+     * - 手办必填
+     * - 尾款状态为"已取消"时,出荷日期可为空;其他状态必填
+     */
+    isStep1Valid() {
+      const o = this.newOrder || {}
+      if (!o.figure_id) return false
+      const isCancelled = o.status === '已取消'
+      if (!isCancelled && !o.due_date) return false
+      return true
+    },
+    /**
+     * 当前可自由切换的步骤集合
+     * - 当步骤 1 必填字段已填写,所有步骤都可达
+     * - 否则只允许步骤 1 与 2
+     */
+    reachableSteps() {
+      return this.isStep1Valid ? new Set([1, 2, 3]) : new Set([1, 2])
+    }
+  },
+  watch: {
+    /**
+     * 弹窗打开时,重置到步骤 1,确保每次进入都是干净的初始状态
+     */
+    visible: {
+      immediate: false,
+      handler(val) {
+        if (val) {
+          this.resetStep()
+        }
+      }
+    }
+  },
+  methods: {
+    /**
+     * 判断目标步骤是否当前可点击
+     */
+    isStepReachable(target) {
+      return this.canJumpTo(target, this.reachableSteps)
+    },
+    /**
+     * 点击步骤导航
+     */
+    onStepClick(target) {
+      if (!this.isStepReachable(target)) {
+        // 目标不可达 → 提示用户先完成步骤 1
+        if (target > this.currentStep) {
+          this.$emit('validateStep', 1)
+        }
+        return
+      }
+      this.goToStep(target, this.reachableSteps)
+    },
+    /**
+     * 校验指定步骤
+     * @param {number} step
+     * @returns {boolean}
+     */
+    validateStep(step) {
+      if (step === 1) {
+        // 委托给父组件校验（与原逻辑保持一致）
+        this.$emit('validateStep', 1)
+        return this.isStep1Valid
+      }
+      return true
+    },
+    /**
+     * 下一步
+     */
+    handleNext() {
+      if (this.currentStep === 1) {
+        // 触发父组件校验,父组件会更新 figureError / dueDateError
+        this.$emit('validateStep', 1)
+        if (!this.isStep1Valid) {
+          return
+        }
+      }
+      this.nextStep()
+    },
+    /**
+     * 保存
+     */
+    handleSave() {
+      // 最后一步保存前,再次校验步骤 1
+      this.$emit('validateStep', 1)
+      if (!this.isStep1Valid) {
+        // 跳回步骤 1 让用户修正
+        this.goToStep(1, this.reachableSteps)
+        return
+      }
+      this.$emit('saveOrder', this.newOrder)
+      this.resetStep()
+    }
+  }
 }
 </script>
 
 <style scoped>
-/* 表单样式 */
-.form-overlay {
+/* ===== 弹窗容器 ===== */
+.modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 24px;
 }
 
-.form-container {
-  background: white;
-  padding: 30px;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  width: 90%;
-  max-width: 800px;
-  max-height: 80vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-sizing: border-box;
+.modal-card {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
 }
 
-.form-container h3 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: #333;
-  font-size: 20px;
+/* ===== 头部 ===== */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+.modal-title {
+  font-size: 18px;
   font-weight: 600;
-  border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 10px;
+  color: #1f1f1f;
+}
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+.close-btn:hover {
+  background: #f5f5f5;
+  color: #666;
 }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 15px;
-  margin-bottom: 20px;
+/* ===== 进度条 ===== */
+.progress-bar {
+  height: 3px;
+  background: #f0f0f0;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.progress-fill {
+  height: 100%;
+  background: #52c41a;
+  transition: width 0.4s ease;
+  border-radius: 0 2px 2px 0;
 }
 
-.form-group {
+/* ===== 主体 ===== */
+.modal-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* --- 左侧步骤导航 --- */
+.step-sidebar {
+  width: 200px;
+  background: #fafafa;
+  border-right: 1px solid #f0f0f0;
+  padding: 24px 0;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
 }
-
-.form-group label {
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #333;
-}
-
-/* 价格和币种组合容器 */
-.price-currency-container {
+.step-item {
   display: flex;
-  gap: 10px;
-  width: 100%;
-  box-sizing: border-box;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  border-left: 3px solid transparent;
 }
-
-/* 错误提示样式 */
-:deep(.error-input .el-input__wrapper) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-item:hover {
+  background: #f0f0f0;
 }
-
-:deep(.error-input .el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-item.active {
+  background: #fff;
+  border-left-color: #52c41a;
 }
-
-:deep(.error-input .el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-item.completed {
+  cursor: pointer;
 }
-
-:deep(.error-input .el-select .el-input__wrapper) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-item.disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
-
-:deep(.error-input .el-select .el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-item.disabled:hover {
+  background: transparent;
 }
-
-:deep(.error-input .el-select .el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #d9d9d9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #999;
+  flex-shrink: 0;
+  transition: all 0.2s;
 }
-
-/* 【新增】日期选择器错误样式 */
-:deep(.error-input .el-input__wrapper) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-item.active .step-num {
+  border-color: #52c41a;
+  color: #52c41a;
 }
-
-:deep(.error-input .el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-item.completed .step-num {
+  background: #52c41a;
+  color: #fff;
+  border-color: #52c41a;
 }
-
-:deep(.error-input .el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #f56c6c inset !important;
+.step-text {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
 }
-
-.error-message {
-  color: #f56c6c;
+.step-item.active .step-text {
+  color: #1f1f1f;
+  font-weight: 600;
+}
+.step-item.completed .step-text {
+  color: #52c41a;
+}
+.step-desc {
   font-size: 12px;
-  line-height: 1;
-  padding-top: 4px;
+  color: #bfbfbf;
+  margin-top: 2px;
 }
 
-.form-actions {
+/* --- 右侧表单区域 --- */
+.form-area {
+  flex: 1;
+  padding: 28px 32px;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* ===== 底部操作栏 ===== */
+.modal-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+.footer-left {
+  display: flex;
   gap: 10px;
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
 }
-
-.btn-cancel {
-  padding: 10px 20px;
-  border: 1px solid #dcdfe6;
+.footer-right {
+  display: flex;
+  gap: 10px;
+}
+.btn {
+  height: 36px;
+  padding: 0 20px;
   border-radius: 6px;
-  background-color: white;
-  color: #606266;
-  cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.btn-cancel:hover {
-  color: #409eff;
-  border-color: #c6e2ff;
-  background-color: #ecf5ff;
-}
-
-.btn-submit {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  background-color: #4CAF50;
-  color: white;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  outline: none;
+}
+.btn-default {
+  background: #fff;
+  border-color: #d9d9d9;
+  color: #666;
+}
+.btn-default:hover {
+  border-color: #40a9ff;
+  color: #40a9ff;
+}
+.btn-primary {
+  background: #52c41a;
+  border-color: #52c41a;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #389e0d;
+  border-color: #389e0d;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: #999;
+}
+.btn-ghost:hover {
+  color: #666;
 }
 
-.btn-submit:hover {
-  background-color: #45a049;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-@media (max-width: 768px) {
-  .form-grid {
-    grid-template-columns: 1fr;
+/* 响应式 */
+@media (max-width: 700px) {
+  .modal-card {
+    max-height: 95vh;
   }
-  
-  .form-container {
-    width: 95%;
+  .modal-body {
+    flex-direction: column;
+  }
+  .step-sidebar {
+    width: 100%;
+    flex-direction: row;
+    padding: 12px 16px;
+    border-right: none;
+    border-bottom: 1px solid #f0f0f0;
+    overflow-x: auto;
+  }
+  .step-item {
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    padding: 8px 12px;
+  }
+  .step-item.active {
+    border-bottom-color: #52c41a;
+    border-left-color: transparent;
+  }
+  .form-area {
     padding: 20px;
+  }
+  .modal-header,
+  .modal-footer {
+    padding: 16px 20px;
   }
 }
 </style>

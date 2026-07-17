@@ -924,12 +924,12 @@ class CollectorActivityService:
         if sold:
             cabinets.append("已出藏品")
 
-        # 5. 预定中：有未支付/已支付的定金预定订单
+        # 5. 预定中：有未支付的定金预定订单
         air_order = db.query(Order).filter(
             Order.user_id == user_id,
             Order.figure_id == figure_id,
             Order.order_type == '定金预定',
-            Order.status.in_(['未支付', '已支付']),
+            Order.status == '未支付',
             Order.is_active == 1
         ).first()
         if air_order:
@@ -948,11 +948,11 @@ class CollectorActivityService:
         if total_stock >= 2:
             cabinets.append("复数专区")
 
-        # 7. 待出荷：有已完成订单
+        # 7. 待出荷：有已支付订单
         wait_order = db.query(Order).filter(
             Order.user_id == user_id,
             Order.figure_id == figure_id,
-            Order.status == '已完成',
+            Order.status == '已支付',
             Order.is_active == 1
         ).first()
         if wait_order:

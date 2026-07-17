@@ -111,6 +111,10 @@ class OrderQueryService:
             tracking_number=order.tracking_number,
             logistics_company=order.logistics_company,
             order_number=order.order_number,
+            payment_method=order.payment_method,
+            payment_time=order.payment_time,
+            balance_payment_method=order.balance_payment_method,
+            balance_payment_time=order.balance_payment_time,
             remarks=order.remarks,
             created_at=order.created_at,
             updated_at=order.updated_at
