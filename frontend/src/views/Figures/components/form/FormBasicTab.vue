@@ -132,6 +132,7 @@
     @view-image="$emit('view-image', $event)"
     @remove-image="$emit('remove-image', $event)"
     @file-upload="$emit('file-upload', $event)"
+    @reorder-images="$emit('reorder-images', $event)"
   />
 </template>
 
@@ -158,7 +159,8 @@ export default {
     'validate-purchase-method-input',
     'view-image',
     'remove-image',
-    'file-upload'
+    'file-upload',
+    'reorder-images'
   ],
   computed: {
     localFigure: {

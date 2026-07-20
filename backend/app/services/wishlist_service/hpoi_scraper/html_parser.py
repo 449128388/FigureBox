@@ -120,9 +120,17 @@ class HpoiParser:
         desc_fields = HpoiParser._parse_description(desc)
 
         release_text = desc_fields.get("release_date", "")
-        result["release_date"] = HpoiParser._normalize_date(release_text) if release_text else None
-        # 保留原始出货日文本（如"2026年12月"），供前端展示
-        result["release_date_text"] = release_text or None
+
+        # 处理多版本发售日期（括号格式）："发售: [2025/11 , 999人民币 , 普通版, ...]"
+        # 提取第一个日期元素如 "2025/11"，保留为 release_date_text
+        if release_text and release_text.startswith("["):
+            first_elem = release_text.lstrip("[").split(",")[0].strip()
+            result["release_date"] = HpoiParser._normalize_date(first_elem) if first_elem else None
+            result["release_date_text"] = first_elem + " " if first_elem else None
+        else:
+            result["release_date"] = HpoiParser._normalize_date(release_text) if release_text else None
+            # 保留原始出货日文本（如"2026年12月"），供前端展示
+            result["release_date_text"] = release_text or None
         result["manufacturer"] = desc_fields.get("manufacturer")
         result["original_art"] = desc_fields.get("original_art")
         result["work"] = desc_fields.get("work")
@@ -133,7 +141,17 @@ class HpoiParser:
             result["attributes"] = [a.strip() for a in attrs_raw.split() if a.strip()]
         else:
             result["attributes"] = []
-        result["production"] = desc_fields.get("production")
+        production_raw = desc_fields.get("production")
+        # 处理多制造商格式："制作: [{value=Rocket Boy, key=制作}, {value=PLEIADES}]"
+        # 提取所有 value= 并用 "、" 连接
+        if production_raw and production_raw.startswith("["):
+            values = re.findall(r'\bvalue=([^,}\s]+(?:\s+[^,}\s]+)*)', production_raw)
+            if values:
+                result["production"] = "、".join(values)
+            else:
+                result["production"] = production_raw
+        else:
+            result["production"] = production_raw
         result["painter"] = desc_fields.get("painter")
         result["size"] = desc_fields.get("size")
 
@@ -164,7 +182,7 @@ class HpoiParser:
             "manufacturer": r"(?:^|,\s*)发行\s*[:：]\s*(.+?)(?=,\s*\S+?\s*[:：]|$)",
             "work":         r"(?:^|,\s*)作品\s*[:：]\s*(.+?)(?=,\s*\S+?\s*[:：]|$)",
             "original_art": r"(?:^|,\s*)原画\s*[:：]\s*(.+?)(?=,\s*\S+?\s*[:：]|$)",
-            "release_date": r"(?:^|,\s*)出货日\s*[:：]\s*(.+?)(?=,\s*\S+?\s*[:：]|$)",
+            "release_date": r"(?:^|,\s*)(?:出货日|发售)\s*[:：]\s*(.+?)(?=,\s*\S+?\s*[:：]|$)",
             "material":     r"(?:^|,\s*)材质\s*[:：]\s*(.+?)(?=,\s*\S+?\s*[:：]|$)",
             "scale":        r"(?:^|,\s*)比例\s*[:：]\s*(.+?)(?=,\s*\S+?\s*[:：]|$)",
             "production":   r"(?:^|,\s*)制作\s*[:：]\s*(.+?)(?=,\s*\S+?\s*[:：]|$)",
@@ -242,6 +260,8 @@ class HpoiParser:
     @staticmethod
     def _normalize_date(text: str) -> Optional[str]:
         """将中文日期转为 YYYY-MM-DD"""
+        if not text:
+            return None
         # "2026年12月" → "2026-12"
         # "2026年12月28日" → "2026-12-28"
         m = re.search(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})?\s*日?", text)
@@ -250,6 +270,11 @@ class HpoiParser:
             if d:
                 return f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
             return f"{y}-{mo.zfill(2)}"
+        # "2025/11" or "2025-11" format → "2025-11-15"（默认15日）
+        m2 = re.search(r"(\d{4})\s*[/\-]\s*(\d{1,2})", text)
+        if m2:
+            y, mo = m2.group(1), m2.group(2)
+            return f"{y}-{mo.zfill(2)}-15"
         return None
 
     # ==================== 降级方法 ====================

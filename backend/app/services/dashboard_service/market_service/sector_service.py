@@ -165,30 +165,43 @@ class SectorService:
             figure_name = getattr(row, "figure_name", "") or ""
             # 通过 labeled 列名取维度字段值
             dim_value = getattr(row, dimension, None)
-            sector_name = (str(dim_value).strip() if dim_value else "") or dim_fallback
-            bucket = groups.setdefault(sector_name, {
-                "weighted_return_sum": 0.0,   # Σ(权重 × 收益率)
-                "weight_sum": 0.0,            # 板块内总权重
-                "figures": {},                # figure_id -> {name, weight, return_pct}
-                "body_count": 0,              # 板块内体数（quantity 之和）
-                "figure_count": 0,            # 板块内唯一手办数
-            })
+            raw_sector_name = (str(dim_value).strip() if dim_value else "") or dim_fallback
+
+            # 处理多厂商（manufacturer 维度以"、"分隔），拆分后均分权重和体数
+            if dimension == "manufacturer" and "、" in raw_sector_name:
+                sector_names = [s.strip() for s in raw_sector_name.split("、") if s.strip()]
+            else:
+                sector_names = [raw_sector_name]
+
             weight = float(getattr(comp, "weight", 0) or 0)
             return_pct = float(getattr(comp, "return_pct", 0) or 0)
             quantity = int(getattr(comp, "quantity", 0) or 0)
-            bucket["weighted_return_sum"] += weight * return_pct
-            bucket["weight_sum"] += weight
-            bucket["body_count"] += quantity
-            existing = bucket["figures"].get(comp.figure_id)
-            if existing:
-                existing["weight"] += weight
-            else:
-                bucket["figure_count"] += 1
-                bucket["figures"][comp.figure_id] = {
-                    "name": figure_name or f"手办 #{comp.figure_id}",
-                    "weight": weight,
-                    "return_pct": return_pct,
-                }
+
+            # 多厂商时均分权重和体数
+            split_weight = weight / len(sector_names) if len(sector_names) > 1 else weight
+            split_quantity = quantity / len(sector_names) if len(sector_names) > 1 else quantity
+
+            for sector_name in sector_names:
+                bucket = groups.setdefault(sector_name, {
+                    "weighted_return_sum": 0.0,
+                    "weight_sum": 0.0,
+                    "figures": {},
+                    "body_count": 0,
+                    "figure_count": 0,
+                })
+                bucket["weighted_return_sum"] += split_weight * return_pct
+                bucket["weight_sum"] += split_weight
+                bucket["body_count"] += split_quantity
+                existing = bucket["figures"].get(comp.figure_id)
+                if existing:
+                    existing["weight"] += split_weight
+                else:
+                    bucket["figure_count"] += 1
+                    bucket["figures"][comp.figure_id] = {
+                        "name": figure_name or f"手办 #{comp.figure_id}",
+                        "weight": split_weight,
+                        "return_pct": return_pct,
+                    }
 
         sectors: List[Dict[str, Any]] = []
         for name, data in groups.items():
@@ -290,8 +303,13 @@ class SectorService:
         for row in rows:
             comp = row[0]
             dim_value = getattr(row, dimension, None)
-            value = (str(dim_value).strip() if dim_value else "") or dim_fallback
-            if value == sector_name:
+            raw_value = (str(dim_value).strip() if dim_value else "") or dim_fallback
+            # manufacturer 维度支持拆包匹配：value="Rocket Boy、PLEIADES", sector_name="Rocket Boy" → 匹配
+            if dimension == "manufacturer" and "、" in raw_value:
+                names = [n.strip() for n in raw_value.split("、") if n.strip()]
+                if sector_name in names:
+                    matched.append((row, comp))
+            elif raw_value == sector_name:
                 matched.append((row, comp))
 
         figures: List[Dict[str, Any]] = []

@@ -74,9 +74,12 @@ class BuyOrderService:
 
         purchase_method = figure_info.get("purchase_method", "")
 
-        # 现货订单的下单时间使用尾款支付时间
+        # 现货订单：已完成使用定金支付字段，其他状态使用尾款支付字段
         if order.order_type == "现货":
-            order_time = order.balance_payment_time.strftime("%Y-%m-%d %H:%M:%S") if order.balance_payment_time else "-"
+            if order.status == "已完成":
+                order_time = order.payment_time.strftime("%Y-%m-%d %H:%M:%S") if order.payment_time else (order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-")
+            else:
+                order_time = order.balance_payment_time.strftime("%Y-%m-%d %H:%M:%S") if order.balance_payment_time else "-"
         else:
             order_time = order.payment_time.strftime("%Y-%m-%d %H:%M:%S") if order.payment_time else (order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "-")
 
@@ -304,15 +307,21 @@ class BuyOrderService:
             type_order = {"定金": 0, "全款": 1, "尾款": 2}
             payment_items.sort(key=lambda x: type_order.get(x["type"], 99))
 
-        # 现货订单：支付明细的支付方式和支付时间统一使用尾款支付字段
+        # 现货订单：支付明细使用对应的定金/尾款支付字段
         if is_spot:
             for item in payment_items:
-                if order.balance_payment_time:
-                    item["date"] = order.balance_payment_time.strftime("%Y-%m-%d")
-                    item["full_date"] = order.balance_payment_time.strftime("%Y-%m-%d %H:%M:%S")
+                if order.status == "已完成":
+                    item["method"] = order.payment_method or "-"
+                    if order.payment_time:
+                        item["date"] = order.payment_time.strftime("%Y-%m-%d")
+                        item["full_date"] = order.payment_time.strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    if order.balance_payment_time:
+                        item["date"] = order.balance_payment_time.strftime("%Y-%m-%d")
+                        item["full_date"] = order.balance_payment_time.strftime("%Y-%m-%d %H:%M:%S")
 
         # 定金预定：定金使用定金支付字段，尾款根据状态使用对应日期字段
-        if order.order_type == "定金预定" and order.status in ("已支付", "未支付"):
+        if order.order_type == "定金预定" and order.status in ("已支付", "未支付", "已完成"):
             for item in payment_items:
                 if item["type"] == "定金":
                     if order.payment_time:
@@ -320,7 +329,7 @@ class BuyOrderService:
                         item["full_date"] = order.payment_time.strftime("%Y-%m-%d %H:%M:%S")
                     item["method"] = order.payment_method or "-"
                 elif item["type"] == "尾款":
-                    is_paid = order.status == "已支付"
+                    is_paid = order.status in ("已支付", "已完成")
                     tail_date = order.balance_payment_time if is_paid else order.due_date
                     if tail_date:
                         item["date"] = tail_date.strftime("%Y-%m-%d")

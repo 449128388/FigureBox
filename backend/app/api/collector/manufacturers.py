@@ -13,6 +13,8 @@ API端点：
 - 提供厂商维度的手办统计信息
 """
 
+import logging
+import requests
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -22,8 +24,51 @@ from app.models.database import get_db
 from app.models.user import User
 from app.api.users import get_current_user
 from app.services.collector_service.collector_manufacturer_service import CollectorManufacturerService
+from app.services.storage_service.storage_service import StorageService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _upload_external_logo(logo_url: str, request: Request) -> str:
+    """
+    下载外部图片链接并上传到 MinIO 图床，返回 MinIO URL
+
+    如果 logo_url 为空或已是 MinIO 内部 URL，直接返回原值。
+    下载失败时保留原 URL 不阻断流程。
+    """
+    if not logo_url:
+        return logo_url
+    
+    # 已是 MinIO 内部 URL，无需处理
+    if StorageService.is_minio_url(logo_url):
+        return logo_url
+
+    try:
+        # 模拟浏览器请求头，绕过 CDN 防盗链
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            "Referer": "https://hpoi.net/",
+        }
+        resp = requests.get(logo_url, headers=headers, timeout=30)
+        resp.raise_for_status()
+
+        content_type = resp.headers.get("content-type", "")
+        if content_type not in StorageService.ALLOWED_CONTENT_TYPES:
+            content_type = "image/jpeg"  # 兜底
+
+        new_url = StorageService.upload_image(
+            file_data=resp.content,
+            content_type=content_type,
+            request=request,
+        )
+        logger.info(f"外部 Logo 已上传至 MinIO: {logo_url} -> {new_url}")
+        return new_url
+    except Exception as e:
+        logger.warning(f"外部 Logo 下载/上传失败，保留原 URL: {e}")
+        return logo_url
 
 
 class CreateManufacturerRequest(BaseModel):
@@ -90,7 +135,12 @@ async def create_manufacturer(
     if not body.name or not body.name.strip():
         raise HTTPException(status_code=400, detail="厂商名称不能为空")
 
-    manufacturer = CollectorManufacturerService.create(db, current_user.id, body.dict())
+    data = body.dict()
+    # 外部 Logo 自动下载并上传到 MinIO
+    if data.get("logo_url"):
+        data["logo_url"] = _upload_external_logo(data["logo_url"], request)
+
+    manufacturer = CollectorManufacturerService.create(db, current_user.id, data)
     return {
         "id": manufacturer.id,
         "name": manufacturer.name,
@@ -111,6 +161,10 @@ async def update_manufacturer(
     update_data = {k: v for k, v in body.dict().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="没有需要更新的字段")
+
+    # 外部 Logo 自动下载并上传到 MinIO
+    if "logo_url" in update_data and update_data["logo_url"]:
+        update_data["logo_url"] = _upload_external_logo(update_data["logo_url"], request)
 
     manufacturer = CollectorManufacturerService.update(db, current_user.id, manufacturer_id, update_data)
     if not manufacturer:

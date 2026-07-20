@@ -39,8 +39,8 @@
         <input v-model.number="form.market_price" type="number" class="form-input" placeholder="0.00" />
       </div>
       <div class="form-group">
-        <label class="form-label">发售日期 (release_date)</label>
-        <input v-model="form.release_date" type="date" class="form-input" />
+        <label class="form-label">发售日期</label>
+        <el-date-picker v-model="form.release_date" type="date" placeholder="选择发售日期" value-format="YYYY-MM-DD" style="width: 100%;" />
       </div>
     </div>
 

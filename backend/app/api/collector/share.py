@@ -171,7 +171,13 @@ async def get_shared_summary(
     figure_ids_with_stock = set(t.figure_id for t in buy_transactions if t.remaining_quantity and t.remaining_quantity > 0)
     figures_with_stock = db.query(Figure).filter(Figure.id.in_(figure_ids_with_stock)).all() if figure_ids_with_stock else []
     unique_works = set(fig.work for fig in figures_with_stock if fig.work)
-    unique_manufacturers = set(fig.manufacturer for fig in figures_with_stock if fig.manufacturer)
+    unique_manufacturers = set()
+    for fig in figures_with_stock:
+        if fig.manufacturer:
+            for m in fig.manufacturer.split("、"):
+                m = m.strip()
+                if m:
+                    unique_manufacturers.add(m)
 
     current_month_start = datetime(now.year, now.month, 1)
     if now.month < 12:
@@ -245,6 +251,7 @@ async def get_shared_summary(
         "total_collection": total_collection,
         "unique_works": len(unique_works),
         "unique_manufacturers": len(unique_manufacturers),
+        "manufacturer_list": sorted(unique_manufacturers) if unique_manufacturers else [],
         "this_month_count": this_month_count,
         "recent_figures": recent_figures_text,
         "recent_figures_detail": recent_figures_detail,

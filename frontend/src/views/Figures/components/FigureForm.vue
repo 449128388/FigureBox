@@ -44,6 +44,7 @@
                 @view-image="$emit('view-image', $event)"
                 @remove-image="$emit('remove-image', $event)"
                 @file-upload="$emit('file-upload', $event)"
+                @reorder-images="$emit('reorder-images', $event)"
               />
             </el-tab-pane>
             
@@ -164,7 +165,7 @@ export default {
     'validate-name-input', 'validate-japanese-name-input', 'validate-purchase-method-input',
     'validate-painting-input', 'validate-original-art-input', 'validate-work-input',
     'validate-manufacturer-input', 'validate-scale-input', 'validate-material-input', 'validate-size-input',
-    'view-image', 'remove-image', 'file-upload', 'tag-change'
+    'view-image', 'remove-image', 'file-upload', 'tag-change', 'reorder-images'
   ],
   computed: {
     localFigure: {

@@ -1176,7 +1176,7 @@ export default {
 /* 标签筛选结果中的手办卡片 */
 .filter-results-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
 }
 
@@ -1223,7 +1223,7 @@ export default {
 .filter-results-grid .figure-img-real img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .filter-results-grid .figure-info {
@@ -1314,7 +1314,7 @@ export default {
 
 .filter-results-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
 }
 

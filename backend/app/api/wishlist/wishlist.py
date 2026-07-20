@@ -2,7 +2,7 @@
 wishlist.py - 愿望清单 CRUD API
 """
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from datetime import date
 from pydantic import BaseModel, Field
@@ -14,6 +14,7 @@ from app.services import (
     WishlistQueryService,
     WishlistCrudService,
 )
+from app.services.storage_service.storage_service import StorageService
 
 router = APIRouter()
 
@@ -124,6 +125,7 @@ def list_wishlist(
 @router.post("/", status_code=201)
 def create_wishlist(
     payload: WishlistCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -131,6 +133,9 @@ def create_wishlist(
     创建愿望清单项
     """
     data = payload.dict(exclude_none=False)
+    # 外部图片自动转存 MinIO
+    if data.get("images"):
+        data["images"] = StorageService.upload_external_images(data["images"], request)
     figure = WishlistCrudService.create_wishlist(db, current_user.id, data)
     return WishlistQueryService._figure_to_item(figure)
 
@@ -154,6 +159,7 @@ def get_wishlist_detail(
 def update_wishlist(
     figure_id: int,
     payload: WishlistUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -161,6 +167,9 @@ def update_wishlist(
     更新愿望清单项
     """
     data = payload.dict(exclude_none=True)
+    # 外部图片自动转存 MinIO
+    if "images" in data and data["images"]:
+        data["images"] = StorageService.upload_external_images(data["images"], request)
     figure = WishlistCrudService.update_wishlist(db, current_user.id, figure_id, data)
     if not figure:
         raise HTTPException(status_code=404, detail="愿望清单项不存在")

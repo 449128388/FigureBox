@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from fastapi.responses import Response
 from datetime import datetime
@@ -12,6 +12,7 @@ from app.schemas.figure import (
 )
 from app.api.users import get_current_user
 from app.models.user import User
+from app.services.storage_service.storage_service import StorageService
 
 # 引入服务层
 from app.services import FigureService, TagService, FigureExportService, FigureImportService
@@ -224,7 +225,8 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=FigureDetailResponse, response_model_exclude={'image'})
 def create_figure(
-    figure: FigureCreate, 
+    figure: FigureCreate,
+    request: Request,
     current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
@@ -234,6 +236,9 @@ def create_figure(
     创建手办时会自动创建对应的资产交易记录（买入类型）
     """
     figure_data = figure.model_dump()
+    # 外部图片自动转存 MinIO
+    if figure_data.get("images"):
+        figure_data["images"] = StorageService.upload_external_images(figure_data["images"], request)
     return FigureService.create_figure(db, figure_data, user_id=current_user.id)
 
 
@@ -241,6 +246,7 @@ def create_figure(
 def update_figure(
     figure_id: int,
     figure: FigureUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -252,6 +258,10 @@ def update_figure(
     - 价格调整通过订单均价计算自动更新
     """
     figure_data = figure.model_dump(exclude_unset=True)
+
+    # 外部图片自动转存 MinIO
+    if figure_data.get("images"):
+        figure_data["images"] = StorageService.upload_external_images(figure_data["images"], request)
 
     # 获取原始手办数据
     original_figure = FigureService.get_figure_by_id(db, figure_id)

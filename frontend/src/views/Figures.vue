@@ -138,6 +138,7 @@
       @view-image="viewImage"
       @remove-image="removeImage"
       @file-upload="handleFileUpload"
+      @reorder-images="reorderImages"
       @tag-change="handleTagChange"
     />
     
@@ -352,7 +353,8 @@ export default {
       viewImage,
       closeImagePreview,
       removeImage,
-      handleFileUpload
+      handleFileUpload,
+      reorderImages
     } = useFigureManagement()
 
     const logout = (router) => {
@@ -460,6 +462,7 @@ export default {
       closeImagePreview,
       removeImage,
       handleFileUpload,
+      reorderImages,
       showImportDialog,
       openImportDialog,
       closeImportDialog,

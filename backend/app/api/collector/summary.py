@@ -80,7 +80,13 @@ async def get_collector_summary(
 
     # 统计覆盖的作品数和厂商数
     unique_works = set(fig.work for fig in figures_with_stock if fig.work)
-    unique_manufacturers = set(fig.manufacturer for fig in figures_with_stock if fig.manufacturer)
+    unique_manufacturers = set()
+    for fig in figures_with_stock:
+        if fig.manufacturer:
+            for m in fig.manufacturer.split("、"):
+                m = m.strip()
+                if m:
+                    unique_manufacturers.add(m)
     
     # ========== 中卡片：本月新入柜 ==========
     current_month_start = datetime(current_year, current_month, 1)
@@ -163,6 +169,7 @@ async def get_collector_summary(
         "total_collection": total_collection,
         "unique_works": len(unique_works),
         "unique_manufacturers": len(unique_manufacturers),
+        "manufacturer_list": sorted(unique_manufacturers) if unique_manufacturers else [],
         "this_month_count": this_month_count,
         "recent_figures": recent_figures_text,
         "recent_figures_detail": recent_figures_detail,

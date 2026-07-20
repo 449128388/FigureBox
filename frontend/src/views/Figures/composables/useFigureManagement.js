@@ -460,6 +460,10 @@ export function useFigureManagement() {
     event.target.value = ''
   }
 
+  const reorderImages = (newOrder) => {
+    newFigure.value.images = newOrder
+  }
+
   return {
     // stores
     figureStore,
@@ -532,6 +536,7 @@ export function useFigureManagement() {
     viewImage,
     closeImagePreview,
     removeImage,
-    handleFileUpload
+    handleFileUpload,
+    reorderImages
   }
 }

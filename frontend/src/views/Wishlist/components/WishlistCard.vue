@@ -237,16 +237,12 @@ const onImgError = (e) => {
   background: #fafafa;
   padding: 8px 12px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: #666;
+  white-space: pre-wrap;
+  word-break: break-word;
   margin-bottom: 12px;
   border-left: 3px solid #1890ff;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 36px;
 }
 .card-actions {
   display: flex;

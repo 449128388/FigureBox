@@ -30,18 +30,19 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  min-height: 100vh;
+  min-height: calc(100vh - 20px);
   padding: 0 20px 20px;
   width: 100%;
+  box-sizing: border-box;
 }
 
-/* 默认宽度设置（适用于1920*1080分辨率，视口约1920px） */
 #app {
   max-width: 1800px;
   margin-left: 50px;
   margin-right: 50px;
   padding: 0 20px 20px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 /* 2560*1600分辨率（考虑150%缩放后视口约1707px）使用1600px宽度 */

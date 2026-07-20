@@ -102,17 +102,21 @@ class AssetDistributionService:
         manufacturer_distribution: Dict[str, Dict[str, Any]] = {}
 
         for holding in holdings:
-            manufacturer = holding.get("manufacturer", "未知厂商")
-            if not manufacturer or manufacturer == "":
-                manufacturer = "未知厂商"
+            raw_manufacturer = holding.get("manufacturer", "未知厂商")
+            if not raw_manufacturer or raw_manufacturer == "":
+                raw_manufacturer = "未知厂商"
 
             market_value = holding.get("current_price", 0) * holding.get("stock", 1)
 
-            if manufacturer not in manufacturer_distribution:
-                manufacturer_distribution[manufacturer] = {"count": 0, "value": 0}
+            # 处理多厂商（以"、"分隔），拆分后均分市值，各计 1 个计数
+            manufacturers = [m.strip() for m in raw_manufacturer.split("、") if m.strip()]
+            split_value = market_value / len(manufacturers) if len(manufacturers) > 1 else market_value
 
-            manufacturer_distribution[manufacturer]["count"] += 1
-            manufacturer_distribution[manufacturer]["value"] += market_value
+            for manufacturer in manufacturers:
+                if manufacturer not in manufacturer_distribution:
+                    manufacturer_distribution[manufacturer] = {"count": 0, "value": 0}
+                manufacturer_distribution[manufacturer]["count"] += 1
+                manufacturer_distribution[manufacturer]["value"] += split_value
 
         # 转换为饼图数据格式
         manufacturer_pie_data = []

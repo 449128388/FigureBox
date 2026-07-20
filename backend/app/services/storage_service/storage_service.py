@@ -282,3 +282,43 @@ class StorageService:
         else:
             bucket = os.getenv("MINIO_BUCKET", "figurebox-images")
         return f"/{bucket}/" in url
+
+    @classmethod
+    def upload_external_images(cls, images: list, request: Optional[Request] = None) -> list:
+        """
+        批量处理外部图片链接：下载并上传到 MinIO 图床，返回更新后的 URL 列表
+
+        已处于 MinIO 中的 URL 跳过；下载失败时保留原 URL 不阻断。
+        """
+        import requests as http_requests
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            "Referer": "https://hpoi.net/",
+        }
+
+        result = []
+        for url in images:
+            if not url:
+                result.append(url)
+                continue
+            if cls.is_minio_url(url):
+                result.append(url)
+                continue
+            try:
+                resp = http_requests.get(url, headers=headers, timeout=30)
+                resp.raise_for_status()
+                content_type = resp.headers.get("content-type", "")
+                if content_type not in cls.ALLOWED_CONTENT_TYPES:
+                    content_type = "image/jpeg"
+                new_url = cls.upload_image(
+                    file_data=resp.content,
+                    content_type=content_type,
+                    request=request,
+                )
+                result.append(new_url)
+            except Exception as e:
+                logger.warning(f"外部图片下载/上传失败，保留原 URL [{url}]: {e}")
+                result.append(url)
+        return result
