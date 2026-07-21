@@ -1,32 +1,47 @@
 <!--
-  FigureHeader.vue - 手办详情头部组件
+  FigureHeader.vue - 手办详情页头组件
 
   功能说明：
-  - 展示手办的中文名称
-  - 提供返回列表的按钮
-  - 布局采用左右对齐的方式
+  - 展示手办的中文名（主标题）和日文名·制造商·比例（副标题）
+  - 提供「返回列表」链接
 
   组件依赖：
-  - 接收 figure 作为 props，包含 name 字段
-
-  维护提示：
-  - 返回按钮通过 $router.push('/figures') 跳转
-  - 布局使用 flex 实现左右对齐
+  - 接收 figure 作为 props
+  - 业务逻辑：getPageSubtitle（从 composable 导入）
 -->
 <template>
-  <div class="header">
-    <h1>中文名称：{{ figure.name }}</h1>
-    <button class="btn btn-back" @click="goBack">返回列表</button>
+  <div class="page-header">
+    <div class="page-title-area">
+      <a class="back-btn" @click="goBack">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        返回列表
+      </a>
+      <div class="title-block">
+        <h1 class="page-title">{{ figure.name || '未命名手办' }}</h1>
+        <div v-if="subtitle" class="page-subtitle">{{ subtitle }}</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
+import { useFigureDetail } from '../composables/useFigureDetail'
+
 export default {
   name: 'FigureHeader',
   props: {
     figure: {
       type: Object,
       required: true
+    }
+  },
+  computed: {
+    subtitle() {
+      const { getPageSubtitle } = useFigureDetail()
+      return getPageSubtitle(this.figure)
     }
   },
   methods: {
@@ -38,37 +53,41 @@ export default {
 </script>
 
 <style scoped>
-.header {
+.page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid #e0e0e0;
+  justify-content: space-between;
+  margin-bottom: 24px;
 }
-
-.header h1 {
-  margin: 0;
-  color: #333;
-  font-size: 28px;
-  font-weight: 600;
+.page-title-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
-
-.btn-back {
-  padding: 10px 20px;
-  background-color: #2196F3;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  background: #fff;
+  color: #666;
   font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
 }
-
-.btn-back:hover {
-  background-color: #0b7dda;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+.back-btn:hover { border-color: #40a9ff; color: #40a9ff; }
+.title-block { display: flex; flex-direction: column; gap: 4px; }
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1f1f1f;
+  margin: 0;
+}
+.page-subtitle {
+  font-size: 13px;
+  color: #999;
 }
 </style>

@@ -164,6 +164,7 @@ export default {
         { key: 'all', label: '全部' },
         { key: 'in', label: '在柜' },
         { key: 'air', label: '预定中' },
+        { key: 'wish', label: '愿望中' },
         { key: 'out', label: '已出' }
       ]
     }
@@ -176,6 +177,12 @@ export default {
         return this.manufacturer.figures.filter(fig => {
           const statuses = fig.statuses || [fig.status]
           return statuses.includes('air_unpaid') || statuses.includes('air_paid')
+        })
+      }
+      if (this.filterStatus === 'wish') {
+        return this.manufacturer.figures.filter(fig => {
+          const statuses = fig.statuses || [fig.status]
+          return statuses.includes('wish')
         })
       }
       if (this.filterStatus === 'in') {
@@ -198,12 +205,14 @@ export default {
       if (s === 'in') return 'st-in'
       if (s === 'air_unpaid') return 'st-air'
       if (s === 'air_paid') return 'st-air-paid'
+      if (s === 'wish') return 'st-wish'
       return 'st-out'
     },
     statusText(s) {
       if (s === 'in') return '在柜'
       if (s === 'air_unpaid') return '空气谷'
       if (s === 'air_paid') return '待出荷'
+      if (s === 'wish') return '愿望中'
       return '已出'
     },
     figHasStatus(fig, s) {
@@ -508,6 +517,7 @@ export default {
 .st-in { background: #7EB8A2; }
 .st-air { background: #9B7ED8; }
 .st-air-paid { background: #4A90D9; }
+.st-wish { background: #FF9F43; }
 .st-out { background: #999; }
 
 .figure-info {

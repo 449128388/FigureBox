@@ -59,7 +59,6 @@
     <p v-if="order.shop_name">购买店铺: {{ order.shop_name }}</p>
     <p v-if="order.shop_contact">店铺联系方式: {{ order.shop_contact }}</p>
     <p v-if="order.tracking_number">物流订单: {{ order.tracking_number }}</p>
-    <p v-if="order.remarks" class="order-remarks">订单备注: {{ order.remarks }}</p>
     <div class="order-actions">
       <!-- 编辑/收货/删除按钮组 -->
       <el-button-group class="action-button-group">
@@ -207,6 +206,9 @@ export default {
   background-color: #f5f5f5;
   /* 【新增】相对定位，用于复选框绝对定位 */
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 【新增】批量选择复选框样式 */
@@ -233,9 +235,11 @@ export default {
 }
 
 .order-item .figure-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   content-visibility: auto;
 }
 
@@ -247,11 +251,6 @@ export default {
 .order-item p {
   margin-bottom: 5px;
   color: #666;
-}
-
-.order-remarks {
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .figure-name-link {

@@ -9,12 +9,20 @@
 import axios from '@/axios'
 
 /**
- * 获取所有本命厂商列表
+ * 获取所有本命厂商列表（支持搜索 / 筛选）
+ * @param {Object} [params] - 查询参数
+ * @param {string} [params.keyword] - 搜索关键词
+ * @param {string} [params.filter_type] - 筛选类型 ("in" | "out" | "")
  * @returns {Promise<Object>} { manufacturers, total }
  */
-export async function getManufacturers() {
+export async function getManufacturers(params = {}) {
   try {
-    const response = await axios.get('/collector/manufacturers')
+    const response = await axios.get('/collector/manufacturers', {
+      params: {
+        keyword: params.keyword || '',
+        filter_type: params.filter_type || ''
+      }
+    })
     return response
   } catch (error) {
     console.error('获取本命厂商列表失败:', error)

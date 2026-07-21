@@ -15,7 +15,7 @@ API端点对应：
 """
 
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from datetime import datetime, timezone
 
 from app.models.favorite_manufacturer import FavoriteManufacturer
@@ -27,17 +27,81 @@ class CollectorManufacturerService:
     """收藏家模式本命厂商服务类"""
 
     @staticmethod
-    def get_all(db: Session, user_id: int) -> list:
-        """获取用户的所有本命厂商列表"""
+    def get_all(db: Session, user_id: int, keyword: str = "", filter_type: str = "") -> dict:
+        """获取用户的所有本命厂商列表（支持按关键词搜索和按状态筛选）
+
+        Args:
+            db: 数据库 session
+            user_id: 用户 ID
+            keyword: 搜索关键词（模糊匹配厂商名称 / 日文名称 / 描述）
+            filter_type: 筛选类型，可选值：
+                - "in":  有在柜藏品
+                - "out": 无在柜藏品
+                - ""  : 全部
+
+        Returns:
+            dict: {
+                "manufacturers": [...],   # 按 filter_type 过滤后的列表
+                "total": int,             # manufacturers 数量
+                "stats": {                # 独立于 filter_type 的统计（仅受 keyword 影响）
+                    "all": int,
+                    "in":  int,
+                    "out": int,
+                }
+            }
+        """
         manufacturers = db.query(FavoriteManufacturer).filter(
             FavoriteManufacturer.user_id == user_id,
             FavoriteManufacturer.is_active == True
-        ).order_by(FavoriteManufacturer.sort_order.asc(), FavoriteManufacturer.created_at.desc()).all()
+        )
+        # 关键词过滤（名称 / 日文名 / 描述 模糊匹配）
+        if keyword:
+            kw = f"%{keyword.strip()}%"
+            manufacturers = manufacturers.filter(
+                or_(
+                    FavoriteManufacturer.name.ilike(kw),
+                    FavoriteManufacturer.name_jp.ilike(kw),
+                    FavoriteManufacturer.description.ilike(kw),
+                )
+            )
+        manufacturers = manufacturers.order_by(
+            FavoriteManufacturer.sort_order.asc(),
+            FavoriteManufacturer.created_at.desc()
+        ).all()
+
+        # 第一遍：先为每个厂商计算手办统计，便于后续按统计字段排序
+        items = []
+        for m in manufacturers:
+            figure_stats = CollectorManufacturerService._get_figure_stats(db, user_id, m.name)
+            items.append({
+                "manufacturer": m,
+                "figure_stats": figure_stats
+            })
+
+        # 默认排序：按总藏品数降序，总藏品数相同时按在柜数降序
+        items.sort(
+            key=lambda x: (x["figure_stats"]["total_count"], x["figure_stats"]["in_count"]),
+            reverse=True
+        )
 
         result = []
-        for m in manufacturers:
-            # 统计该厂商下关联手办的数量（通过 manufacturer 字段匹配）
-            figure_stats = CollectorManufacturerService._get_figure_stats(db, user_id, m.name)
+        stats = {"all": 0, "in": 0, "out": 0}
+        for item in items:
+            m = item["manufacturer"]
+            figure_stats = item["figure_stats"]
+
+            # 全局统计（与 filter_type 无关，仅受 keyword 影响）
+            stats["all"] += 1
+            if figure_stats["in_count"] > 0:
+                stats["in"] += 1
+            else:
+                stats["out"] += 1
+
+            # 根据 filter_type 决定是否保留
+            if filter_type == "in" and figure_stats["in_count"] <= 0:
+                continue
+            if filter_type == "out" and figure_stats["in_count"] > 0:
+                continue
             result.append({
                 "id": m.id,
                 "name": m.name,
@@ -52,7 +116,11 @@ class CollectorManufacturerService:
                 "created_at": m.created_at.strftime("%Y-%m-%d %H:%M:%S") if m.created_at else None,
                 "updated_at": m.updated_at.strftime("%Y-%m-%d %H:%M:%S") if m.updated_at else None
             })
-        return result
+        return {
+            "manufacturers": result,
+            "total": len(result),
+            "stats": stats,
+        }
 
     @staticmethod
     def get_by_id(db: Session, user_id: int, manufacturer_id: int) -> dict:
@@ -81,6 +149,7 @@ class CollectorManufacturerService:
             "in_count": figure_stats["in_count"],
             "air_count": figure_stats["air_count"],
             "out_count": figure_stats["out_count"],
+            "wish_count": figure_stats["wish_count"],
             "figures": figures,
             "sort_order": m.sort_order or 0,
             "created_at": m.created_at.strftime("%Y-%m-%d %H:%M:%S") if m.created_at else None,
@@ -224,11 +293,18 @@ class CollectorManufacturerService:
         air_count = len(matched_ids & air_figure_ids)
         out_count = len(matched_ids & sold_figure_ids)
 
+        # 愿望中数（purchase_type=wishlist 且未被排除）
+        wish_count = db.query(Figure.id).filter(
+            Figure.id.in_(matched_ids),
+            Figure.purchase_type == 'wishlist'
+        ).count()
+
         return {
             "total_count": len(matched_ids),
             "in_count": in_count,
             "air_count": air_count,
-            "out_count": out_count
+            "out_count": out_count,
+            "wish_count": wish_count
         }
 
     @staticmethod
@@ -261,6 +337,10 @@ class CollectorManufacturerService:
                 continue
             # 获取该 figure 的所有状态（同一手办可同时存在多种状态）
             statuses = []
+
+            # 0. 检查是否为愿望清单手办（purchase_type == 'wishlist'）
+            if fig.purchase_type == 'wishlist':
+                statuses.append('wish')
 
             # 1. 检查是否有预定中订单
             from app.models.order import Order

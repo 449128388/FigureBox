@@ -1,53 +1,54 @@
 <!--
-  FigureDetail.vue - 手办详情页面
-  
+  FigureDetail.vue - 手办详情页（容器组件）
+
   功能说明：
-  - 展示单个手办的完整详细信息
-  - 包含基本信息、图片展示、标签、关联订单、作者信息、规格参数等模块
-  - 支持从手办列表点击跳转进入
-  
+  - 顶部 TopHeader 全站统一导航
+  - 布局：1400px 宽白底容器 + 24px 内边距
+  - 顶部 page-header
+  - 主体双栏：左 420px sticky 图片区 | 右 1fr 信息区
+  - 信息区为 info-card 堆叠
+
   组件依赖：
-  - FigureHeader.vue - 手办标题和返回按钮
-  - FigureImages.vue - 图片轮播展示
-  - FigureBasicInfo.vue - 基础信息（价格、发售日期等）
-  - FigureTags.vue - 标签展示
-  - FigureOrders.vue - 关联订单列表
-  - FigureAuthorInfo.vue - 作者/涂装/原画信息
-  - FigureSpecInfo.vue - 规格参数（比例、材质、尺寸等）
-  
-  维护提示：
-  - 通过路由参数 figureId 获取手办ID
-  - 使用 useFigureDetail composable 管理数据获取逻辑
-  - 加载状态单独处理，避免空白页面
+  - TopHeader - 顶部导航栏
+  - FigureHeader（页头）
+  - FigureImages（左侧图片区）
+  - FigureBasicInfo / FigureTags / FigureOrders / FigureAuthorInfo / FigureSpecInfo（右侧信息卡片）
+  - useFigureDetail composable（数据拉取与业务函数）
 -->
 <template>
-  <div class="figure-detail-container">
+  <TopHeader />
+  <div class="main-container">
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading-container">
+    <div v-if="loading" class="loading-state">
       <div class="loading-spinner"></div>
       <p>加载中...</p>
     </div>
-    
-    <!-- 内容区域 -->
-    <template v-else>
+
+    <template v-else-if="figure && figure.id">
       <FigureHeader :figure="figure" />
-    
-      <div class="figure-content">
+
+      <div class="detail-layout">
         <FigureImages :figure="figure" />
-        
-        <div class="figure-info">
+
+        <div class="info-section">
           <FigureBasicInfo :figure="figure" />
           <FigureTags :figure="figure" />
-          <FigureOrders :relatedOrders="relatedOrders" />
+          <FigureOrders :related-orders="relatedOrders" />
           <FigureAuthorInfo :figure="figure" />
           <FigureSpecInfo :figure="figure" />
         </div>
       </div>
     </template>
+
+    <div v-else class="empty-state">
+      <div class="empty-state-icon">📦</div>
+      <p>未找到该手办</p>
+    </div>
   </div>
 </template>
 
 <script>
+import TopHeader from '../components/TopHeader.vue'
 import FigureHeader from './FigureDetail/components/FigureHeader.vue'
 import FigureImages from './FigureDetail/components/FigureImages.vue'
 import FigureBasicInfo from './FigureDetail/components/FigureBasicInfo.vue'
@@ -60,6 +61,7 @@ import { useFigureDetail } from './FigureDetail/composables/useFigureDetail'
 export default {
   name: 'FigureDetail',
   components: {
+    TopHeader,
     FigureHeader,
     FigureImages,
     FigureBasicInfo,
@@ -83,16 +85,18 @@ export default {
       try {
         this.loading = true
         const { fetchFigureDetail, fetchOrders, getRelatedOrders } = useFigureDetail()
-        
-        // 并行获取手办详情和订单数据
+
+        const figureId = this.$route.params.id
         const [figureData, orders] = await Promise.all([
-          fetchFigureDetail(this.$route.params.id),
+          fetchFigureDetail(figureId),
           fetchOrders()
         ])
-        
-        this.figure = figureData
-        this.relatedOrders = getRelatedOrders(this.$route.params.id, orders)
+
+        this.figure = figureData || {}
+        this.relatedOrders = getRelatedOrders(figureId, orders)
       } catch (error) {
+        this.figure = {}
+        this.relatedOrders = []
       } finally {
         this.loading = false
       }
@@ -102,61 +106,63 @@ export default {
 </script>
 
 <style scoped>
-.figure-detail-container {
-  margin: 20px auto 0;
-  width: 100%;
-  max-width: 1200px;
-  padding: 20px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.main-container {
+  max-width: 1400px;
+  margin: 84px auto 0;
+  padding: 24px;
 }
 
-.loading-container {
+/* 双栏布局 */
+.detail-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 24px;
+}
+.info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* 加载 / 空状态 */
+.loading-state,
+.empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 100px 0;
+  color: #999;
 }
-
 .loading-spinner {
   width: 40px;
   height: 40px;
   border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
+  border-top: 4px solid #1890ff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
-
+.empty-state-icon {
+  font-size: 64px;
+  margin-bottom: 12px;
+  opacity: 0.3;
+}
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
-.figure-content {
-  display: flex;
-  gap: 20px;
-  margin-top: 20px;
+/* 响应式 */
+@media (max-width: 1100px) {
+  .detail-layout { grid-template-columns: 340px 1fr; }
 }
-
-.figure-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+@media (max-width: 900px) {
+  .detail-layout { grid-template-columns: 1fr; }
+  .info-section { gap: 16px; }
 }
-
-@media (max-width: 768px) {
-  .figure-content {
-    flex-direction: column;
-  }
-  
-  .figure-detail-container {
-    margin-left: 10px;
-    margin-right: 10px;
-    padding: 15px;
-  }
+@media (max-width: 600px) {
+  .main-container { padding: 16px; }
 }
 </style>

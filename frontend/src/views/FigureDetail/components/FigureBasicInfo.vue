@@ -1,67 +1,91 @@
 <!--
-  FigureBasicInfo.vue - 手办基本信息组件
+  FigureBasicInfo.vue - 手办基本信息卡片
 
   功能说明：
-  - 展示手办的基本信息
-  - 包括日文名、制造商、官方定价、市场价、出货日、平均入手价格、入手时间等字段
-  - 仅在有相关信息时显示对应字段
-  - 支持多货币符号显示
+  - 卡片式布局：图标标题栏 + 右上角状态徽章
+  - info-grid 紧凑两列展示：日文名 / 制造商 / 官方定价 / 市场价 / 出货日 / 平均入手价 / 入手时间 / 入手途径 / 入手形式 / 数量
+  - 金额字段红色高亮
 
   组件依赖：
-  - 接收 figure 作为 props，包含各种基本信息字段
-
-  维护提示：
-  - 使用 v-if 条件渲染，仅当有相关信息时显示
-  - 使用 getCurrencySymbol 方法获取货币符号
-  - 【注意】入手价格显示的是 average_purchase_price（根据订单计算的平均价格）
+  - 接收 figure 作为 props
+  - 业务逻辑从 useFigureDetail 导入（getFigureStatusBadge / formatPrice / formatDate / formatQuantity / getCurrencySymbol）
 -->
 <template>
-  <div class="info-section">
-    <h2>基本信息</h2>
-    <div v-if="figure.japanese_name" class="info-item">
-      <span class="label">日文名:</span>
-      <span class="value">{{ figure.japanese_name }}</span>
+  <div class="info-card" v-if="hasContent">
+    <div class="card-header-bar">
+      <div class="card-title">
+        <svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="9" y1="9" x2="15" y2="15"></line>
+          <line x1="15" y1="9" x2="9" y2="15"></line>
+        </svg>
+        基本信息
+      </div>
+      <span class="card-badge" :class="statusBadge.class">{{ statusBadge.text }}</span>
     </div>
-    <div class="info-item" v-if="figure.manufacturer">
-      <span class="label">制造商:</span>
-      <span class="value">{{ figure.manufacturer }}</span>
-    </div>
-    <div class="info-item" v-if="figure.price !== null && figure.price !== undefined">
-      <span class="label">官方定价:</span>
-      <span class="value">{{ figure.price }} {{ getCurrencySymbol(figure.currency) }}</span>
-    </div>
-    <div class="info-item" v-if="figure.market_price !== null && figure.market_price !== undefined">
-      <span class="label">市场价:</span>
-      <span class="value">{{ figure.market_price }} {{ getCurrencySymbol(figure.market_currency) }}</span>
-    </div>
-    <div class="info-item" v-if="figure.release_date">
-      <span class="label">出货日:</span>
-      <span class="value">{{ figure.release_date }}</span>
-    </div>
-    <div class="info-item" v-if="figure.average_purchase_price !== null && figure.average_purchase_price !== undefined && figure.average_purchase_price > 0">
-      <span class="label">平均入手价格:</span>
-      <span class="value">{{ figure.average_purchase_price.toFixed(2) }} {{ getCurrencySymbol(figure.purchase_currency) }}</span>
-    </div>
-    <div class="info-item" v-if="figure.purchase_date">
-      <span class="label">入手时间:</span>
-      <span class="value">{{ figure.purchase_date }}</span>
-    </div>
-    <div class="info-item" v-if="figure.purchase_method">
-      <span class="label">入手途径:</span>
-      <span class="value">{{ figure.purchase_method }}</span>
-    </div>
-    <div class="info-item" v-if="figure.purchase_type">
-      <span class="label">入手形式:</span>
-      <span class="value">{{ figure.purchase_type }}</span>
-    </div>
-    <div class="info-item" v-if="figure.quantity !== null && figure.quantity !== undefined">
-      <span class="label">数量:</span>
-      <span class="value">{{ figure.quantity }}</span>
+    <div class="card-body">
+      <div class="info-grid">
+        <div class="info-item" v-if="figure.japanese_name">
+          <span class="info-label">日文名</span>
+          <span class="info-value">{{ figure.japanese_name }}</span>
+        </div>
+        <div class="info-item" v-if="figure.manufacturer">
+          <span class="info-label">制造商</span>
+          <span class="info-value">{{ figure.manufacturer }}</span>
+        </div>
+        <div class="info-item" v-if="figure.price !== null && figure.price !== undefined">
+          <span class="info-label">官方定价</span>
+          <span class="info-value price">
+            {{ formatPrice(figure.price) }}
+            <span class="info-value-suffix">{{ getCurrencySymbol(figure.currency) }}</span>
+          </span>
+        </div>
+        <div class="info-item" v-if="figure.market_price !== null && figure.market_price !== undefined">
+          <span class="info-label">市场价</span>
+          <span class="info-value price">
+            {{ formatPrice(figure.market_price) }}
+            <span class="info-value-suffix">{{ getCurrencySymbol(figure.market_currency) }}</span>
+          </span>
+        </div>
+        <div class="info-item" v-if="figure.release_date">
+          <span class="info-label">出货日</span>
+          <span class="info-value">{{ formatDate(figure.release_date) }}</span>
+        </div>
+        <div class="info-item" v-if="figure.average_purchase_price > 0">
+          <span class="info-label">平均入手价</span>
+          <span class="info-value price">
+            {{ formatPrice(figure.average_purchase_price) }}
+            <span class="info-value-suffix">{{ getCurrencySymbol(figure.purchase_currency) }}</span>
+          </span>
+        </div>
+        <div class="info-item" v-if="figure.purchase_date">
+          <span class="info-label">入手时间</span>
+          <span class="info-value">{{ formatDate(figure.purchase_date) }}</span>
+        </div>
+        <div class="info-item" v-if="figure.purchase_method">
+          <span class="info-label">入手途径</span>
+          <span class="info-value">{{ figure.purchase_method }}</span>
+        </div>
+        <div class="info-item" v-if="figure.purchase_type">
+          <span class="info-label">入手形式</span>
+          <span class="info-value">{{ figure.purchase_type }}</span>
+        </div>
+        <div class="info-item" v-if="figure.quantity !== null && figure.quantity !== undefined">
+          <span class="info-label">数量</span>
+          <span class="info-value">{{ formatQuantity(figure.quantity) }}</span>
+        </div>
+        <div class="info-item info-item-full" v-if="figure.note">
+          <span class="info-label">备注</span>
+          <span class="info-value note-value">{{ figure.note }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import { useFigureDetail } from '../composables/useFigureDetail'
+
 export default {
   name: 'FigureBasicInfo',
   props: {
@@ -70,54 +94,112 @@ export default {
       required: true
     }
   },
-  methods: {
-    getCurrencySymbol(currency) {
-      switch(currency) {
-        case 'CNY': return '元'
-        case 'JPY': return '日元'
-        case 'USD': return '美元'
-        case 'EUR': return '欧元'
-        default: return '元'
-      }
+  computed: {
+    hasContent() {
+      const f = this.figure
+      return !!(f.japanese_name || f.manufacturer
+        || f.price || f.market_price || f.release_date
+        || f.average_purchase_price || f.purchase_date
+        || f.purchase_method || f.purchase_type
+        || f.quantity || f.note)
+    },
+    statusBadge() {
+      const { getFigureStatusBadge } = useFigureDetail()
+      return getFigureStatusBadge(this.figure)
     }
+  },
+  methods: {
+    formatPrice(v) { return useFigureDetail().formatPrice(v) },
+    formatDate(v) { return useFigureDetail().formatDate(v) },
+    formatQuantity(v) { return useFigureDetail().formatQuantity(v) },
+    getCurrencySymbol(c) { return useFigureDetail().getCurrencySymbol(c) }
   }
 }
 </script>
 
 <style scoped>
-.info-section {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.info-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e8e8e8;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
-
-.info-section h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: #333;
-  font-size: 20px;
+.card-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.card-title {
+  font-size: 15px;
   font-weight: 600;
-  border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 10px;
+  color: #1f1f1f;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
+.card-title-icon {
+  width: 22px;
+  height: 22px;
+  color: #1890ff;
+}
+.card-badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge-blue { background: #e6f7ff; color: #1890ff; }
+.badge-green { background: #f6ffed; color: #52c41a; }
+.badge-orange { background: #fff7e6; color: #d46b08; }
+.badge-red { background: #fff1f0; color: #ff4d4f; }
+.card-body { padding: 20px 24px; }
 
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 32px;
+}
 .info-item {
   display: flex;
-  margin-bottom: 12px;
+  align-items: baseline;
+  gap: 10px;
 }
-
-.label {
-  flex: 0 0 120px;
-  font-weight: 500;
-  color: #666;
+.info-label {
+  font-size: 13px;
+  color: #999;
+  flex-shrink: 0;
+  min-width: 78px;
 }
-
-.value {
-  flex: 1;
+.info-value {
+  font-size: 14px;
   color: #333;
-  padding: 2px 0;
-  min-height: 20px;
-  line-height: 1.5;
+  font-weight: 500;
+}
+.info-value.price {
+  color: #ff4d4f;
+  font-weight: 600;
+  font-size: 15px;
+}
+.info-value-suffix {
+  font-size: 12px;
+  color: #999;
+  font-weight: 400;
+  margin-left: 4px;
+}
+.info-item-full {
+  grid-column: 1 / -1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.note-value {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  color: #444;
+  font-weight: 400;
 }
 </style>

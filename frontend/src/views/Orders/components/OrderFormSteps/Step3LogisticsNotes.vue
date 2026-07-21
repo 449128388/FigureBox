@@ -40,8 +40,9 @@
             <el-option value="圆通速递" label="圆通速递" />
             <el-option value="申通快递" label="申通快递" />
             <el-option value="韵达快递" label="韵达快递" />
-            <el-option value="EMS" label="EMS" />
             <el-option value="德邦快递" label="德邦快递" />
+            <el-option value="京东快递" label="京东快递" />
+            <el-option value="EMS" label="EMS" />
             <el-option value="其他" label="其他" />
           </el-select>
         </div>

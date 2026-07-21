@@ -3,16 +3,17 @@
 
   功能说明：
   - 展示所有已添加的本命厂商卡片
+  - 支持按关键词搜索、按状态筛选
   - 支持新增、编辑、删除操作
   - 点击卡片进入厂商详情页
 
   交互流程：
-  收藏柜首页 → 点击「本命厂商」 → 厂商列表页
-                                     ↓ 
+  收藏柜首页 → 点击「本命厂商」 → 厂商列表页（含搜索框 / 筛选）
+                                     ↓
                                点击「+ 添加本命厂商」
-                                     ↓ 
+                                     ↓
                                填写信息 → 保存 → 列表自动刷新
-                                     ↓ 
+                                     ↓
                                点击卡片 → 厂商详情页
 -->
 <template>
@@ -34,11 +35,87 @@
       </button>
     </div>
 
-    <!-- 空状态 -->
-    <div v-if="!loading && manufacturers.length === 0" class="empty-state">
-      <div class="empty-state-icon">🏭</div>
-      <div class="empty-state-title">暂无本命厂商</div>
-      <div class="empty-state-desc">点击右上角「添加本命厂商」开始追厂之旅</div>
+    <!-- ===== 搜索栏 ===== -->
+    <div class="search-section">
+      <div class="search-bar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <input
+            v-model="localKeyword"
+            type="text"
+            class="search-input"
+            placeholder="搜索厂商名称、关键词..."
+            @keyup.enter="handleSearchClick"
+          />
+        </div>
+        <button class="search-btn" @click="handleSearchClick">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          搜索
+        </button>
+        <button class="reset-btn" @click="handleResetClick">重置</button>
+      </div>
+      <div class="filter-tags">
+        <span class="filter-label">筛选：</span>
+        <span
+          class="filter-tag"
+          :class="{ active: localFilter === '' }"
+          @click="handleFilterTagClick('')"
+        >全部 <span class="count">{{ totalAll }}</span></span>
+        <span
+          class="filter-tag"
+          :class="{ active: localFilter === 'in' }"
+          @click="handleFilterTagClick('in')"
+        >有在柜 <span class="count">{{ totalIn }}</span></span>
+        <span
+          class="filter-tag"
+          :class="{ active: localFilter === 'out' }"
+          @click="handleFilterTagClick('out')"
+        >无在柜 <span class="count">{{ totalOut }}</span></span>
+      </div>
+    </div>
+
+    <!-- 统计栏 -->
+    <div class="stats-bar">
+      <div class="stats-text">
+        共找到 <strong>{{ manufacturerCount }}</strong> 家厂商
+        <template v-if="localKeyword || localFilter">
+          <span class="stats-hint">（已应用筛选条件）</span>
+        </template>
+      </div>
+    </div>
+
+    <!-- 空状态（区分：无数据 / 无匹配结果） -->
+    <div
+      v-if="!loading && manufacturers.length === 0"
+      class="empty-state"
+    >
+      <div class="empty-state-icon">{{ localKeyword || localFilter ? '🔍' : '🏭' }}</div>
+      <div class="empty-state-title">
+        {{ localKeyword || localFilter ? '没有匹配的厂商' : '暂无本命厂商' }}
+      </div>
+      <div class="empty-state-desc">
+        <template v-if="localKeyword || localFilter">
+          请尝试更换关键词或调整筛选条件
+        </template>
+        <template v-else>
+          点击右上角「添加本命厂商」开始追厂之旅
+        </template>
+      </div>
+      <button
+        v-if="localKeyword || localFilter"
+        class="btn-reset-empty"
+        @click="handleResetClick"
+      >重置筛选</button>
     </div>
 
     <!-- 厂商卡片网格 -->
@@ -97,12 +174,77 @@ export default {
       type: Number,
       default: 0
     },
+    // 全局统计（独立于 filter_type），用于渲染筛选标签计数
+    manufacturerStats: {
+      type: Object,
+      default: () => ({ all: 0, in: 0, out: 0 })
+    },
     loading: {
       type: Boolean,
       default: false
+    },
+    // 当前生效的搜索关键词（由父组件传入）
+    keyword: {
+      type: String,
+      default: ''
+    },
+    // 当前生效的筛选类型（由父组件传入）
+    filterType: {
+      type: String,
+      default: ''
     }
   },
-  emits: ['add', 'select', 'edit', 'delete', 'back']
+  emits: ['add', 'select', 'edit', 'delete', 'back', 'search', 'filter-change', 'reset'],
+  data() {
+    return {
+      localKeyword: '',
+      localFilter: ''
+    }
+  },
+  computed: {
+    /**
+     * 筛选标签计数：使用后端返回的全局统计（仅受 keyword 影响，与当前 filter 无关）
+     * 这样无论选中「全部 / 有在柜 / 无在柜」，三个标签的数字始终保持稳定
+     */
+    totalAll() {
+      return this.manufacturerStats?.all ?? 0
+    },
+    totalIn() {
+      return this.manufacturerStats?.in ?? 0
+    },
+    totalOut() {
+      return this.manufacturerStats?.out ?? 0
+    }
+  },
+  watch: {
+    // 同步父组件的 keyword 到本地（用于重置/初次加载）
+    keyword: {
+      immediate: true,
+      handler(val) {
+        this.localKeyword = val || ''
+      }
+    },
+    filterType: {
+      immediate: true,
+      handler(val) {
+        this.localFilter = val || ''
+      }
+    }
+  },
+  methods: {
+    handleSearchClick() {
+      this.$emit('search', this.localKeyword)
+    },
+    handleFilterTagClick(type) {
+      this.localFilter = type
+      this.$emit('filter-change', type)
+    },
+    handleResetClick() {
+      this.localKeyword = ''
+      this.localFilter = ''
+      this.$emit('reset')
+    }
+  }
 }
 </script>
 
@@ -193,6 +335,171 @@ export default {
   color: #fff;
 }
 
+/* ===== 搜索栏区域 ===== */
+.search-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.search-input-wrapper {
+  flex: 1;
+  position: relative;
+  min-width: 200px;
+}
+
+.search-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 16px 0 40px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+  transition: all 0.2s;
+  background: #fafafa;
+}
+
+.search-input:focus {
+  border-color: #00BCD4;
+  box-shadow: 0 0 0 3px rgba(0, 188, 212, 0.1);
+  background: #fff;
+}
+
+.search-input::placeholder {
+  color: #bfbfbf;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #bfbfbf;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-btn {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 8px;
+  border: none;
+  background: #00BCD4;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-btn:hover {
+  background: #00ACC1;
+}
+
+.reset-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reset-btn:hover {
+  border-color: #00BCD4;
+  color: #00BCD4;
+}
+
+/* 筛选标签 */
+.filter-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 13px;
+  color: #999;
+  margin-right: 4px;
+}
+
+.filter-tag {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #666;
+}
+
+.filter-tag:hover {
+  border-color: #00BCD4;
+  color: #00BCD4;
+}
+
+.filter-tag.active {
+  background: #E0F7FA;
+  border-color: #00BCD4;
+  color: #00BCD4;
+  font-weight: 500;
+}
+
+.filter-tag .count {
+  font-size: 11px;
+  color: #999;
+  margin-left: 4px;
+}
+
+.filter-tag.active .count {
+  color: #00BCD4;
+}
+
+/* 统计栏 */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.stats-text {
+  font-size: 14px;
+  color: #666;
+}
+
+.stats-text strong {
+  color: #1F1F1F;
+  font-weight: 600;
+}
+
+.stats-hint {
+  font-size: 12px;
+  color: #999;
+  margin-left: 6px;
+}
+
 /* Empty State */
 .empty-state {
   text-align: center;
@@ -216,6 +523,22 @@ export default {
 .empty-state-desc {
   font-size: 14px;
   margin-bottom: 20px;
+}
+
+.btn-reset-empty {
+  padding: 6px 18px;
+  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reset-empty:hover {
+  border-color: #00BCD4;
+  color: #00BCD4;
 }
 
 /* Maker Grid */
@@ -357,6 +680,9 @@ export default {
 @media (max-width: 768px) {
   .maker-grid {
     grid-template-columns: 1fr;
+  }
+  .search-bar {
+    flex-wrap: wrap;
   }
 }
 </style>

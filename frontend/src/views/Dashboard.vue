@@ -126,12 +126,18 @@
           v-if="manufacturerView === 'list'"
           :manufacturers="manufacturers"
           :manufacturer-count="manufacturerCount"
+          :manufacturer-stats="manufacturerStats"
           :loading="manufacturerLoading"
+          :keyword="manufacturerKeyword"
+          :filter-type="manufacturerFilterType"
           @add="handleManufacturerAdd"
           @select="handleManufacturerSelect"
           @edit="handleManufacturerEdit"
           @delete="handleManufacturerDelete"
           @back="handleManufacturerBackToCabinets"
+          @search="handleManufacturerSearch"
+          @filter-change="handleManufacturerFilterChange"
+          @reset="handleManufacturerResetSearch"
         />
         <ManufacturerDetailView
           v-else-if="manufacturerView === 'detail'"
@@ -454,6 +460,7 @@ export default {
     const {
       manufacturers,
       manufacturerCount,
+      manufacturerStats,
       loading: manufacturerLoading,
       currentManufacturer,
       detailLoading: manufacturerDetailLoading,
@@ -461,13 +468,18 @@ export default {
       isEditing: manufacturerIsEditing,
       formData: manufacturerFormData,
       currentView: manufacturerView,
+      searchKeyword: manufacturerKeyword,
+      filterType: manufacturerFilterType,
       fetchManufacturers,
       fetchManufacturerDetail,
       openAddDialog: handleManufacturerAdd,
       openEditDialog: handleManufacturerEdit,
       saveManufacturer,
       removeManufacturer: handleManufacturerDelete,
-      backToList: handleManufacturerBackToList
+      backToList: handleManufacturerBackToList,
+      handleSearch: handleManufacturerSearch,
+      handleFilterChange: handleManufacturerFilterChange,
+      handleResetSearch: handleManufacturerResetSearch
     } = useManufacturer()
 
     const showManufacturerView = ref(false)
@@ -1002,7 +1014,10 @@ export default {
       showManufacturerView,
       manufacturers,
       manufacturerCount,
+      manufacturerStats,
       manufacturerLoading,
+      manufacturerKeyword,
+      manufacturerFilterType,
       currentManufacturer,
       manufacturerDetailLoading,
       manufacturerDialogVisible,
@@ -1018,6 +1033,9 @@ export default {
       handleManufacturerSelect,
       handleManufacturerDialogClose,
       handleManufacturerSave,
+      handleManufacturerSearch,
+      handleManufacturerFilterChange,
+      handleManufacturerResetSearch,
       // 本命厂商 - 藏品详情/出柜登记
       manufacturerDetailDrawerVisible,
       manufacturerOutDrawerVisible,

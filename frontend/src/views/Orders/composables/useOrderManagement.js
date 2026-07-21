@@ -30,8 +30,8 @@ export function useOrderManagement() {
   const isEditing = ref(false)
   const currentEditOrderId = ref(null)
   const currentPage = ref(1)
-  const pageSize = ref(15)
-  const pageSizes = ref([15, 30, 45, 60])
+  const pageSize = ref(10)
+  const pageSizes = ref([10, 20, 30, 40, 50])
   const currentStatus = ref('未支付') // 当前筛选状态：all, 未支付, 已支付, 已取消；默认显示未支付
   const figureError = ref('')
   const dueDateError = ref('')

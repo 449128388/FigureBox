@@ -112,12 +112,15 @@ export const useFigureStore = defineStore('figure', {
       const url = queryString ? `/figures/?${queryString}` : '/figures/'
       
       const response = await axios.get(url)
-      this.figures = response
-      
-      // 设置总数（用于分页）
-      // 注意：这里使用返回数据的长度作为当前页数据量
-      // 实际总数量需要通过其他方式获取（如后端返回的 total 字段）
-      this.totalCount = response.length
+      // 兼容旧版 list 响应（如未来后端回退到 list）
+      if (Array.isArray(response)) {
+        this.figures = response
+        this.totalCount = response.length
+      } else {
+        // 新版 { items, total } 响应
+        this.figures = response.items || []
+        this.totalCount = response.total || 0
+      }
     },
     async createFigure(figure) {
       const response = await axios.post('/figures/', figure)

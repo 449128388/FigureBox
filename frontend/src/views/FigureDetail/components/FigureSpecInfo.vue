@@ -1,32 +1,47 @@
 <!--
-  FigureSpecInfo.vue - 手办规格信息组件
+  FigureSpecInfo.vue - 手办规格信息卡片
 
   功能说明：
-  - 展示手办的规格相关信息
-  - 包括比例、材质、尺寸等字段
-  - 仅在有相关信息时显示
+  - 卡片式布局：图标标题栏
+  - 横向 spec-row：每个规格项含 emoji 图标 + 标签 + 数值
 
   组件依赖：
-  - 接收 figure 作为 props，包含 scale、material、size 等字段
-
-  维护提示：
-  - 使用 v-if 条件渲染，仅当有相关信息时显示
-  - 布局采用 info-section 样式
+  - 接收 figure 作为 props
 -->
 <template>
-  <div class="info-section" v-if="figure.scale || figure.material || figure.size">
-    <h2>规格信息</h2>
-    <div class="info-item" v-if="figure.scale">
-      <span class="label">比例:</span>
-      <span class="value">{{ figure.scale }}</span>
+  <div class="info-card" v-if="hasContent">
+    <div class="card-header-bar">
+      <div class="card-title">
+        <svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+        </svg>
+        规格信息
+      </div>
     </div>
-    <div class="info-item" v-if="figure.material">
-      <span class="label">材质:</span>
-      <span class="value">{{ figure.material }}</span>
-    </div>
-    <div class="info-item" v-if="figure.size">
-      <span class="label">尺寸:</span>
-      <span class="value">{{ figure.size }}</span>
+    <div class="card-body">
+      <div class="spec-row">
+        <div class="spec-item" v-if="figure.scale">
+          <div class="spec-icon">📐</div>
+          <div class="spec-text">
+            <span class="spec-label">比例</span>
+            <span class="spec-value">{{ figure.scale }}</span>
+          </div>
+        </div>
+        <div class="spec-item" v-if="figure.material">
+          <div class="spec-icon">🧱</div>
+          <div class="spec-text">
+            <span class="spec-label">材质</span>
+            <span class="spec-value">{{ figure.material }}</span>
+          </div>
+        </div>
+        <div class="spec-item" v-if="figure.size">
+          <div class="spec-icon">📏</div>
+          <div class="spec-text">
+            <span class="spec-label">尺寸</span>
+            <span class="spec-value">{{ figure.size }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -39,44 +54,60 @@ export default {
       type: Object,
       required: true
     }
+  },
+  computed: {
+    hasContent() {
+      const f = this.figure
+      return !!(f.scale || f.material || f.size)
+    }
   }
 }
 </script>
 
 <style scoped>
-.info-section {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.info-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e8e8e8;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
-
-.info-section h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: #333;
-  font-size: 20px;
-  font-weight: 600;
-  border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 10px;
-}
-
-.info-item {
+.card-header-bar {
   display: flex;
-  margin-bottom: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
 }
-
-.label {
-  flex: 0 0 100px;
-  font-weight: 500;
-  color: #666;
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f1f1f;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-
-.value {
+.card-title-icon {
+  width: 22px;
+  height: 22px;
+  color: #1890ff;
+}
+.card-body { padding: 20px 24px; }
+.spec-row {
+  display: flex;
+  gap: 24px;
+}
+.spec-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fafafa;
+  border-radius: 8px;
   flex: 1;
-  color: #333;
-  padding: 2px 0;
-  min-height: 20px;
-  line-height: 1.5;
 }
+.spec-icon { font-size: 24px; }
+.spec-text { display: flex; flex-direction: column; gap: 2px; }
+.spec-label { font-size: 12px; color: #999; }
+.spec-value { font-size: 14px; color: #333; font-weight: 500; }
 </style>

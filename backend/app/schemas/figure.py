@@ -25,7 +25,7 @@ class Tag(TagBase):
 
 # 定义正则表达式模式
 # 允许中文、英文、日文、数字、空格，常见符号（如 /、×、·、（）、&、中文冒号、英文冒号等）
-ALLOWED_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312f\u3001\u300c\u300da-zA-Z0-9\s\/\×·\(\)\&\-\.\,\:\;\!\?\#\@\$\%\*\+\=\[\]\{\}\|\<\>\~\`\"\'\\\uff01\uff1a\uff08\uff09]*$')
+ALLOWED_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312f\u3001\u3005\u300c\u300da-zA-Z0-9\s\/\×·\(\)\&\-\.\,\:\;\!\?\#\@\$\%\*\+\=\[\]\{\}\|\<\>\~\`\"\'\\\uff01\uff1a\uff08\uff09]*$')
 # 材质和尺寸允许更少的特殊字符
 SIMPLE_CHARS_PATTERN = re.compile(r'^[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff\u3100-\u312fa-zA-Z0-9\s]*$')
 # Emoji 过滤模式
@@ -325,6 +325,16 @@ class FigureDetailResponse(FigureListItem):
     is_active: int = 1
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+# 手办列表分页响应模型（包含总数与当前页数据）
+class FigureListResponse(BaseModel):
+    """手办分页列表响应"""
+    items: list[FigureListItem]
+    total: int
 
     class Config:
         from_attributes = True

@@ -192,7 +192,7 @@ class FigureQueryService:
         )
 
         if query is None:
-            return []
+            return {"items": [], "total": 0}
 
         # 如果需要按订单数量限制过滤（买入新增预定场景）
         # 只显示：未软删除订单数量 <= 手办 quantity 的手办
@@ -214,6 +214,9 @@ class FigureQueryService:
                 (order_count_subquery.c.order_count == None) |  # 没有订单
                 (order_count_subquery.c.order_count <= Figure.quantity)  # 订单数量 <= 库存
             )
+
+        # 先取总数（受所有过滤条件约束）
+        total = query.count()
 
         # 预加载订单数据
         query = query.options(selectinload(Figure.orders))
@@ -265,7 +268,7 @@ class FigureQueryService:
             )
             result.append(item)
 
-        return result
+        return {"items": result, "total": total}
 
     @staticmethod
     def get_figure_by_id(db: Session, figure_id: int) -> Optional[Figure]:

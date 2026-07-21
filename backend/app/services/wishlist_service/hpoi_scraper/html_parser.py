@@ -152,7 +152,18 @@ class HpoiParser:
                 result["production"] = production_raw
         else:
             result["production"] = production_raw
-        result["painter"] = desc_fields.get("painter")
+
+        # 处理多涂装师格式："涂装: [{value=_Gallun, key=涂装}, {value=Hato}]"
+        # 提取所有 value= 并用 "、" 连接（与 production 处理逻辑保持一致）
+        painter_raw = desc_fields.get("painter")
+        if painter_raw and painter_raw.startswith("["):
+            values = re.findall(r'\bvalue=([^,}\s]+(?:\s+[^,}\s]+)*)', painter_raw)
+            if values:
+                result["painter"] = "、".join(values)
+            else:
+                result["painter"] = painter_raw
+        else:
+            result["painter"] = painter_raw
         result["size"] = desc_fields.get("size")
 
         # 5. price / currency：从 description 中的定价字段提取

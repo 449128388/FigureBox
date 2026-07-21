@@ -7,8 +7,8 @@ from typing import List, Dict, Any
 from app.models.database import get_db
 from app.models.figure import Figure
 from app.schemas.figure import (
-    FigureCreate, FigureUpdate, 
-    Tag as TagSchema, TagCreate, FigureListItem, FigureDetailResponse
+    FigureCreate, FigureUpdate,
+    Tag as TagSchema, TagCreate, FigureListItem, FigureListResponse, FigureDetailResponse
 )
 from app.api.users import get_current_user
 from app.models.user import User
@@ -22,7 +22,7 @@ from app.services.order_transaction_service import OrderTransactionService
 router = APIRouter()
 
 
-@router.get("/", response_model=list[FigureListItem])
+@router.get("/", response_model=FigureListResponse)
 def get_figures(
     skip: int = 0,
     limit: int = 100,
@@ -35,7 +35,13 @@ def get_figures(
     db: Session = Depends(get_db)
 ):
     """
-    获取手办列表，支持搜索过滤（使用精简响应模型减少数据传输）
+    获取手办列表（分页），支持搜索过滤
+
+    Response:
+        {
+            "items": [FigureListItem, ...],
+            "total": int
+        }
     """
     return FigureService.get_figures_list(
         db=db,
@@ -90,7 +96,7 @@ def search_figures(
         name=keyword,
         user_id=current_user.id,
         filter_by_order_limit=filter_by_order_limit
-    )
+    )["items"]
 
 
 @router.get("/download")

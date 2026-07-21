@@ -1,31 +1,32 @@
 <!--
-  FigureTags.vue - 手办标签组件
+  FigureTags.vue - 手办标签卡片
 
   功能说明：
-  - 展示手办的标签信息
-  - 使用 Element Plus 的 el-tag 组件显示标签
-  - 仅在有标签时显示
+  - 卡片式布局：图标标题栏
+  - 标签以统一蓝色 pill 形式展示（背景 #e6f7ff / 文字 #1890ff）
 
   组件依赖：
-  - 接收 figure 作为 props，包含 tags 数组
-  - 使用 Element Plus 的 el-tag 组件
-
-  维护提示：
-  - 使用 v-if 条件渲染，仅当有标签时显示（figure.tags && figure.tags.length > 0）
-  - 标签使用 light 效果样式
+  - 接收 figure 作为 props（tags: [{id, name, type?}, ...]）
 -->
 <template>
-  <div class="info-section" v-if="figure.tags && figure.tags.length > 0">
-    <h2>标签</h2>
-    <div class="tags-container">
-      <el-tag
-        v-for="tag in figure.tags"
-        :key="tag.id"
-        effect="light"
-        class="figure-tag"
-      >
-        {{ tag.name }}
-      </el-tag>
+  <div class="info-card" v-if="figure.tags && figure.tags.length > 0">
+    <div class="card-header-bar">
+      <div class="card-title">
+        <svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+          <line x1="7" y1="7" x2="7.01" y2="7"></line>
+        </svg>
+        标签
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="tag-list">
+        <span
+          v-for="tag in figure.tags"
+          :key="tag.id"
+          class="tag"
+        >{{ tag.name }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -43,33 +44,48 @@ export default {
 </script>
 
 <style scoped>
-.info-section {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.info-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e8e8e8;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
-
-.info-section h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: #333;
-  font-size: 20px;
+.card-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.card-title {
+  font-size: 15px;
   font-weight: 600;
-  border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 10px;
+  color: #1f1f1f;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-
-.tags-container {
+.card-title-icon {
+  width: 22px;
+  height: 22px;
+  color: #1890ff;
+}
+.card-body { padding: 20px 24px; }
+.tag-list {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
 }
-
-.figure-tag {
-  margin-right: 8px;
-  margin-bottom: 8px;
-  font-size: 16px;
-  padding: 6px 12px;
-  height: auto;
+.tag {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #e6f7ff;
+  color: #1890ff;
 }
+.tag:hover { opacity: 0.8; }
 </style>

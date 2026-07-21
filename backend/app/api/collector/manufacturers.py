@@ -97,15 +97,33 @@ class UpdateManufacturerRequest(BaseModel):
 async def get_manufacturers(
     request: Request,
     response: Response,
+    keyword: str = "",
+    filter_type: str = "",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """获取所有本命厂商列表"""
-    manufacturers = CollectorManufacturerService.get_all(db, current_user.id)
-    return {
-        "manufacturers": manufacturers,
-        "total": len(manufacturers)
-    }
+    """获取所有本命厂商列表（支持按关键词搜索和状态筛选）
+
+    Query Params:
+        keyword: 搜索关键词（厂商名称 / 日文名 / 描述 模糊匹配）
+        filter_type: 筛选类型
+            - "in"  : 有在柜藏品
+            - "out" : 无在柜藏品
+            - ""    : 全部
+
+    Response:
+        {
+            "manufacturers": [...],   # 按 filter_type 过滤后的列表
+            "total": int,             # 当前列表数量
+            "stats": {                # 独立于 filter_type 的统计（仅受 keyword 影响）
+                "all": int, "in": int, "out": int
+            }
+        }
+    """
+    data = CollectorManufacturerService.get_all(
+        db, current_user.id, keyword=keyword, filter_type=filter_type
+    )
+    return data
 
 
 @router.get("/manufacturers/{manufacturer_id}")
