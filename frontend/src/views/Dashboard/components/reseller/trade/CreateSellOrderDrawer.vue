@@ -105,6 +105,31 @@
                 最多可卖出 {{ maxQuantity }} 体
               </div>
             </el-form-item>
+
+            <!-- 支付方式 -->
+            <el-form-item label="支付方式" prop="paymentMethod">
+              <el-select
+                v-model="formData.paymentMethod"
+                placeholder="请选择支付方式"
+                style="width: 100%"
+              >
+                <el-option label="支付宝" value="支付宝" />
+                <el-option label="微信" value="微信" />
+                <el-option label="银行卡" value="银行卡" />
+              </el-select>
+            </el-form-item>
+
+            <!-- 卖出时间 -->
+            <el-form-item label="卖出时间" prop="sellDate">
+              <el-date-picker
+                v-model="formData.sellDate"
+                type="datetime"
+                placeholder="选择卖出时间"
+                style="width: 100%"
+                format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
+              />
+            </el-form-item>
           </div>
 
           <!-- 成交信息 -->
@@ -251,6 +276,8 @@ const maxQuantity = computed(() => {
 const formData = reactive({
   figureId: null,
   quantity: 1,
+  paymentMethod: '',
+  sellDate: '',
   sellPlatform: '闲鱼（鱼小铺）',
   sellPrice: '',
   shippingFee: '0',
@@ -268,6 +295,8 @@ const netProfit = ref(0)
 const formRules = {
   figureId: [{ required: true, message: '请选择库存手办', trigger: 'change' }],
   quantity: [{ required: true, message: '请输入数量', trigger: 'blur' }],
+  paymentMethod: [{ required: true, message: '请选择支付方式', trigger: 'change' }],
+  sellDate: [{ required: true, message: '请选择卖出时间', trigger: 'change' }],
   sellPlatform: [{ required: true, message: '请选择卖出平台', trigger: 'change' }],
   sellPrice: [{ required: true, message: '请输入卖出单价', trigger: 'blur' }]
 }
@@ -381,6 +410,8 @@ const handleClose = () => {
 const resetForm = () => {
   formData.figureId = null
   formData.quantity = 1
+  formData.paymentMethod = ''
+  formData.sellDate = ''
   formData.sellPlatform = '闲鱼（鱼小铺）'
   formData.sellPrice = ''
   formData.shippingFee = '0'
@@ -412,6 +443,8 @@ const handleSubmit = async () => {
       shipping_fee: parseFloat(formData.shippingFee || 0),
       platform_fee: parseFloat(formData.platformFee || 0),
       sell_platform: formData.sellPlatform,
+      payment_method: formData.paymentMethod,
+      sell_date: formData.sellDate,
       buyer_phone: formData.buyerPhone,
       buyer_address: formData.buyerAddress,
       remarks: formData.remarks

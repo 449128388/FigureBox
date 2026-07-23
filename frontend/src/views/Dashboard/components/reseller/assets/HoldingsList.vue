@@ -80,11 +80,11 @@
     <!-- 持仓卡片 -->
     <div class="holdings-cards">
       <!-- 空数据提示 -->
-      <div v-if="filteredHoldings.length === 0" class="empty-holdings">
+      <div v-if="paginatedData.length === 0" class="empty-holdings">
         <el-empty :description="emptyDescription" />
       </div>
       <div
-        v-for="(item, index) in filteredHoldings"
+        v-for="(item, index) in paginatedData"
         :key="item.figure_id"
         class="holding-card"
         :class="getStatusClass(item.status)"
@@ -159,6 +159,21 @@
         </div>
       </div>
     </div>
+
+    <!-- 分页组件 -->
+    <div class="pagination-wrapper" v-if="total > 0">
+      <span class="pagination-info">{{ rangeText }}</span>
+      <el-pagination
+        v-model:current-page="page"
+        v-model:page-size="pageSize"
+        :page-sizes="pageSizeOptions"
+        :total="total"
+        layout="sizes, prev, pager, next, jumper"
+        background
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+      />
+    </div>
   </div>
 </template>
 
@@ -166,6 +181,7 @@
 import { ref, computed, watch } from 'vue'
 import { Search, RefreshRight } from '@element-plus/icons-vue'
 import axios from '../../../../../axios'
+import { useHoldingsPagination } from '../../../composables/useHoldingsPagination'
 
 export default {
   name: 'HoldingsList',
@@ -187,6 +203,28 @@ export default {
     const loading = ref(false)
     const filteredHoldingsData = ref([])
     const hasSearched = ref(false)
+
+    // 筛选后的持仓列表（总数据源）
+    const holdingsSource = computed(() => {
+      if (hasSearched.value) {
+        return filteredHoldingsData.value
+      }
+      return props.dashboardData?.holdings || []
+    })
+
+    // 使用分页业务逻辑
+    const {
+      page,
+      pageSize,
+      pageSizeOptions,
+      total,
+      totalPages,
+      paginatedData,
+      rangeText,
+      handlePageChange,
+      handleSizeChange,
+      resetPage
+    } = useHoldingsPagination(holdingsSource)
 
     // 手办状态筛选选项 - 使用实际风险状态
     const statusFilters = [
@@ -276,6 +314,8 @@ export default {
         if (selectedStatusFilter.value && selectedStatusFilter.value !== 'all') {
           params.status = selectedStatusFilter.value
         }
+        params.page = page.value
+        params.page_size = pageSize.value
 
         const data = await axios.get('/assets/holdings/filter', { params })
         if (data && data.holdings) {
@@ -295,17 +335,8 @@ export default {
       selectedStatusFilter.value = 'all'
       filteredHoldingsData.value = []
       hasSearched.value = false
+      resetPage()
     }
-
-    // 筛选后的持仓列表
-    const filteredHoldings = computed(() => {
-      // 如果已经执行过查询，使用查询结果
-      if (hasSearched.value) {
-        return filteredHoldingsData.value
-      }
-      // 否则使用原始数据
-      return props.dashboardData?.holdings || []
-    })
 
     // 空数据提示文本
     const emptyDescription = computed(() => {
@@ -324,11 +355,19 @@ export default {
       formatNumber,
       getStatusClass,
       handleLongPress,
-      filteredHoldings,
+      paginatedData,
       emptyDescription,
       loading,
       handleSearch,
-      handleReset
+      handleReset,
+      // 分页相关
+      page,
+      pageSize,
+      pageSizeOptions,
+      total,
+      rangeText,
+      handlePageChange,
+      handleSizeChange
     }
   }
 }
@@ -643,5 +682,24 @@ export default {
 :deep(.el-dropdown-link:focus) {
   background-color: transparent !important;
   outline: none !important;
+}
+
+/* 分页组件样式 */
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e4e7ed;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #606266;
+  white-space: nowrap;
+  margin-right: 0;
 }
 </style>

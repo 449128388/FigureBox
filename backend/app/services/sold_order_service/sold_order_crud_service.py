@@ -145,6 +145,8 @@ class SoldOrderCrudService:
                 user_id=current_user.id,
                 figure_id=order_data.figure_id,
                 quantity=order_data.quantity or 1,  # 卖出数量
+                payment_method=order_data.payment_method,
+                sell_date=order_data.sell_date,
                 sell_price=order_data.sell_price,
                 cost_price=order_data.cost_price,
                 shipping_fee=order_data.shipping_fee or 0,
@@ -286,6 +288,10 @@ class SoldOrderCrudService:
             order.logistics_company = order_data.logistics_company
         if order_data.shipping_date is not None:
             order.shipping_date = order_data.shipping_date
+        if order_data.payment_method is not None:
+            order.payment_method = order_data.payment_method
+        if order_data.sell_date is not None:
+            order.sell_date = order_data.sell_date
 
         # 处理状态变更（特别是退款/纠纷状态）
         old_status = order.status

@@ -6,6 +6,8 @@ from app.schemas.figure import Figure
 class SoldOrderBase(BaseModel):
     figure_id: int | str
     quantity: int = 1  # 卖出数量，默认为1
+    payment_method: str | None = None
+    sell_date: datetime | None = None
     sell_price: float
     cost_price: float
     shipping_fee: float = 0.0
@@ -88,6 +90,14 @@ class SoldOrderBase(BaseModel):
             return None
         return v
 
+    @field_validator('sell_date', mode='before')
+    @classmethod
+    def validate_sell_date(cls, v):
+        # 卖出时间为非必填项，空字符串转为None
+        if v == '' or v == 'null' or v == 'undefined':
+            return None
+        return v
+
     @field_validator('sell_price', mode='before')
     @classmethod
     def validate_sell_price(cls, v):
@@ -108,6 +118,8 @@ class SoldOrderCreate(SoldOrderBase):
 class SoldOrderUpdate(BaseModel):
     figure_id: int | None = None
     quantity: int | None = None
+    payment_method: str | None = None
+    sell_date: datetime | None = None
     sell_price: float | None = None
     cost_price: float | None = None
     shipping_fee: float | None = None

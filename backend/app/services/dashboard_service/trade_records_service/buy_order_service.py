@@ -336,6 +336,14 @@ class BuyOrderService:
                         item["full_date"] = tail_date.strftime("%Y-%m-%d %H:%M:%S") if is_paid else tail_date.strftime("%Y-%m-%d")
                     item["method"] = order.balance_payment_method or "-"
 
+        # 全款预定：支付时间以 payment_time 为准（一次性付清，无定金/尾款拆分）
+        if order.order_type == "全款预定" and order.status == "已完成":
+            for item in payment_items:
+                if order.payment_time:
+                    item["date"] = order.payment_time.strftime("%Y-%m-%d")
+                    item["full_date"] = order.payment_time.strftime("%Y-%m-%d %H:%M:%S")
+                item["method"] = order.payment_method or "-"
+
         # 按币种汇总实付金额（只统计已支付的条目）
         total_by_currency = {}
         for item in payment_items:

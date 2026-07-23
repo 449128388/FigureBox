@@ -8,13 +8,16 @@
       <div class="form-group">
         <label>物流公司</label>
         <el-select v-model="order.logistics_company" placeholder="请选择物流公司" style="width: 100%;" clearable>
-          <el-option value="顺丰" label="顺丰" />
-          <el-option value="圆通" label="圆通" />
-          <el-option value="中通" label="中通" />
-          <el-option value="申通" label="申通" />
-          <el-option value="韵达" label="韵达" />
+          <el-option value="顺丰速运" label="顺丰速运" />
+          <el-option value="中通快递" label="中通快递" />
+          <el-option value="圆通速递" label="圆通速递" />
+          <el-option value="申通快递" label="申通快递" />
+          <el-option value="韵达快递" label="韵达快递" />
+          <el-option value="德邦快递" label="德邦快递" />
+          <el-option value="京东快递" label="京东快递" />
           <el-option value="EMS" label="EMS" />
           <el-option value="其他" label="其他" />
+          
         </el-select>
       </div>
       <div class="form-group">

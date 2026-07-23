@@ -63,6 +63,39 @@ class HoldingFilterService:
         return filtered_holdings
 
     @staticmethod
+    def paginate_holdings(
+        holdings: List[Dict[str, Any]],
+        page: int = 1,
+        page_size: int = 9
+    ) -> Dict[str, Any]:
+        """
+        对持仓列表进行分页
+
+        Args:
+            holdings: 持仓列表
+            page: 当前页码（从1开始）
+            page_size: 每页条数
+
+        Returns:
+            Dict: 包含分页后的数据和分页信息
+        """
+        total = len(holdings)
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        page = max(1, min(page, total_pages))
+
+        start = (page - 1) * page_size
+        end = start + page_size
+        items = holdings[start:end]
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages
+        }
+
+    @staticmethod
     def get_filter_options() -> Dict[str, Any]:
         """
         获取筛选选项配置

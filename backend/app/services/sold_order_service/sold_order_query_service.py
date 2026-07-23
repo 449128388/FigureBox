@@ -73,6 +73,8 @@ class SoldOrderQueryService:
                 user_id=order.SoldOrder.user_id,
                 figure_id=order.SoldOrder.figure_id,
                 quantity=order.SoldOrder.quantity,  # 卖出数量
+                payment_method=order.SoldOrder.payment_method,
+                sell_date=order.SoldOrder.sell_date,
                 sell_price=order.SoldOrder.sell_price,
                 cost_price=order.SoldOrder.cost_price,
                 shipping_fee=order.SoldOrder.shipping_fee,

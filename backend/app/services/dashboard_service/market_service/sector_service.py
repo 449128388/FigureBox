@@ -225,11 +225,19 @@ class SectorService:
                 "figure_count": data["figure_count"],
             })
 
-        # 按 |板块收益率| 降序，TOP N
-        sectors.sort(key=lambda x: abs(x["change"]), reverse=True)
+        # 板块涨幅排行排序规则：
+        # 1. 当涨幅>0 的板块数 > limit：仅展示涨幅>0，按涨幅从高到低排序
+        # 2. 当 0 < 涨幅>0 的板块数 <= limit：先展示所有涨幅>0（按涨幅降序），再展示跌幅<0（按跌幅从小到大，即 -1 > -5 > -10）
+        # 3. 当涨幅>0 的板块数 == 0：仅展示跌幅<0，按跌幅从小到大排序
+        positive_sectors = [s for s in sectors if s["change"] > 0]
+        negative_sectors = [s for s in sectors if s["change"] < 0]
+        positive_sectors.sort(key=lambda x: x["change"], reverse=True)
+        negative_sectors.sort(key=lambda x: x["change"], reverse=True)
+        ordered_sectors = positive_sectors + negative_sectors
+
         total = len(sectors)  # 全量板块数（不受 limit 限制）
         return {
-            "sectors": sectors[:limit],
+            "sectors": ordered_sectors[:limit],
             "total": total,
         }
 

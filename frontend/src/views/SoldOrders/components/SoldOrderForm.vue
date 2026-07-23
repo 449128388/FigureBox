@@ -111,6 +111,9 @@ export default {
       figure_id: '',
       sell_platform: '',
       order_number: '',
+      quantity: 1,
+      payment_method: '',
+      sell_date: '',
       sell_price: 0,
       cost_price: 0,
       shipping_fee: 0,
@@ -241,6 +244,14 @@ export default {
         if (!phonePattern.test(order.buyer_phone)) {
           errors.push('手机号格式不正确，请输入11位有效手机号')
         }
+      }
+
+      if (!order.payment_method || order.payment_method === '') {
+        errors.push('请选择支付方式')
+      }
+
+      if (!order.sell_date || order.sell_date === '') {
+        errors.push('请选择卖出时间')
       }
 
       return errors

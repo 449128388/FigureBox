@@ -34,6 +34,8 @@ class SoldOrder(Base):
     
     # 卖出信息
     quantity = Column(Integer, default=1, comment="卖出数量")
+    payment_method = Column(String(50), comment="支付方式：支付宝、微信、银行卡等")
+    sell_date = Column(DateTime, comment="卖出时间")
     sell_price = Column(Float, nullable=False, comment="卖出价格（总价）")
     cost_price = Column(Float, nullable=False, comment="成本价格（总价）")
     shipping_fee = Column(Float, default=0, comment="运费（负数表示支出）")

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from app.models.sold_order import SoldOrder
+from app.models.figure import Figure
 from app.services.sold_order_service.currency_service import CurrencyService
 
 
@@ -79,7 +80,7 @@ class SellOrderService:
                 "order_id": sold_order.id,
                 "order_number": sold_order.order_number or str(sold_order.id),
                 "sell_platform": cls._format_platform(sold_order.sell_platform),
-                "transaction_date": sold_order.created_at.strftime("%Y-%m-%d %H:%M:%S") if sold_order.created_at else "-",
+                "transaction_date": sold_order.sell_date.strftime("%Y-%m-%d %H:%M:%S") if sold_order.sell_date else "-",
                 "status": "已完成"
             },
 

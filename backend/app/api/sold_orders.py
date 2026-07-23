@@ -14,7 +14,7 @@ from app.services.sold_order_service.sold_order_number_service import SoldOrderN
 from app.services.dashboard_service.assets_service.holding_position_service import HoldingPositionService
 from pydantic import BaseModel, field_validator
 import re
-from datetime import datetime
+from datetime import datetime, date
 
 router = APIRouter()
 
@@ -57,6 +57,8 @@ class CreateFromInventoryRequest(BaseModel):
     shipping_fee: float = 0.0
     platform_fee: float = 0.0
     sell_platform: str
+    payment_method: str
+    sell_date: date
     buyer_phone: str = ""
     buyer_address: str = ""
     remarks: str = ""
@@ -73,6 +75,20 @@ class CreateFromInventoryRequest(BaseModel):
     def validate_sell_price(cls, v):
         if v <= 0:
             raise ValueError('卖出价格必须大于0')
+        return v
+
+    @field_validator('payment_method')
+    @classmethod
+    def validate_payment_method(cls, v):
+        if v == '' or v is None:
+            raise ValueError('请选择支付方式')
+        return v
+
+    @field_validator('sell_date', mode='before')
+    @classmethod
+    def validate_sell_date(cls, v):
+        if v is None:
+            return datetime.now().date()
         return v
 
     @field_validator('buyer_phone')
@@ -365,6 +381,7 @@ def create_sell_order_from_inventory(
         order_data = SoldOrderCreate(
             figure_id=request.figure_id,
             quantity=request.quantity,
+            payment_method=request.payment_method,
             sell_price=total_sell_price,
             cost_price=total_cost_price,
             shipping_fee=request.shipping_fee,
@@ -379,7 +396,7 @@ def create_sell_order_from_inventory(
             buyer_address=request.buyer_address,
             remarks=request.remarks,
             status='已完成',
-            sell_date=datetime.now().date()
+            sell_date=request.sell_date
         )
 
         # 3. 创建卖出订单（内部自动处理：交易记录、库存扣减、手办状态更新）

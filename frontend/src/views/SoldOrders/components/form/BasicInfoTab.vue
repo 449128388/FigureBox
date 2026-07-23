@@ -49,6 +49,25 @@
         />
       </div>
       <div class="form-group">
+        <label>支付方式 <span class="required">*</span></label>
+        <el-select v-model="order.payment_method" placeholder="请选择支付方式" style="width: 100%;">
+          <el-option label="支付宝" value="支付宝" />
+          <el-option label="微信" value="微信" />
+          <el-option label="银行卡" value="银行卡" />
+        </el-select>
+      </div>
+      <div class="form-group">
+        <label>卖出时间 <span class="required">*</span></label>
+        <el-date-picker
+          v-model="order.sell_date"
+          type="datetime"
+          placeholder="选择卖出时间"
+          style="width: 100%;"
+          format="YYYY-MM-DD HH:mm:ss"
+          value-format="YYYY-MM-DD HH:mm:ss"
+        />
+      </div>
+      <div class="form-group">
         <label>卖出状态 <span class="required">*</span></label>
         <el-select v-model="order.status" placeholder="请选择状态" style="width: 100%;">
           <el-option label="待发货" value="待发货" />

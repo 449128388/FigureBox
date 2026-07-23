@@ -54,6 +54,8 @@ async def filter_holdings(
     response: Response,
     keyword: Optional[str] = Query(None, description="手办名字搜索关键词"),
     status: Optional[str] = Query(None, description="风险状态筛选"),
+    page: int = Query(1, ge=1, description="当前页码"),
+    page_size: int = Query(9, ge=1, le=100, description="每页条数"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -61,13 +63,16 @@ async def filter_holdings(
     筛选持仓列表
 
     支持按手办名字模糊搜索和风险状态筛选
+    支持分页查询
 
     参数:
         keyword: 手办名字搜索关键词（模糊匹配）
         status: 风险状态筛选（如 '🚀 暴涨'）
+        page: 当前页码（从1开始）
+        page_size: 每页条数（默认9，可选9/18/36）
 
     返回:
-        筛选后的持仓列表
+        分页后的持仓列表
     """
     # 获取所有有效订单
     valid_orders = AssetsCommonService.get_valid_orders(db)
@@ -92,13 +97,22 @@ async def filter_holdings(
         holdings=holdings
     )
 
+    # 对筛选结果进行分页
+    paginated = HoldingFilterService.paginate_holdings(
+        holdings=filtered_holdings,
+        page=page,
+        page_size=page_size
+    )
+
     # 检查token续期
     AssetsCommonService.check_token_refresh(request, response)
 
     return {
-        "holdings": filtered_holdings,
-        "total_count": len(holdings),
-        "filtered_count": len(filtered_holdings),
+        "holdings": paginated["items"],
+        "total": paginated["total"],
+        "page": paginated["page"],
+        "page_size": paginated["page_size"],
+        "total_pages": paginated["total_pages"],
         "filter_options": HoldingFilterService.get_filter_options()
     }
 
