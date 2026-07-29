@@ -123,6 +123,7 @@
       :scale-error="scaleError"
       :material-error="materialError"
       :size-error="sizeError"
+      :source-url-error="sourceUrlError"
       @close="showAddForm = false"
       @submit="addFigure"
       @validate-name-input="validateNameOnInput"
@@ -135,6 +136,7 @@
       @validate-scale-input="validateScaleOnInput"
       @validate-material-input="validateMaterialOnInput"
       @validate-size-input="validateSizeOnInput"
+      @validate-source-url-input="validateSourceUrlOnInput"
       @view-image="viewImage"
       @remove-image="removeImage"
       @file-upload="handleFileUpload"
@@ -315,6 +317,7 @@ export default {
       scaleError,
       materialError,
       sizeError,
+      sourceUrlError,
       newFigure,
       totalFigures,
       paginatedFigures,
@@ -331,6 +334,7 @@ export default {
       validateScaleOnInput,
       validateMaterialOnInput,
       validateSizeOnInput,
+      validateSourceUrlOnInput,
       formatDate,
       openAddForm,
       handleTagChange,
@@ -422,6 +426,7 @@ export default {
       scaleError,
       materialError,
       sizeError,
+      sourceUrlError,
       newFigure,
       totalFigures,
       paginatedFigures,
@@ -438,6 +443,7 @@ export default {
       validateScaleOnInput,
       validateMaterialOnInput,
       validateSizeOnInput,
+      validateSourceUrlOnInput,
       formatDate,
       openAddForm,
       handleTagChange,

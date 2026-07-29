@@ -96,10 +96,12 @@
                 :scale-error="scaleError"
                 :material-error="materialError"
                 :size-error="sizeError"
+                :source-url-error="sourceUrlError"
                 @validate-manufacturer-input="$emit('validate-manufacturer-input')"
                 @validate-scale-input="$emit('validate-scale-input')"
                 @validate-material-input="$emit('validate-material-input')"
                 @validate-size-input="$emit('validate-size-input')"
+                @validate-source-url-input="$emit('validate-source-url-input')"
               />
             </el-tab-pane>
           </el-tabs>
@@ -158,13 +160,15 @@ export default {
     manufacturerError: String,
     scaleError: String,
     materialError: String,
-    sizeError: String
+    sizeError: String,
+    sourceUrlError: String
   },
   emits: [
     'update:figure', 'update:activeTab', 'close', 'submit',
     'validate-name-input', 'validate-japanese-name-input', 'validate-purchase-method-input',
     'validate-painting-input', 'validate-original-art-input', 'validate-work-input',
     'validate-manufacturer-input', 'validate-scale-input', 'validate-material-input', 'validate-size-input',
+    'validate-source-url-input',
     'view-image', 'remove-image', 'file-upload', 'tag-change', 'reorder-images'
   ],
   computed: {

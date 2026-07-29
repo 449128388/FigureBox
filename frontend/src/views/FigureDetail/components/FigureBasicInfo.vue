@@ -78,6 +78,12 @@
           <span class="info-label">备注</span>
           <span class="info-value note-value">{{ figure.note }}</span>
         </div>
+        <div class="info-item" v-if="figure.source_url">
+          <span class="info-label">来源链接</span>
+          <span class="info-value link-value">
+            <a :href="figure.source_url" target="_blank" rel="noopener noreferrer" class="source-link">{{ figure.source_url }}</a>
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -101,7 +107,7 @@ export default {
         || f.price || f.market_price || f.release_date
         || f.average_purchase_price || f.purchase_date
         || f.purchase_method || f.purchase_type
-        || f.quantity || f.note)
+        || f.quantity || f.note || f.source_url)
     },
     statusBadge() {
       const { getFigureStatusBadge } = useFigureDetail()
@@ -201,5 +207,15 @@ export default {
   line-height: 1.6;
   color: #444;
   font-weight: 400;
+}
+.source-link {
+  color: #1890ff;
+  text-decoration: none;
+  word-break: break-all;
+  font-weight: 400;
+}
+.link-value {
+  max-width: 380px;
+  overflow: hidden;
 }
 </style>

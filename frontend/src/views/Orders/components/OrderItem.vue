@@ -251,6 +251,7 @@ export default {
 .order-item p {
   margin-bottom: 5px;
   color: #666;
+  word-break: break-all;
 }
 
 .figure-name-link {

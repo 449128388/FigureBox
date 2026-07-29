@@ -194,6 +194,11 @@ export function useOrderManagement() {
         }
       }
 
+      // 已完成单独筛选时按出荷日期降序排序（最新完成排前面）
+      if (currentStatus.value === '已完成') {
+        return dueB - dueA
+      }
+
       // 其他情况按出荷日期升序排序（即将出荷的排在前面）
       return dueA - dueB
     })

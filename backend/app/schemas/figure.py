@@ -86,6 +86,7 @@ class FigureBase(BaseModel):
     size: str | None = None
     note: str | None = None
     images: List[str] | None = []
+    source_url: str | None = None
 
     @field_validator('release_date', 'purchase_date', mode='before')
     @classmethod
@@ -201,6 +202,7 @@ class FigureUpdate(BaseModel):
     size: str | None = None
     note: str | None = None
     images: List[str] | None = None
+    source_url: str | None = None
 
     @field_validator('name', mode='before')
     @classmethod
@@ -311,6 +313,7 @@ class FigureListItem(BaseModel):
     # 订单相关字段
     order_count: int = 0  # 关联订单数量
     average_purchase_price: float = 0  # 平均入手价格
+    source_url: str | None = None
 
     class Config:
         from_attributes = True

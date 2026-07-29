@@ -65,6 +65,16 @@
         placeholder="手办备注信息"
       ></el-input>
     </div>
+    <div class="form-group full-width">
+      <label>来源链接</label>
+      <el-input
+        v-model="localFigure.source_url"
+        placeholder="手办信息来源 URL（HPOI / Amiami / MFC 等）"
+        :class="{ 'error-input': sourceUrlError }"
+        @input="$emit('validate-source-url-input')"
+      ></el-input>
+      <div v-if="sourceUrlError" class="error-message">{{ sourceUrlError }}</div>
+    </div>
   </div>
 </template>
 
@@ -79,14 +89,16 @@ export default {
     manufacturerError: String,
     scaleError: String,
     materialError: String,
-    sizeError: String
+    sizeError: String,
+    sourceUrlError: String
   },
   emits: [
     'update:figure',
     'validate-manufacturer-input',
     'validate-scale-input',
     'validate-material-input',
-    'validate-size-input'
+    'validate-size-input',
+    'validate-source-url-input'
   ],
   computed: {
     localFigure: {

@@ -45,6 +45,7 @@ export function useFigureManagement() {
   const scaleError = ref('')
   const materialError = ref('')
   const sizeError = ref('')
+  const sourceUrlError = ref('')
 
   // 默认表单数据
   const defaultFigure = {
@@ -69,7 +70,8 @@ export function useFigureManagement() {
     size: '',
     images: [],
     tag_ids: [],
-    note: ''
+    note: '',
+    source_url: ''
   }
 
   const newFigure = ref({ ...defaultFigure })
@@ -101,6 +103,7 @@ export function useFigureManagement() {
     scaleError.value = ''
     materialError.value = ''
     sizeError.value = ''
+    sourceUrlError.value = ''
   }
 
   const validateName = () => {
@@ -152,6 +155,12 @@ export function useFigureManagement() {
 
   const validateSizeOnInput = () => {
     // 尺寸验证逻辑
+  }
+
+  const validateSourceUrlOnInput = () => {
+    if (sourceUrlError.value) {
+      sourceUrlError.value = ''
+    }
   }
 
   const formatDate = (date) => {
@@ -496,6 +505,7 @@ export function useFigureManagement() {
     scaleError,
     materialError,
     sizeError,
+    sourceUrlError,
     newFigure,
     // computed
     totalFigures,
@@ -514,6 +524,7 @@ export function useFigureManagement() {
     validateScaleOnInput,
     validateMaterialOnInput,
     validateSizeOnInput,
+    validateSourceUrlOnInput,
     formatDate,
     openAddForm,
     handleTagChange,
