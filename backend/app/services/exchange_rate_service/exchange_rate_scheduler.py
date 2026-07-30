@@ -91,8 +91,20 @@ class ExchangeRateScheduler:
                 name="汇率缓存锁清理（每日 00:10）",
                 replace_existing=True
             )
+            # 每日 00:20 清理汇率历史数据，仅保留最近 2 个月
+            self._scheduler.add_job(
+                func=cleanup_exchange_rate_history,
+                trigger=CronTrigger(
+                    hour=0,
+                    minute=20,
+                    timezone=BEIJING_TZ
+                ),
+                id="exchange_rate_history_cleanup",
+                name="汇率历史数据清理（每日 00:20，保留 2 个月）",
+                replace_existing=True
+            )
             self._scheduler.start()
-            logger.info("汇率定时任务调度器已启动（工作日 09:25 执行，每日 00:10 清理锁）")
+            logger.info("汇率定时任务调度器已启动（工作日 09:25 执行，每日 00:10 清理锁，00:20 清理历史）")
 
     def stop(self):
         if self._scheduler and self._scheduler.running:
@@ -139,6 +151,19 @@ def clear_exchange_rate_lock():
     logger.info("定时任务：清除汇率并发锁...")
     ExchangeRateService.clear_fetch_lock()
     logger.info("汇率并发锁已清除，确保 09:25 汇率刷新可正常执行")
+
+
+def cleanup_exchange_rate_history():
+    """清理汇率历史数据（每日 00:20 定时任务回调）"""
+    logger.info("定时任务：清理汇率历史数据（保留最近 2 个月）...")
+    db: Session = SessionLocal()
+    try:
+        deleted = ExchangeRateService.cleanup_history(db)
+        logger.info(f"汇率历史数据清理完成，共删除 {deleted} 条过期记录")
+    except Exception as e:
+        logger.error(f"定时任务清理汇率历史数据失败: {e}")
+    finally:
+        db.close()
 
 
 def start_scheduler():

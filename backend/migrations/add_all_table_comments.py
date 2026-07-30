@@ -29,8 +29,7 @@ TABLE_COMMENTS = {
     "holding_snapshots": "持仓快照表 - 每日收盘时各手办的持仓数据快照",
     "holding_snapshot_summaries": "持仓快照汇总表 - 每日收盘时用户持仓汇总数据",
     "user_asset_snapshots": "用户资产每日快照表 - 每日记录用户资产状况用于日涨跌对比",
-    "tags": "标签表 - 手办标签（作品、角色、属性等分类）",
-    "figure_tag": "手办-标签关联表 - 手办和标签的多对多关联中间表",
+    "tags": "标签表 - 手办标签字典（作品、角色、属性等分类），供前端标签下拉候选使用",
     "activity_feed": "动态流表 - 收藏家模式的动态事件记录（入手、到库、售出等）",
     "collector_privacy": "收藏家隐私设置表 - 收藏家模式下的个人主页可见性等隐私配置",
     "favorite_manufacturers": "本命厂商表 - 用户关注/收藏的手办厂商列表",
@@ -48,6 +47,11 @@ TABLE_COMMENTS = {
 COLUMN_COMMENTS = {
     "hpoi_scrape_cache": {
         "id": "缓存记录唯一标识ID",
+    },
+    # orders 表的支付方式/时间字段注释同步（原由 add_order_balance_payment_fields.py 承担 MODIFY COLUMN 增量更新，现归口到本脚本）
+    "orders": {
+        "payment_method": "定金支付方式：支付宝、微信、银行卡转账、现金",
+        "payment_time": "定金支付时间",
     },
 }
 

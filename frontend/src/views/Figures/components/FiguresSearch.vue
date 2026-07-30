@@ -37,18 +37,18 @@
       <el-button @click="handleReset">重置</el-button>
     </div>
     <!-- 标签筛选显示 -->
-    <div v-if="searchTagIds.length > 0" class="tag-filter-info" style="margin-top: 10px; padding: 8px 12px; background-color: #f0f9ff; border-radius: 4px; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+    <div v-if="searchTagNames.length > 0" class="tag-filter-info" style="margin-top: 10px; padding: 8px 12px; background-color: #f0f9ff; border-radius: 4px; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px;">
       <span style="color: #606266; margin-right: 4px;">当前标签筛选:</span>
-      <el-tag 
-        v-for="tagId in searchTagIds" 
-        :key="tagId"
-        size="small" 
-        type="primary" 
-        closable 
-        @close="$emit('filter-by-tag', tagId)"
+      <el-tag
+        v-for="tagName in searchTagNames"
+        :key="tagName"
+        size="small"
+        type="primary"
+        closable
+        @close="$emit('filter-by-tag', tagName)"
         style="font-size: 14px;"
       >
-        {{ getTagNameById(tagId) }}
+        {{ tagName }}
       </el-tag>
     </div>
   </div>
@@ -70,7 +70,7 @@ export default {
       type: Array,
       default: () => []
     },
-    searchTagIds: {
+    searchTagNames: {
       type: Array,
       default: () => []
     },
@@ -112,10 +112,6 @@ export default {
     },
     handleReset() {
       this.$emit('reset')
-    },
-    getTagNameById(tagId) {
-      const tag = this.tagStore.tags.find(t => t.id === tagId)
-      return tag ? tag.name : ''
     }
   }
 }

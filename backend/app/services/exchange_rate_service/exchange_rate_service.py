@@ -153,6 +153,41 @@ class ExchangeRateService:
         _fetch_lock = threading.Lock()
         logger.info("汇率并发锁已重置")
 
+    @staticmethod
+    def cleanup_history(db: Session, retention_months: int = 2) -> int:
+        """
+        清理 exchange_rate_history 表中超过保留期限的历史数据
+
+        汇率历史数据仅用于近期数据回溯，保留 2 个月可显著降低表数据量。
+
+        Args:
+            db: 数据库会话
+            retention_months: 保留月数（默认 2 个月）
+
+        Returns:
+            int: 删除的记录数
+        """
+        from datetime import timedelta
+
+        cutoff_date = datetime.now() - timedelta(days=retention_months * 30)
+        try:
+            deleted_count = db.query(ExchangeRateHistory).filter(
+                ExchangeRateHistory.record_date < cutoff_date
+            ).delete()
+            db.commit()
+            if deleted_count > 0:
+                logger.info(
+                    f"汇率历史数据清理完成：删除 {deleted_count} 条 "
+                    f"早于 {cutoff_date.strftime('%Y-%m-%d %H:%M:%S')} 的记录"
+                )
+            else:
+                logger.debug("汇率历史数据无需清理")
+            return deleted_count
+        except Exception as e:
+            db.rollback()
+            logger.error(f"汇率历史数据清理失败: {e}")
+            return 0
+
     # ========== 内部方法 ==========
 
     @staticmethod

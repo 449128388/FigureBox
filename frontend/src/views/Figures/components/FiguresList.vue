@@ -13,7 +13,7 @@
 
   维护提示：
   - 接收 figures 数组作为 props
-  - 接收 searchTagIds 作为 props 传递给 FigureItem
+  - 接收 searchTagNames 作为 props 传递给 FigureItem
   - 接收 isBatchMode、selectedIds、disabledIds 作为批量选择相关 props
   - 编辑、删除、筛选标签、切换选择等事件通过 $emit 传递给父组件
 -->
@@ -27,7 +27,7 @@
       v-for="figure in figures"
       :key="figure.id"
       :figure="figure"
-      :search-tag-ids="searchTagIds"
+      :search-tag-names="searchTagNames"
       :is-batch-mode="isBatchMode"
       :is-selected="isSelected(figure.id)"
       :is-disabled="isDisabled(figure.id)"
@@ -53,7 +53,7 @@ export default {
       type: Array,
       required: true
     },
-    searchTagIds: {
+    searchTagNames: {
       type: Array,
       default: () => []
     },

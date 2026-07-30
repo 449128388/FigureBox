@@ -79,7 +79,7 @@
       v-model:search-name="searchName"
       v-model:search-purchase-type="searchPurchaseType"
       v-model:search-purchase-date-range="searchPurchaseDateRange"
-      :search-tag-ids="searchTagIds"
+      :search-tag-names="searchTagNames"
       :tag-store="tagStore"
       @search="handleSearch"
       @reset="resetSearch"
@@ -88,7 +88,7 @@
 
     <FiguresList
       :figures="paginatedFigures"
-      :search-tag-ids="searchTagIds"
+      :search-tag-names="searchTagNames"
       :is-batch-mode="isBatchMode"
       :selected-ids="selectedIds"
       :disabled-ids="disabledIds"
@@ -306,7 +306,7 @@ export default {
       searchName,
       searchPurchaseDateRange,
       searchPurchaseType,
-      searchTagIds,
+      searchTagNames,
       nameError,
       japaneseNameError,
       purchaseMethodError,
@@ -350,7 +350,6 @@ export default {
       handleSearch,
       resetSearch,
       filterByTag,
-      getTagNameById,
       getSortedTags,
       fetchFiguresWithSearch,
       downloadFigures,
@@ -415,7 +414,7 @@ export default {
       searchName,
       searchPurchaseDateRange,
       searchPurchaseType,
-      searchTagIds,
+      searchTagNames,
       nameError,
       japaneseNameError,
       purchaseMethodError,
@@ -459,7 +458,6 @@ export default {
       handleSearch,
       resetSearch,
       filterByTag,
-      getTagNameById,
       getSortedTags,
       fetchFiguresWithSearch,
       logout,

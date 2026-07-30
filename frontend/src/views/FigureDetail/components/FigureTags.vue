@@ -22,10 +22,10 @@
     <div class="card-body">
       <div class="tag-list">
         <span
-          v-for="tag in figure.tags"
-          :key="tag.id"
+          v-for="(tag, index) in figure.tags"
+          :key="index"
           class="tag"
-        >{{ tag.name }}</span>
+        >{{ tag }}</span>
       </div>
     </div>
   </div>

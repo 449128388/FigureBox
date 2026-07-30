@@ -19,6 +19,7 @@ from app.services.dashboard_service.assets_service.asset_core_calculations impor
     TotalAssetsCalculator,
     DailyCacheService,
 )
+from app.services.dashboard_service.assets_service.index_service import IndexService
 
 logger = logging.getLogger(__name__)
 BEIJING_TZ = timezone("Asia/Shanghai")
@@ -50,8 +51,16 @@ class AssetCacheScheduler:
                 name='兜底补全昨日缓存',
                 replace_existing=True,
             )
+            # 每日 00:15 清理 stock_index_history 表，仅保留最近 2 个月（60 天）
+            self._scheduler.add_job(
+                func=self._cleanup_stock_index_history,
+                trigger=CronTrigger(hour=0, minute=15, timezone=BEIJING_TZ),
+                id='stock_index_history_cleanup',
+                name='股票指数历史数据清理（每日 00:15，保留 2 个月）',
+                replace_existing=True,
+            )
             self._scheduler.start()
-            logger.info("资产缓存定时任务调度器已启动：每日 23:59 主动写入，00:10 兜底补齐")
+            logger.info("资产缓存定时任务调度器已启动：每日 23:59 主动写入，00:10 兜底补齐，00:15 清理指数历史")
 
     def stop(self):
         """停止定时任务调度器"""
@@ -127,6 +136,23 @@ class AssetCacheScheduler:
                 logger.info(f"[兜底] 所有用户 {yesterday} 缓存已存在，无需补全")
         except Exception as e:
             logger.error(f"[兜底] 兜底任务执行失败: {e}")
+        finally:
+            db.close()
+
+    # ── 00:15 指数历史清理任务 ──────────────────────────────────────
+    def _cleanup_stock_index_history(self):
+        """
+        每日清理 stock_index_history 表中的过期历史数据
+
+        清理早于 60 天（2 个月）的指数历史记录，保留近期数据用于走势对比分析。
+        """
+        db = SessionLocal()
+        try:
+            logger.info("[指数清理] 开始清理 stock_index_history 表过期数据")
+            deleted = IndexService.cleanup_history(db)
+            logger.info(f"[指数清理] 完成，共删除 {deleted} 条 60 天前的记录")
+        except Exception as e:
+            logger.error(f"[指数清理] 执行失败: {e}")
         finally:
             db.close()
 

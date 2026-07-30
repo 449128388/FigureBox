@@ -90,10 +90,12 @@
         <label class="form-label">来源链接</label>
         <input v-model="form.source_url" type="text" class="form-input" placeholder="商品详情页URL" />
       </div>
-      <div class="form-group">
-        <label class="form-label">标签 <span style="font-weight:400;color:#999">(用空格分隔)</span></label>
-        <input v-model="form.tags" type="text" class="form-input" placeholder="花嫁 婚纱 限定" />
-      </div>
+      <!-- 2026-07-29 重构：复用手办库 FormTagsTab 组件，保持 UI 与契约一致 -->
+      <FormTagsTab
+        :figure="form"
+        :tag-store="tagStore"
+        @update:figure="onFigureUpdate"
+      />
     </div>
 
     <div class="form-section">
@@ -113,6 +115,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { wishlistApi } from '../api/wishlistApi'
+import { useTagStore } from '../../../store/index'
+import FormTagsTab from '../../Figures/components/form/FormTagsTab.vue'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -124,6 +128,12 @@ const emit = defineEmits(['close', 'save'])
 
 const manufacturers = ref([])
 const scales = ref([])
+const tagStore = useTagStore()
+
+const onFigureUpdate = (val) => {
+  // 2026-07-29 重构：FormTagsTab 通过 update:figure 回传整个 form 对象，需同步到外部 props.form
+  Object.assign(props.form, val)
+}
 
 onMounted(async () => {
   try {
@@ -137,6 +147,14 @@ onMounted(async () => {
     scales.value = scaleRes || []
   } catch {
     scales.value = []
+  }
+  // 2026-07-29 重构：标签下拉需 tagStore 标签名兜底
+  try {
+    if (!tagStore.tags || tagStore.tags.length === 0) {
+      await tagStore.fetchTags()
+    }
+  } catch {
+    // 静默失败：标签下拉为空时仍可手动输入
   }
 })
 </script>

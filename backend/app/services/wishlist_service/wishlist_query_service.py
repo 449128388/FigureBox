@@ -9,10 +9,9 @@ wishlist_query_service - 愿望清单查询服务
 from typing import List, Optional, Dict, Any
 from datetime import date
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, text
 
 from app.models.figure import Figure
-from app.models.tag import Tag, figure_tag
 
 
 # 状态映射
@@ -100,11 +99,15 @@ class WishlistQueryService:
         if release_end:
             query = query.filter(Figure.release_date <= release_end)
 
-        # 标签过滤
+        # 标签过滤（2026-07-29 重构：使用 JSON_CONTAINS 替代 figure_tag 关联表；必须使用真实表名 figures.tags）
         if tag_names:
-            query = query.join(figure_tag, Figure.id == figure_tag.c.figure_id) \
-                         .join(Tag, Tag.id == figure_tag.c.tag_id) \
-                         .filter(Tag.name.in_(tag_names))
+            for tag_name in tag_names:
+                if not tag_name:
+                    continue
+                tag_name_escaped = tag_name.replace('"', '\\"')
+                query = query.filter(
+                    text(f"JSON_CONTAINS(figures.tags, '\"{tag_name_escaped}\"')")
+                )
 
         # 排序：新创建的在前面
         query = query.order_by(desc(Figure.created_at))
@@ -159,7 +162,8 @@ class WishlistQueryService:
         images = figure.images or []
         cover = images[0] if images else None
 
-        tags = [{"id": t.id, "name": t.name} for t in figure.tags]
+        # 2026-07-29 重构：tags 直接使用 figure.tags JSON 字段（List[str]），不再包装为对象
+        tags = list(figure.tags or []) if figure.tags else []
         real_status = _resolve_status(figure)
 
         return {

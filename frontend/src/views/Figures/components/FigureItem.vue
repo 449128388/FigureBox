@@ -11,7 +11,7 @@
 
   组件依赖：
   - 接收 figure 作为 props，包含手办的详细信息
-  - 接收 searchTagIds 作为 props，用于高亮当前筛选的标签
+  - 接收 searchTagNames 作为 props，用于高亮当前筛选的标签
   - 接收 isBatchMode 作为 props，控制是否显示批量选择模式
   - 接收 isSelected 作为 props，控制复选框选中状态
   - 接收 isDisabled 作为 props，控制复选框禁用状态
@@ -88,15 +88,15 @@
         <span class="tags-label">标签:</span>
         <el-tag
           v-for="tag in getSortedTags(figure.tags)"
-          :key="tag.id"
+          :key="tag"
           size="small"
           effect="light"
           class="clickable-tag"
-          @click="$emit('filter-by-tag', tag.id)"
+          @click="$emit('filter-by-tag', tag)"
           style="margin-right: 4px; margin-bottom: 4px; cursor: pointer;"
-          :type="searchTagIds.includes(tag.id) ? 'primary' : ''"
+          :type="searchTagNames.includes(tag) ? 'primary' : ''"
         >
-          {{ tag.name }}
+          {{ tag }}
         </el-tag>
       </div>
     </div>
@@ -137,7 +137,7 @@ export default {
       type: Object,
       required: true
     },
-    searchTagIds: {
+    searchTagNames: {
       type: Array,
       default: () => []
     },
@@ -185,7 +185,7 @@ export default {
     },
     getSortedTags(tags) {
       if (!tags || !Array.isArray(tags)) return []
-      return [...tags].sort((a, b) => a.id - b.id)
+      return [...tags].sort((a, b) => String(a).localeCompare(String(b)))
     }
   }
 }

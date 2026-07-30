@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app.models.figure import Figure
-from app.models.tag import Tag
 from .wishlist_query_service import STATUS_MAP, PURCHASE_TYPE
 
 
@@ -83,20 +82,13 @@ class WishlistCrudService:
         db.add(figure)
         db.flush()
 
-        # 处理标签
+        # 2026-07-29 重构：标签直接使用 figure.tags JSON 字段
         tag_names = data.get("tag_names") or data.get("tags") or []
         if isinstance(tag_names, str):
             tag_names = [t.strip() for t in tag_names.split() if t.strip()]
-        for tag_name in tag_names:
-            if not tag_name:
-                continue
-            tag = db.query(Tag).filter(Tag.name == tag_name).first()
-            if not tag:
-                tag = Tag(name=tag_name)
-                db.add(tag)
-                db.flush()
-            if tag not in figure.tags:
-                figure.tags.append(tag)
+        # 去重
+        tag_names = list(dict.fromkeys([t for t in tag_names if t]))
+        figure.tags = tag_names
 
         db.commit()
         db.refresh(figure)
@@ -170,16 +162,8 @@ class WishlistCrudService:
             tag_names = data.get("tag_names") or data.get("tags") or []
             if isinstance(tag_names, str):
                 tag_names = [t.strip() for t in tag_names.split() if t.strip()]
-            figure.tags.clear()
-            for tag_name in tag_names:
-                if not tag_name:
-                    continue
-                tag = db.query(Tag).filter(Tag.name == tag_name).first()
-                if not tag:
-                    tag = Tag(name=tag_name)
-                    db.add(tag)
-                    db.flush()
-                figure.tags.append(tag)
+            # 2026-07-29 重构：直接覆盖 figure.tags JSON 字段
+            figure.tags = list(dict.fromkeys([t for t in tag_names if t]))
 
         db.commit()
         db.refresh(figure)

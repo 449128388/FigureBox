@@ -176,7 +176,7 @@ class FigureBase(BaseModel):
 
 
 class FigureCreate(FigureBase):
-    tag_ids: List[int] = []  # 标签ID列表
+    tag_names: List[str] = []  # 标签名称列表（2026-07-29 重构：从 tag_ids 改为 tag_names）
 
 
 class FigureUpdate(BaseModel):
@@ -185,7 +185,7 @@ class FigureUpdate(BaseModel):
     manufacturer: str | None = None
     price: float | None = None
     currency: str | None = None
-    tag_ids: List[int] | None = None  # 标签ID列表
+    tag_names: List[str] | None = None  # 标签名称列表（2026-07-29 重构：从 tag_ids 改为 tag_names）
     release_date: date | None = None
     purchase_currency: str | None = None
     purchase_date: date | None = None
@@ -277,7 +277,7 @@ class FigureUpdate(BaseModel):
 
 class Figure(FigureBase):
     id: int
-    tags: List[Tag] = []  # 返回完整的标签信息
+    tags: List[str] = []  # 2026-07-29 重构：标签名称列表（从 List[Tag] 改为 List[str]）
     average_purchase_price: float = 0  # 平均入手价格（根据订单自动计算）
 
     class Config:
@@ -309,7 +309,7 @@ class FigureListItem(BaseModel):
     note: str | None = None
     # 图片只返回第一张或空，减少数据量
     image: str | None = None
-    tags: List[Tag] = []
+    tags: List[str] = []  # 2026-07-29 重构：标签名称列表（从 List[Tag] 改为 List[str]）
     # 订单相关字段
     order_count: int = 0  # 关联订单数量
     average_purchase_price: float = 0  # 平均入手价格

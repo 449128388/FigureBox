@@ -45,7 +45,7 @@
         </div>
       </div>
       <div v-if="item.tags && item.tags.length" class="card-tags">
-        <span v-for="t in item.tags" :key="t.id" class="tag">{{ t.name }}</span>
+        <span v-for="(t, index) in item.tags" :key="index" class="tag">{{ t }}</span>
       </div>
       <div v-if="item.note" class="card-note">{{ item.note }}</div>
       <div class="card-actions">

@@ -30,8 +30,7 @@ def get_figures(
     purchase_type: str = None,
     purchase_date_start: str = None,
     purchase_date_end: str = None,
-    tag_id: int = None,
-    tag_ids: list[int] = Query(None),
+    tag_names: list[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -51,8 +50,7 @@ def get_figures(
         purchase_type=purchase_type,
         purchase_date_start=purchase_date_start,
         purchase_date_end=purchase_date_end,
-        tag_id=tag_id,
-        tag_ids=tag_ids
+        tag_names=tag_names
     )
 
 

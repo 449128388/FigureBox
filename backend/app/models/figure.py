@@ -84,6 +84,11 @@ class Figure(Base):
     source_url = Column(String(500), nullable=True, comment="愿望清单来源URL（HPOI/Amiami/MFC/手动）")
     note = Column(Text, nullable=True, comment="愿望清单备注")
 
+    # 标签（JSON 数组，元素为标签名称字符串，如 ["GSC", "火影忍者", "预定中"]）
+    # 2026-07-29 重构：合并原 figure_tag 关联表 + tags 标签表，改为反范式 JSON 字段
+    # 多对多关系由 JSON_CONTAINS 反范式支持，旧表保留只读作为回滚缓冲
+    tags = Column(JSON, nullable=True, comment="标签名称列表（JSON 数组）")
+
     # 软删除标记
     is_active = Column(Integer, default=1, comment="是否激活：1=正常，0=已删除")
     deleted_at = Column(DateTime, nullable=True, comment="删除时间（软删除标记）")
@@ -94,4 +99,5 @@ class Figure(Base):
 
     # 关系
     orders = relationship("Order", back_populates="figure")  # 关联订单列表
-    tags = relationship("Tag", secondary="figure_tag", back_populates="figures")  # 多对多关联标签
+    # 2026-07-29 重构：移除 tags 关系（原通过 figure_tag 中间表关联 Tag 模型）
+    # 现改为 figures.tags JSON 字段直接存储标签名称列表

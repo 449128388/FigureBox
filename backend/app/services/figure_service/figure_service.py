@@ -77,13 +77,12 @@ class FigureService:
         purchase_type: Optional[str] = None,
         purchase_date_start: Optional[str] = None,
         purchase_date_end: Optional[str] = None,
-        tag_id: Optional[int] = None,
-        tag_ids: Optional[List[int]] = None
+        tag_names: Optional[List[str]] = None
     ):
         """构建手办列表查询"""
         return FigureQueryService.build_figure_list_query(
             db, name, purchase_type, purchase_date_start,
-            purchase_date_end, tag_id, tag_ids
+            purchase_date_end, tag_names
         )
 
     @staticmethod
@@ -95,15 +94,14 @@ class FigureService:
         purchase_type: Optional[str] = None,
         purchase_date_start: Optional[str] = None,
         purchase_date_end: Optional[str] = None,
-        tag_id: Optional[int] = None,
-        tag_ids: Optional[List[int]] = None,
+        tag_names: Optional[List[str]] = None,
         user_id: Optional[int] = None,
         filter_by_order_limit: bool = False
     ) -> List[FigureListItem]:
         """获取手办列表"""
         return FigureQueryService.get_figures_list(
             db, skip, limit, name, purchase_type,
-            purchase_date_start, purchase_date_end, tag_id, tag_ids,
+            purchase_date_start, purchase_date_end, tag_names,
             user_id, filter_by_order_limit
         )
 

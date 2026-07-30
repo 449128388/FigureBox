@@ -11,7 +11,6 @@ from sqlalchemy.exc import IntegrityError
 from app.models.figure import Figure
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
-from app.models.tag import Tag, figure_tag
 from .figure_service import FigureService
 from app.services.asset_transaction_service import AssetTransactionService
 from app.services.order_transaction_service import OrderTransactionService
@@ -48,23 +47,19 @@ class FigureImportService:
         return None
     
     @staticmethod
-    def get_or_create_tag(db: Session, tag_name: str) -> Tag:
+    def get_or_create_tag(db: Session, tag_name: str) -> str:
         """
-        获取或创建标签
-        
+        获取或规范化标签名称（2026-07-29 重构：标签已合并到 figures.tags JSON 字段，无需再操作 Tag 表）
+
         Args:
-            db: 数据库会话
+            db: 数据库会话（保留以兼容旧签名）
             tag_name: 标签名称
-            
+
         Returns:
-            Tag对象
+            规范化后的标签名称字符串
         """
-        tag = db.query(Tag).filter(Tag.name == tag_name).first()
-        if not tag:
-            tag = Tag(name=tag_name)
-            db.add(tag)
-            db.flush()
-        return tag
+        # 去除首尾空格
+        return tag_name.strip() if tag_name else tag_name
     
     @staticmethod
     def import_figure(db: Session, figure_data: Dict[str, Any], user_id: int) -> Tuple[Figure, bool]:
@@ -105,23 +100,25 @@ class FigureImportService:
             'size': figure_data.get('size'),
             'images': figure_data.get('images', []),
             'quantity': figure_data.get('quantity', 1),
-            'tag_ids': []  # 标签稍后单独处理
+            'tags': []  # 2026-07-29 重构：标签改为 figure.tags JSON 字段，初始化为空列表
         }
-        
-        # 使用 FigureService 创建手办（会自动创建 asset_transactions）
-        figure = FigureService.create_figure(db, processed_data, user_id=user_id)
-        
-        # 处理标签
+
+        # 处理标签：合并为 JSON 字段（去重）
         tags_data = figure_data.get('tags', [])
+        tag_names_list = []
         if tags_data:
             for tag_data in tags_data:
                 tag_name = tag_data.get('name') if isinstance(tag_data, dict) else tag_data
                 if tag_name:
-                    tag = FigureImportService.get_or_create_tag(db, tag_name)
-                    if tag not in figure.tags:
-                        figure.tags.append(tag)
-            db.commit()
-        
+                    tag_name = tag_name.strip()
+                    if tag_name and tag_name not in tag_names_list:
+                        tag_names_list.append(tag_name)
+        processed_data['tags'] = tag_names_list
+
+        # 使用 FigureService 创建手办（会自动创建 asset_transactions）
+        figure = FigureService.create_figure(db, processed_data, user_id=user_id)
+
+        # 2026-07-29 重构：标签已通过 processed_data['tags'] 传入，无需再单独处理
         return figure, True
     
     @staticmethod

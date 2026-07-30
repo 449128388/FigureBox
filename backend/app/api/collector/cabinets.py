@@ -32,7 +32,6 @@ from app.models.database import get_db
 from app.models.figure import Figure
 from app.models.user import User
 from app.models.sold_order import SoldOrder
-from app.models.tag import Tag, figure_tag
 from app.models.asset import AssetTransaction
 from app.models.order import Order
 from app.api.users import get_current_user
@@ -187,52 +186,61 @@ async def get_collector_cabinets(
             })
 
     # ====== 3. 修复工坊（待修复） ======
+    # 2026-07-29 重构：标签改为从 figures.tags JSON 字段查询，不再使用 figure_tag 关联表
     repair_tag_names = ['待修复', '缺件', '断桩', '待补色', '蹭色']
-    repair_tags = db.query(Tag).filter(
-        Tag.name.in_(repair_tag_names)
-    ).all()
-    repair_tag_ids = [tag.id for tag in repair_tags]
+
+    # 用 OR 连接多个 JSON_CONTAINS 条件，匹配任一修复类标签的手办
+    from sqlalchemy import or_ as sql_or
+    or_conditions = []
+    for tag_name in repair_tag_names:
+        tag_name_escaped = tag_name.replace('"', '\\"')
+        # 2026-07-29 修复：JSON_CONTAINS 必须使用真实表名 figures.tags，而非 SQLAlchemy 类名 Figure.tags
+        or_conditions.append(
+            text(f"JSON_CONTAINS(figures.tags, '\"{tag_name_escaped}\"')")
+        )
 
     repair_figures = []
-    if repair_tag_ids:
-        # 通过 figure_tag 中间表查询有关联这些tag的figure
-        result = db.execute(
-            text("SELECT figure_id FROM figure_tag WHERE tag_id IN :tag_ids"),
-            {"tag_ids": tuple(repair_tag_ids)}
-        ).fetchall()
-
+    repair_figure_ids = set()
+    if or_conditions:
+        # 查询匹配的手办 ID 列表
+        result = db.query(Figure.id).filter(
+            Figure.is_active == True,
+            Figure.tags.isnot(None),
+            sql_or(*or_conditions)
+        ).all()
         repair_figure_ids = set(row[0] for row in result)
-        # 过滤掉已排除的手办
-        repair_figure_ids -= exclusion_map.get('fix', set())
-        for fid in repair_figure_ids:
-            fig = db.query(Figure).filter(Figure.id == fid).first()
-            if fig:
-                # 计算陪伴天数（首次入库日期至今）
-                holding_days = 0
-                first_buy = db.query(AssetTransaction).filter(
-                    AssetTransaction.figure_id == fid,
-                    AssetTransaction.user_id == current_user.id,
-                    AssetTransaction.transaction_type == 'buy',
-                    AssetTransaction.is_active == True
-                ).order_by(AssetTransaction.transaction_date.asc()).first()
-                if first_buy and first_buy.transaction_date:
-                    days = (now - first_buy.transaction_date).days
-                    if days > 0:
-                        holding_days = days
-                # 获取首次入库日期
-                first_buy_date = first_buy.transaction_date if first_buy and first_buy.transaction_date else None
-                repair_figures.append({
-                    "id": fid,
-                    "name": fig.name or "未知",
-                    "image": get_image_url(fig),
-                    "holding_days": holding_days,
-                    "work": fig.work or "未知",
-                    "scale": fig.scale or "未知",
-                    "manufacturer": fig.manufacturer or "未知",
-                    "transaction_date": first_buy_date.strftime("%Y-%m-%d") if first_buy_date else None,
-                    "purchase_price": first_buy.price if first_buy else 0,
-                    "stock": get_figure_stock(db, current_user.id, fid)
-                })
+
+    # 过滤掉已排除的手办
+    repair_figure_ids -= exclusion_map.get('fix', set())
+    for fid in repair_figure_ids:
+        fig = db.query(Figure).filter(Figure.id == fid).first()
+        if fig:
+            # 计算陪伴天数（首次入库日期至今）
+            holding_days = 0
+            first_buy = db.query(AssetTransaction).filter(
+                AssetTransaction.figure_id == fid,
+                AssetTransaction.user_id == current_user.id,
+                AssetTransaction.transaction_type == 'buy',
+                AssetTransaction.is_active == True
+            ).order_by(AssetTransaction.transaction_date.asc()).first()
+            if first_buy and first_buy.transaction_date:
+                days = (now - first_buy.transaction_date).days
+                if days > 0:
+                    holding_days = days
+            # 获取首次入库日期
+            first_buy_date = first_buy.transaction_date if first_buy and first_buy.transaction_date else None
+            repair_figures.append({
+                "id": fid,
+                "name": fig.name or "未知",
+                "image": get_image_url(fig),
+                "holding_days": holding_days,
+                "work": fig.work or "未知",
+                "scale": fig.scale or "未知",
+                "manufacturer": fig.manufacturer or "未知",
+                "transaction_date": first_buy_date.strftime("%Y-%m-%d") if first_buy_date else None,
+                "purchase_price": first_buy.price if first_buy else 0,
+                "stock": get_figure_stock(db, current_user.id, fid)
+            })
 
     # ====== 4. 已出藏品（已出坑） ======
     sold_orders = db.query(SoldOrder).filter(

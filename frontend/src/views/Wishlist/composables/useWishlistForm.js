@@ -1,5 +1,8 @@
 /**
  * useWishlistForm.js - 手动录入 composable
+ *
+ * 2026-07-29 重构：标签字段从空格分隔字符串（form.tags）改为字符串数组（form.tag_names），
+ * 与手办库模块的 FormTagsTab 组件契约保持一致，便于复用同一标签录入 UI
  */
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -20,7 +23,7 @@ const initialForm = () => ({
   original_art: '',
   images: '',
   source_url: '',
-  tags: '',
+  tag_names: [],
   note: '',
   wishlist_status: 'wish'
 })
@@ -55,7 +58,7 @@ export function useWishlistForm() {
     form.original_art = item.original_art || ''
     form.images = (item.images || []).join(', ')
     form.source_url = item.source_url || ''
-    form.tags = (item.tags || []).map(t => t.name).join(' ')
+    form.tag_names = Array.isArray(item.tags) ? [...item.tags] : []
     form.note = item.note || ''
     form.wishlist_status = item.status || 'wish'
     isEditing.value = true
@@ -74,13 +77,17 @@ export function useWishlistForm() {
     }
     saving.value = true
     try {
-      const tagNames = (form.tags || '').split(/\s+/).filter(Boolean)
+      // 2026-07-29 重构：tag_names 已是字符串数组，直接去重后提交
+      const tagNames = Array.isArray(form.tag_names)
+        ? Array.from(new Set(form.tag_names.filter(t => t && String(t).trim())))
+        : []
       const images = (form.images || '').split(/[,\s]+/).filter(Boolean)
       const payload = {
         ...form,
         tag_names: tagNames,
         images
       }
+      delete payload.tags
       let result
       if (isEditing.value && editingId.value) {
         result = await wishlistApi.update(editingId.value, payload)

@@ -870,7 +870,6 @@ class CollectorActivityService:
         from app.models.asset import AssetTransaction
         from app.models.order import Order
         from app.models.sold_order import SoldOrder
-        from app.models.tag import Tag
 
         now = datetime.now()
         cabinets = []
@@ -902,18 +901,25 @@ class CollectorActivityService:
         if recent_buy:
             cabinets.append("最近入柜")
 
-        # 3. 修复工坊：有关联修复标签
+        # 3. 修复工坊：figures.tags JSON 字段包含任一修复类标签
+        # 2026-07-29 重构：从 figure_tag 关联表查询改为从 figures.tags JSON 字段查询
         repair_tag_names = ['待修复', '缺件', '断桩', '待补色', '蹭色']
-        repair_tags = db.query(Tag).filter(Tag.name.in_(repair_tag_names)).all()
-        repair_tag_ids = [t.id for t in repair_tags]
-        if repair_tag_ids:
-            from app.models.tag import figure_tag
-            link = db.execute(
-                text("SELECT 1 FROM figure_tag WHERE figure_id = :fid AND tag_id IN :tids"),
-                {"fid": figure_id, "tids": tuple(repair_tag_ids)}
-            ).first()
-            if link:
-                cabinets.append("修复工坊")
+        from sqlalchemy import or_ as _sql_or
+        or_conditions = []
+        # 2026-07-29 修复：JSON_CONTAINS 必须使用真实表名 figures.tags，否则 MySQL 报 Unknown column
+        for tag_name in repair_tag_names:
+            tag_name_escaped = tag_name.replace('"', '\\"')
+            or_conditions.append(
+                text(f"JSON_CONTAINS(figures.tags, '\"{tag_name_escaped}\"')")
+            )
+        has_repair_tag = db.query(Figure.id).filter(
+            Figure.id == figure_id,
+            Figure.is_active == True,
+            Figure.tags.isnot(None),
+            _sql_or(*or_conditions)
+        ).first()
+        if has_repair_tag:
+            cabinets.append("修复工坊")
 
         # 4. 已出藏品：有卖出记录
         sold = db.query(SoldOrder).filter(

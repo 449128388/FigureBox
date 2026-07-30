@@ -14,12 +14,12 @@ collector_tag_service.py - 收藏家模式标签云服务
 """
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from datetime import datetime, timedelta
 from typing import List, Set, Dict
+import json
 
 from app.models.figure import Figure
-from app.models.tag import Tag, figure_tag
 from app.models.order import Order
 from app.models.asset import AssetTransaction
 from app.models.sold_order import SoldOrder
@@ -39,7 +39,7 @@ class CollectorTagService:
     @staticmethod
     def get_user_tags(db: Session, user_id: int) -> list:
         """
-        获取用户标签（手动添加的 tags，来自 figure_tag 中间表）
+        获取用户标签（手动添加的 tags，来自 figures.tags JSON 字段）
 
         统计该用户关联的所有手办（通过 orders/asset_transactions）中使用的 tag
 
@@ -52,37 +52,35 @@ class CollectorTagService:
         if not user_figure_ids:
             return []
 
-        # 查询这些手办关联的所有标签
-        tag_links = db.execute(
-            figure_tag.select().where(figure_tag.c.figure_id.in_(user_figure_ids))
-        ).fetchall()
+        # 2026-07-29 重构：从 figure_tag 关联表查询改为从 figures.tags JSON 字段查询
+        # 直接查询这些手办，提取非空 tags
+        figures = db.query(Figure).filter(
+            Figure.id.in_(user_figure_ids),
+            Figure.is_active == True,
+            Figure.tags.isnot(None)
+        ).all()
 
-        tag_figure_map: Dict[int, Set[int]] = {}
-        for link in tag_links:
-            tag_id = link.tag_id
-            figure_id = link.figure_id
-            if tag_id not in tag_figure_map:
-                tag_figure_map[tag_id] = set()
-            tag_figure_map[tag_id].add(figure_id)
-
-        if not tag_figure_map:
-            return []
-
-        # 获取标签名称
-        tag_ids = list(tag_figure_map.keys())
-        tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
-        tag_name_map = {t.id: t.name for t in tags}
+        # 统计每个标签名出现的次数
+        tag_figure_map: Dict[str, Set[int]] = {}
+        for fig in figures:
+            tag_names = fig.tags if isinstance(fig.tags, list) else []
+            for name in tag_names:
+                if not name or name in CollectorTagService.SYSTEM_TAGS:
+                    continue
+                if name not in tag_figure_map:
+                    tag_figure_map[name] = set()
+                tag_figure_map[name].add(fig.id)
 
         result = []
-        for tag_id, figure_ids in tag_figure_map.items():
-            name = tag_name_map.get(tag_id)
-            if name and name not in CollectorTagService.SYSTEM_TAGS:
-                result.append({
-                    "name": name,
-                    "count": len(figure_ids),
-                    "type": "user"
-                })
+        for name, figure_ids in tag_figure_map.items():
+            result.append({
+                "name": name,
+                "count": len(figure_ids),
+                "type": "user"
+            })
 
+        # 按 count 降序排序
+        result.sort(key=lambda x: x["count"], reverse=True)
         return result
 
     @staticmethod
@@ -191,13 +189,18 @@ class CollectorTagService:
             # 系统标签 - 用业务规则匹配
             figure_ids = CollectorTagService._get_system_tag_figure_ids(db, user_id, tag_name)
         else:
-            # 用户标签 - 从 figure_tag 中间表查询
-            tag = db.query(Tag).filter(Tag.name == tag_name).first()
-            if tag:
-                links = db.execute(
-                    figure_tag.select().where(figure_tag.c.tag_id == tag.id)
-                ).fetchall()
-                figure_ids = set(link.figure_id for link in links)
+            # 2026-07-29 重构：用户标签改为从 figures.tags JSON 字段查询（JSON_CONTAINS）
+            # 先查询有关联手办的 figure 范围（用户的有效手办）
+            user_figure_ids = CollectorTagService._get_user_figure_ids(db, user_id)
+            if user_figure_ids:
+                # JSON_CONTAINS 第二个参数必须是 JSON 字面量；必须使用真实表名 figures.tags
+                tag_name_escaped = tag_name.replace('"', '\\"')
+                tagged_figures = db.query(Figure.id).filter(
+                    Figure.id.in_(user_figure_ids),
+                    Figure.is_active == True,
+                    text(f"JSON_CONTAINS(figures.tags, '\"{tag_name_escaped}\"')")
+                ).all()
+                figure_ids = set(f.id for f in tagged_figures)
 
         if not figure_ids:
             return []

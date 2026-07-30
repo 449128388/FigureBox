@@ -5,10 +5,9 @@
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import desc, func, or_
+from sqlalchemy import desc, func, or_, text
 
 from app.models.figure import Figure
-from app.models.tag import figure_tag
 from app.models.asset import AssetTransaction
 from app.schemas.figure import FigureListItem
 from .figure_price_service import FigurePriceService
@@ -77,8 +76,7 @@ class FigureQueryService:
         purchase_type: Optional[str] = None,
         purchase_date_start: Optional[str] = None,
         purchase_date_end: Optional[str] = None,
-        tag_id: Optional[int] = None,
-        tag_ids: Optional[List[int]] = None
+        tag_names: Optional[List[str]] = None
     ):
         """
         构建手办列表查询
@@ -89,8 +87,7 @@ class FigureQueryService:
             purchase_type: 入手形式
             purchase_date_start: 入手日期开始
             purchase_date_end: 入手日期结束
-            tag_id: 单个标签ID
-            tag_ids: 多个标签ID列表
+            tag_names: 标签名称列表（多标签同时包含，AND 关系）
 
         Returns:
             Query对象
@@ -130,32 +127,20 @@ class FigureQueryService:
             except ValueError:
                 pass
 
-        # 按标签ID筛选（单个标签）
-        if tag_id:
-            figure_ids = db.query(figure_tag.c.figure_id).filter(
-                figure_tag.c.tag_id == tag_id
-            ).all()
-            figure_id_list = [id_tuple[0] for id_tuple in figure_ids]
-            if not figure_id_list:
-                return None  # 表示没有符合条件的手办
-            query = query.filter(Figure.id.in_(figure_id_list))
-
-        # 按标签ID列表筛选（多标签联合筛选）
-        if tag_ids and len(tag_ids) > 0:
-            for tid in tag_ids:
-                figure_ids = db.query(figure_tag.c.figure_id).filter(
-                    figure_tag.c.tag_id == tid
-                ).all()
-                figure_id_list = [id_tuple[0] for id_tuple in figure_ids]
-                if not figure_id_list:
-                    return None  # 表示没有符合条件的手办
-                query = query.filter(Figure.id.in_(figure_id_list))
+        # 按标签名称筛选（多标签 AND 关系）
+        # 2026-07-29 重构：使用 JSON_CONTAINS 替代原 figure_tag 关联表查询
+        if tag_names and len(tag_names) > 0:
+            for tag_name in tag_names:
+                if not tag_name:
+                    continue
+                # JSON_CONTAINS 第二个参数必须是 JSON 字面量；必须使用真实表名 figures.tags
+                tag_name_escaped = tag_name.replace('"', '\\"')
+                query = query.filter(
+                    text(f"JSON_CONTAINS(figures.tags, '\"{tag_name_escaped}\"')")
+                )
 
         # 按 id 降序排序（最新的在前面）
         query = query.order_by(desc(Figure.id))
-
-        # 使用 selectinload 预加载标签数据，避免 N+1 查询问题
-        query = query.options(selectinload(Figure.tags))
 
         return query
 
@@ -168,8 +153,7 @@ class FigureQueryService:
         purchase_type: Optional[str] = None,
         purchase_date_start: Optional[str] = None,
         purchase_date_end: Optional[str] = None,
-        tag_id: Optional[int] = None,
-        tag_ids: Optional[List[int]] = None,
+        tag_names: Optional[List[str]] = None,
         user_id: Optional[int] = None,
         filter_by_order_limit: bool = False  # 新增：是否按订单数量限制过滤
     ) -> List[FigureListItem]:
@@ -188,7 +172,7 @@ class FigureQueryService:
 
         query = FigureQueryService.build_figure_list_query(
             db, name, purchase_type, purchase_date_start,
-            purchase_date_end, tag_id, tag_ids
+            purchase_date_end, tag_names
         )
 
         if query is None:
@@ -292,8 +276,7 @@ class FigureQueryService:
         purchase_type: Optional[str] = None,
         purchase_date_start: Optional[str] = None,
         purchase_date_end: Optional[str] = None,
-        tag_id: Optional[int] = None,
-        tag_ids: Optional[List[int]] = None
+        tag_names: Optional[List[str]] = None
     ) -> int:
         """
         获取手办总数
@@ -304,15 +287,14 @@ class FigureQueryService:
             purchase_type: 入手形式
             purchase_date_start: 入手日期开始
             purchase_date_end: 入手日期结束
-            tag_id: 单个标签ID
-            tag_ids: 多个标签ID列表
+            tag_names: 标签名称列表（2026-07-29 重构：从 tag_ids 改为 tag_names）
 
         Returns:
             int: 手办总数
         """
         query = FigureQueryService.build_figure_list_query(
             db, name, purchase_type, purchase_date_start,
-            purchase_date_end, tag_id, tag_ids
+            purchase_date_end, tag_names
         )
 
         if query is None:
@@ -388,29 +370,8 @@ class FigureQueryService:
         # 简化为普通查询，不使用selectinload避免内存溢出
         figures = query.all()
 
-        # 第三步：单独查询标签和订单信息
+        # 第三步：单独查询订单信息（2026-07-29 重构：tags 改为 figure.tags JSON 字段，无需再单独查询）
         figure_id_list = [f.id for f in figures]
-
-        # 查询标签关联
-        from app.models.tag import figure_tag, Tag
-        tag_links = db.query(figure_tag).filter(
-            figure_tag.c.figure_id.in_(figure_id_list)
-        ).all()
-
-        # 构建手办ID到标签ID列表的映射
-        figure_tags_map = {}
-        tag_ids = set()
-        for link in tag_links:
-            if link.figure_id not in figure_tags_map:
-                figure_tags_map[link.figure_id] = []
-            figure_tags_map[link.figure_id].append(link.tag_id)
-            tag_ids.add(link.tag_id)
-
-        # 查询标签详情
-        tags_map = {}
-        if tag_ids:
-            tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
-            tags_map = {t.id: t for t in tags}
 
         # 查询订单信息用于计算平均价格
         from app.models.order import Order
@@ -449,12 +410,11 @@ class FigureQueryService:
             # 计算平均入手价格（加权平均）
             average_purchase_price = FigurePriceService.calculate_orders_average_price(figure_orders)
 
-            # 获取该手办的标签
-            figure_tag_ids = figure_tags_map.get(figure.id, [])
-            figure_tags = [tags_map[tid] for tid in figure_tag_ids if tid in tags_map]
-
             # 获取真实库存数量（从库存账获取）
             quantity = figure_stock_map.get(figure.id, figure.quantity)
+
+            # 2026-07-29 重构：标签直接使用 figure.tags JSON 字段
+            figure_tag_names = figure.tags if figure.tags else []
 
             item = FigureListItem(
                 id=figure.id,
@@ -480,7 +440,7 @@ class FigureQueryService:
                 note=figure.note,
                 source_url=figure.source_url,
                 image=figure.images[0] if figure.images and len(figure.images) > 0 else None,
-                tags=figure_tags,
+                tags=figure_tag_names,
                 order_count=order_count,
                 average_purchase_price=average_purchase_price
             )

@@ -32,7 +32,7 @@ export function useFigureManagement() {
   const searchName = ref('')
   const searchPurchaseDateRange = ref([])
   const searchPurchaseType = ref('')
-  const searchTagIds = ref([])
+  const searchTagNames = ref([])
 
   // 表单错误
   const nameError = ref('')
@@ -69,7 +69,7 @@ export function useFigureManagement() {
     material: '',
     size: '',
     images: [],
-    tag_ids: [],
+    tag_names: [],
     note: '',
     source_url: ''
   }
@@ -188,28 +188,10 @@ export function useFigureManagement() {
     }
 
     try {
-      const existingTagIds = []
-      const newTagNames = []
-
-      for (const item of newFigure.value.tag_ids) {
-        if (typeof item === 'number') {
-          existingTagIds.push(item)
-        } else if (typeof item === 'string') {
-          newTagNames.push(item)
-        }
-      }
-
-      for (const tagName of newTagNames) {
-        try {
-          const newTag = await tagStore.createTag({ name: tagName })
-          existingTagIds.push(newTag.id)
-        } catch (error) {
-          const existingTag = tagStore.tags.find(t => t.name === tagName)
-          if (existingTag) {
-            existingTagIds.push(existingTag.id)
-          }
-        }
-      }
+      // 2026-07-29 重构：标签直接使用 figure.tags JSON 字段，无需再到 TagStore 创建标签
+      const tagNames = Array.isArray(newFigure.value.tag_names)
+        ? Array.from(new Set(newFigure.value.tag_names.filter(t => t && String(t).trim())))
+        : []
 
       const figureData = {
         ...newFigure.value,
@@ -218,7 +200,7 @@ export function useFigureManagement() {
         currency: newFigure.value.currency || 'CNY',
         market_currency: newFigure.value.market_currency || 'CNY',
         purchase_currency: newFigure.value.purchase_currency || 'CNY',
-        tag_ids: existingTagIds
+        tag_names: tagNames
       }
 
       if (isEditing.value) {
@@ -290,9 +272,10 @@ export function useFigureManagement() {
       const response = await axios.get(`/figures/${figure.id}`)
       const fullFigure = response
 
+      // 2026-07-29 重构：tags 后端已直接返回 List[str]，无需再做 tag.id 转换
       newFigure.value = {
         ...fullFigure,
-        tag_ids: fullFigure.tags ? fullFigure.tags.map(tag => tag.id) : [],
+        tag_names: Array.isArray(fullFigure.tags) ? [...fullFigure.tags] : [],
         price: fullFigure.price || 0,
         currency: fullFigure.currency || 'CNY',
         market_price: fullFigure.market_price || 0,
@@ -304,7 +287,7 @@ export function useFigureManagement() {
     } catch (error) {
       newFigure.value = {
         ...figure,
-        tag_ids: figure.tags ? figure.tags.map(tag => tag.id) : [],
+        tag_names: Array.isArray(figure.tags) ? [...figure.tags] : [],
         price: figure.price || 0,
         currency: figure.currency || 'CNY',
         market_price: figure.market_price || 0,
@@ -351,29 +334,24 @@ export function useFigureManagement() {
     searchName.value = ''
     searchPurchaseDateRange.value = []
     searchPurchaseType.value = ''
-    searchTagIds.value = []
+    searchTagNames.value = []
     currentPage.value = 1
     await fetchFiguresWithSearch()
   }
 
-  const filterByTag = async (tagId) => {
-    if (searchTagIds.value.includes(tagId)) {
-      searchTagIds.value = searchTagIds.value.filter(id => id !== tagId)
+  const filterByTag = async (tagName) => {
+    if (searchTagNames.value.includes(tagName)) {
+      searchTagNames.value = searchTagNames.value.filter(t => t !== tagName)
     } else {
-      searchTagIds.value.push(tagId)
+      searchTagNames.value.push(tagName)
     }
     currentPage.value = 1
     await fetchFiguresWithSearch()
   }
 
-  const getTagNameById = (tagId) => {
-    const tag = tagStore.tags.find(t => t.id === tagId)
-    return tag ? tag.name : ''
-  }
-
   const getSortedTags = (tags) => {
     if (!tags || !Array.isArray(tags)) return []
-    return [...tags].sort((a, b) => a.id - b.id)
+    return [...tags].sort((a, b) => String(a).localeCompare(String(b)))
   }
 
   const fetchFiguresWithSearch = async () => {
@@ -392,8 +370,8 @@ export function useFigureManagement() {
       params.purchase_date_start = formatDate(searchPurchaseDateRange.value[0])
       params.purchase_date_end = formatDate(searchPurchaseDateRange.value[1])
     }
-    if (searchTagIds.value && searchTagIds.value.length > 0) {
-      params.tag_ids = searchTagIds.value
+    if (searchTagNames.value && searchTagNames.value.length > 0) {
+      params.tag_names = searchTagNames.value
     }
 
     await figureStore.fetchFigures(params)
@@ -494,7 +472,7 @@ export function useFigureManagement() {
     searchName,
     searchPurchaseDateRange,
     searchPurchaseType,
-    searchTagIds,
+    searchTagNames,
     nameError,
     japaneseNameError,
     purchaseMethodError,
@@ -540,7 +518,6 @@ export function useFigureManagement() {
     handleSearch,
     resetSearch,
     filterByTag,
-    getTagNameById,
     getSortedTags,
     fetchFiguresWithSearch,
     downloadFigures,

@@ -7,7 +7,6 @@ from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
 from app.models.figure import Figure
-from app.models.tag import Tag
 from app.models.order import Order
 from app.models.asset import AssetTransaction, OrderTransaction
 from app.services.asset_transaction_service import AssetTransactionService
@@ -31,8 +30,8 @@ class FigureCrudService:
         Returns:
             创建的Figure对象
         """
-        # 提取标签ID列表
-        tag_ids = figure_data.pop('tag_ids', [])
+        # 2026-07-29 重构：标签已合并到 figure.tags JSON 字段，直接在 figure_data 中传递
+        tag_names = figure_data.pop('tag_names', None) or figure_data.pop('tags', None)
 
         # 处理市场价：当市场价为0或未设置时，市场价默认等于定价
         if (figure_data.get('market_price') == 0 or figure_data.get('market_price') is None) \
@@ -46,18 +45,15 @@ class FigureCrudService:
                 figure_data['purchase_type']
             )
 
+        # 2026-07-29 重构：直接设置 tags JSON 字段
+        if tag_names is not None:
+            figure_data['tags'] = tag_names if isinstance(tag_names, list) else []
+
         # 创建手办对象
         db_figure = Figure(**figure_data)
         db.add(db_figure)
         db.commit()
         db.refresh(db_figure)
-
-        # 关联标签
-        if tag_ids:
-            tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
-            db_figure.tags = tags
-            db.commit()
-            db.refresh(db_figure)
 
         return db_figure
 
@@ -88,13 +84,17 @@ class FigureCrudService:
         if not db_figure:
             return None
 
-        # 提取标签ID列表
-        tag_ids = figure_data.pop('tag_ids', None)
+        # 2026-07-29 重构：从 figure_data 中提取标签名列表（tag_names 或 tags）
+        tag_names = figure_data.pop('tag_names', None)
+        if tag_names is None:
+            tag_names = figure_data.pop('tags', "__no_change__")
+        else:
+            figure_data.pop('tags', None)
 
-        # 记录旧标签ID集合（用于检测新增标签）
-        old_tag_ids = None
-        if tag_ids is not None:
-            old_tag_ids = set(tag.id for tag in db_figure.tags)
+        # 记录旧标签名集合（用于检测新增标签）
+        old_tag_names: Optional[set] = None
+        if tag_names is not None and tag_names != "__no_change__":
+            old_tag_names = set(db_figure.tags or [])
 
         # 记录旧市场价信息（用于检测价格变动）
         old_market_price = db_figure.market_price
@@ -106,38 +106,36 @@ class FigureCrudService:
                 figure_data['purchase_type']
             )
 
+        # 2026-07-29 重构：直接更新 tags JSON 字段
+        if tag_names is not None and tag_names != "__no_change__":
+            figure_data['tags'] = tag_names if isinstance(tag_names, list) else []
+
         # 更新其他字段
         for key, value in figure_data.items():
             setattr(db_figure, key, value)
-
-        # 更新标签关联
-        if tag_ids is not None:
-            tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
-            db_figure.tags = tags
 
         db.commit()
         db.refresh(db_figure)
 
         # 记录标签快照到动态流（TAG_ADD）- append-only，记录全部当前标签
-        if tag_ids is not None and user_id:
+        if tag_names is not None and tag_names != "__no_change__" and user_id:
             from app.services.collector_service.collector_activity_service import CollectorActivityService
-            all_tags = []
-            for tag_id in tag_ids:
-                tag = db.query(Tag).filter(Tag.id == tag_id).first()
-                if tag:
-                    all_tags.append({
-                        "id": tag.id,
-                        "name": tag.name,
-                        "color": getattr(tag, 'color', None)
-                    })
-            if all_tags:
-                CollectorActivityService.record_tag_snapshot_event(
-                    db=db,
-                    user_id=user_id,
-                    figure_id=db_figure.id,
-                    figure_name=db_figure.name,
-                    tags=all_tags
-                )
+            new_tag_names_set = set(tag_names or [])
+            added_tags = new_tag_names_set - (old_tag_names or set())
+            if added_tags:
+                # 转换为动态流期望的格式（使用 name 作为 id 兼容）
+                all_tags = [
+                    {"id": 0, "name": name, "color": None}
+                    for name in (tag_names or [])
+                ]
+                if all_tags:
+                    CollectorActivityService.record_tag_snapshot_event(
+                        db=db,
+                        user_id=user_id,
+                        figure_id=db_figure.id,
+                        figure_name=db_figure.name,
+                        tags=all_tags
+                    )
 
         # 记录市场价变动到动态流（PRICE_UPDATE）- 价格或币种任一变化均触发
         if user_id and ('market_price' in figure_data or 'market_currency' in figure_data):

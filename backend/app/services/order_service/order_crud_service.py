@@ -421,14 +421,7 @@ class OrderCrudService:
                 # 1. 处理定金变更
                 deposit_diff = new_deposit_cny - old_deposit_cny
                 if abs(deposit_diff) > 0.01:
-                    # 判断变更类型
-                    if deposit_diff > 0:
-                        change_type = "追加"
-                    else:
-                        change_type = "减少"
-
-                    # price 为该笔调整后的订单总成本（定金+尾款的人民币金额）
-                    total_cost_after_change = new_deposit_cny + new_balance_cny
+                    # price / total_amount 使用变更差额（减少为负、追加为正，原生符号即方向）
                     now = datetime.now()
 
                     deposit_adjust = AssetTransaction(
@@ -436,14 +429,14 @@ class OrderCrudService:
                         figure_id=db_order.figure_id,
                         order_id=db_order.id,
                         transaction_type="adjust",
-                        price=total_cost_after_change,
+                        price=deposit_diff,
                         quantity=0,
-                        total_amount=total_cost_after_change,
+                        total_amount=deposit_diff,
                         remaining_quantity=0,
                         transaction_date=now,
                         created_at=now,
                         updated_at=now,
-                        notes=f"定金{change_type}导致的成本调整 ({old_deposit_cny:.2f} CNY → {new_deposit_cny:.2f} CNY)"
+                        notes=f"定金调整导致的成本调整 ({old_deposit_cny:.2f} CNY → {new_deposit_cny:.2f} CNY)"
                     )
                     db.add(deposit_adjust)
                     has_adjustment = True
@@ -451,14 +444,7 @@ class OrderCrudService:
                 # 2. 处理尾款变更
                 balance_diff = new_balance_cny - old_balance_cny
                 if abs(balance_diff) > 0.01:
-                    # 判断变更类型
-                    if balance_diff > 0:
-                        change_type = "追加"
-                    else:
-                        change_type = "减少"
-
-                    # price 为该笔调整后的订单总成本（定金+尾款的人民币金额）
-                    total_cost_after_change = new_deposit_cny + new_balance_cny
+                    # price / total_amount 使用变更差额（减少为负、追加为正，原生符号即方向）
                     now = datetime.now()
 
                     balance_adjust = AssetTransaction(
@@ -466,14 +452,14 @@ class OrderCrudService:
                         figure_id=db_order.figure_id,
                         order_id=db_order.id,
                         transaction_type="adjust",
-                        price=total_cost_after_change,
+                        price=balance_diff,
                         quantity=0,
-                        total_amount=total_cost_after_change,
+                        total_amount=balance_diff,
                         remaining_quantity=0,
                         transaction_date=now,
                         created_at=now,
                         updated_at=now,
-                        notes=f"尾款{change_type}导致的成本调整 ({old_balance_cny:.2f} CNY → {new_balance_cny:.2f} CNY)"
+                        notes=f"尾款调整导致的成本调整 ({old_balance_cny:.2f} CNY → {new_balance_cny:.2f} CNY)"
                     )
                     db.add(balance_adjust)
                     has_adjustment = True

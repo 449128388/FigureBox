@@ -11,7 +11,7 @@
   - 接收 tagStore 作为 props，用于获取标签数据
 
   维护提示：
-  - 接收 figure 作为 props，双向绑定 tag_ids
+  - 接收 figure 作为 props，双向绑定 tag_names
   - 标签变更通过 tag-change 事件向父组件传递
   - 支持动态创建新标签（allow-create）
 -->
@@ -20,7 +20,7 @@
     <div class="form-group">
       <label>标签</label>
       <el-select
-        v-model="localFigure.tag_ids"
+        v-model="localFigure.tag_names"
         multiple
         filterable
         allow-create
@@ -31,10 +31,10 @@
         @change="$emit('tag-change', $event)"
       >
         <el-option
-          v-for="item in tagStore.tags"
-          :key="item.id"
-          :label="item.name"
-          :value="item.id"
+          v-for="name in tagOptions"
+          :key="name"
+          :label="name"
+          :value="name"
         />
       </el-select>
     </div>
@@ -63,6 +63,12 @@ export default {
       set(value) {
         this.$emit('update:figure', value)
       }
+    },
+    // 2026-07-29 重构：标签改为 figure.tags JSON 字段，下拉候选取自 tagStore 标签名去重
+    tagOptions() {
+      const names = (this.tagStore.tags || []).map(t => t && t.name).filter(Boolean)
+      const current = Array.isArray(this.figure.tag_names) ? this.figure.tag_names : []
+      return Array.from(new Set([...names, ...current]))
     }
   }
 }

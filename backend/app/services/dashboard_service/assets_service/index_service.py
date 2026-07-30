@@ -2,17 +2,20 @@
 指数服务模块
 提供股票指数相关的业务逻辑
 """
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Dict, Optional, Any
 import requests
 import random
 import time
 import re
 import threading
+import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.models.asset import StockIndexCache, StockIndexHistory
+
+logger = logging.getLogger(__name__)
 
 
 # 全局锁，用于防止同一秒内重复获取同一指数数据
@@ -179,6 +182,39 @@ class IndexService:
         """获取沪深300指数"""
         return cls._get_cached_index(db, "sh000300")
     
+    @classmethod
+    def cleanup_history(cls, db: Session, retention_days: int = 60) -> int:
+        """
+        清理 stock_index_history 表中超过保留期限的历史数据
+
+        指数历史数据仅用于近期对比分析，长期保留价值低。仅保留最近 60 天（2 个月）。
+
+        Args:
+            db: 数据库会话
+            retention_days: 保留天数（默认 60 天）
+
+        Returns:
+            int: 删除的记录数
+        """
+        cutoff_date = datetime.now() - timedelta(days=retention_days)
+        try:
+            deleted_count = db.query(StockIndexHistory).filter(
+                StockIndexHistory.request_time < cutoff_date
+            ).delete()
+            db.commit()
+            if deleted_count > 0:
+                logger.info(
+                    f"指数历史数据清理完成：删除 {deleted_count} 条 "
+                    f"早于 {cutoff_date.strftime('%Y-%m-%d %H:%M:%S')} 的记录"
+                )
+            else:
+                logger.debug("指数历史数据无需清理")
+            return deleted_count
+        except Exception as e:
+            db.rollback()
+            logger.error(f"指数历史数据清理失败: {e}")
+            return 0
+
     @classmethod
     def get_index_comparison_data(cls, db: Session, index_code: str) -> Optional[Dict[str, Any]]:
         """获取指数对比数据"""

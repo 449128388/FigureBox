@@ -79,7 +79,7 @@ export const useFigureStore = defineStore('figure', {
     async fetchFigures(params = {}) {
       // 构建查询参数
       const queryParams = new URLSearchParams()
-      
+
       if (params.name) {
         queryParams.append('name', params.name)
       }
@@ -92,13 +92,10 @@ export const useFigureStore = defineStore('figure', {
       if (params.purchase_date_end) {
         queryParams.append('purchase_date_end', params.purchase_date_end)
       }
-      if (params.tag_id) {
-        queryParams.append('tag_id', params.tag_id)
-      }
-      // 处理多标签筛选参数
-      if (params.tag_ids && params.tag_ids.length > 0) {
-        params.tag_ids.forEach(tagId => {
-          queryParams.append('tag_ids', tagId)
+      // 2026-07-29 重构：标签已改为 figure.tags JSON 字段，按标签名筛选
+      if (params.tag_names && params.tag_names.length > 0) {
+        params.tag_names.forEach(tagName => {
+          queryParams.append('tag_names', tagName)
         })
       }
       if (params.skip !== undefined) {
