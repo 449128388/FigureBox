@@ -15,7 +15,7 @@ from app.models.user import User
 from app.services.storage_service.storage_service import StorageService
 
 # 引入服务层
-from app.services import FigureService, TagService, FigureExportService, FigureImportService
+from app.services import FigureService, TagService
 from app.services.asset_transaction_service import AssetTransactionService
 from app.services.order_transaction_service import OrderTransactionService
 
@@ -95,31 +95,6 @@ def search_figures(
         user_id=current_user.id,
         filter_by_order_limit=filter_by_order_limit
     )["items"]
-
-
-@router.get("/download")
-def download_figures(db: Session = Depends(get_db)):
-    """
-    下载所有手办数据及关联的尾款数据为 JSON 格式
-    """
-    try:
-        # 使用服务层导出数据
-        json_data = FigureExportService.export_all_figures(db)
-        filename = FigureExportService.get_export_filename()
-        
-        # 返回 JSON 响应
-        return Response(
-            content=json_data,
-            media_type="application/json",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"下载数据失败: {str(e)}"
-        )
 
 
 # ========== 标签管理接口（必须放在 /{figure_id} 路由之前）==========
@@ -382,44 +357,4 @@ def batch_delete_figures(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"批量删除失败: {str(e)}"
-        )
-
-
-@router.post("/import")
-def import_figures(
-    data: Dict[str, List[Dict[str, Any]]],
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    从JSON数据导入手办和订单
-    """
-    try:
-        figures_data = data.get('figures', [])
-        if not figures_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="没有提供要导入的数据"
-            )
-        
-        result = FigureImportService.import_figures_from_json(
-            db=db,
-            json_data=figures_data,
-            user_id=current_user.id
-        )
-        
-        return {
-            "success": result['success'],
-            "imported_count": result['imported_figures'],
-            "updated_count": result['updated_figures'],
-            "orders_count": result['imported_orders'],
-            "message": f"成功导入 {result['imported_figures']} 个新手办，更新 {result['updated_figures']} 个手办，导入 {result['imported_orders']} 个订单",
-            "errors": result['errors']
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"导入失败: {str(e)}"
         )

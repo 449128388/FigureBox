@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.figure import Figure
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
+from app.models.asset import AssetTransaction, OrderTransaction
 from .figure_service import FigureService
 from app.services.asset_transaction_service import AssetTransactionService
 from app.services.order_transaction_service import OrderTransactionService
@@ -100,7 +101,10 @@ class FigureImportService:
             'size': figure_data.get('size'),
             'images': figure_data.get('images', []),
             'quantity': figure_data.get('quantity', 1),
-            'tags': []  # 2026-07-29 重构：标签改为 figure.tags JSON 字段，初始化为空列表
+            'wishlist_status': figure_data.get('wishlist_status'),
+            'source_url': figure_data.get('source_url'),
+            'note': figure_data.get('note'),
+            'tags': [],  # 2026-07-29 重构：标签改为 figure.tags JSON 字段，初始化为空列表
         }
 
         # 处理标签：合并为 JSON 字段（去重）
@@ -117,6 +121,15 @@ class FigureImportService:
 
         # 使用 FigureService 创建手办（会自动创建 asset_transactions）
         figure = FigureService.create_figure(db, processed_data, user_id=user_id)
+
+        # 2026-07-31 修复：补全库存账（asset_transactions）+ 资金账（order_transactions）导入路径
+        # 解决「按 Order 重建」覆盖原始 buy/adjust 历史的问题
+        FigureImportService.import_asset_transactions(
+            db, figure, figure_data.get('asset_transactions', []), user_id
+        )
+        FigureImportService.import_order_transactions(
+            db, figure, figure_data.get('order_transactions', []), user_id
+        )
 
         # 2026-07-29 重构：标签已通过 processed_data['tags'] 传入，无需再单独处理
         return figure, True
@@ -181,6 +194,10 @@ class FigureImportService:
             order.logistics_company = order_data.get('logistics_company')
             order.order_number = order_data.get('order_number')
             order.display_order_number = order_data.get('display_order_number')
+            order.payment_method = order_data.get('payment_method')
+            order.payment_time = FigureImportService.parse_datetime(order_data.get('payment_time'))
+            order.balance_payment_method = order_data.get('balance_payment_method')
+            order.balance_payment_time = FigureImportService.parse_datetime(order_data.get('balance_payment_time'))
             order.remarks = order_data.get('remarks')
             order.is_active = order_data.get('is_active', 1)
             order.created_at = FigureImportService.parse_datetime(order_data.get('created_at')) or datetime.now()
@@ -305,6 +322,8 @@ class FigureImportService:
             sold_order.figure_id = figure.id
             sold_order.user_id = user_id
             sold_order.quantity = sold_order_data.get('quantity', 1)
+            sold_order.payment_method = sold_order_data.get('payment_method')
+            sold_order.sell_date = FigureImportService.parse_date(sold_order_data.get('sell_date'))
             sold_order.sell_price = sold_order_data.get('sell_price', 0)
             sold_order.sell_price_currency = sold_order_data.get('sell_price_currency', 'CNY')
             sold_order.cost_price = sold_order_data.get('cost_price', 0)
@@ -317,6 +336,7 @@ class FigureImportService:
             sold_order.profit_rate = sold_order_data.get('profit_rate')
             sold_order.sell_platform = sold_order_data.get('sell_platform')
             sold_order.order_number = sold_order_data.get('order_number')
+            sold_order.display_order_number = sold_order_data.get('display_order_number')  # 展示订单编号
             sold_order.buyer_phone = sold_order_data.get('buyer_phone')
             sold_order.buyer_address = sold_order_data.get('buyer_address')
             sold_order.tracking_number = sold_order_data.get('tracking_number')
@@ -390,6 +410,106 @@ class FigureImportService:
 
             imported_count += 1
 
+        return imported_count
+
+    @staticmethod
+    def import_asset_transactions(db: Session, figure: Figure, asset_txs_data: List[Dict[str, Any]], user_id: int) -> int:
+        """
+        导入手办关联的资产交易记录（库存账）
+        2026-07-31 修复：补全 buy/sell/adjust 全量历史
+
+        流程：
+        1. 删除 create_figure 自动生成的 buy 行（基于 processed_data.quantity 计算的占位行）
+        2. 按 JSON 数组精确还原（含 transaction_date / notes / remaining_quantity / is_active）
+        """
+        if not asset_txs_data:
+            return 0
+
+        # 1. 清理 create_figure 自动生成的占位 buy 行
+        db.query(AssetTransaction).filter(
+            AssetTransaction.figure_id == figure.id,
+            AssetTransaction.user_id == user_id
+        ).delete(synchronize_session=False)
+        db.flush()
+
+        imported_count = 0
+        for tx_data in asset_txs_data:
+            tx = AssetTransaction(
+                user_id=user_id,
+                figure_id=figure.id,
+                order_id=tx_data.get('order_id'),
+                sold_order_id=tx_data.get('sold_order_id'),
+                transaction_type=tx_data.get('transaction_type', 'buy'),
+                price=tx_data.get('price', 0),
+                quantity=tx_data.get('quantity', 1),
+                total_amount=tx_data.get('total_amount', 0),
+                remaining_quantity=tx_data.get('remaining_quantity'),
+                transaction_date=FigureImportService.parse_datetime(tx_data.get('transaction_date')),
+                notes=tx_data.get('notes'),
+                is_active=tx_data.get('is_active', 1),
+                created_at=FigureImportService.parse_datetime(tx_data.get('created_at')) or datetime.now(),
+                updated_at=FigureImportService.parse_datetime(tx_data.get('updated_at')) or datetime.now()
+            )
+            tx.deleted_at = FigureImportService.parse_datetime(tx_data.get('deleted_at'))
+            db.add(tx)
+            imported_count += 1
+        db.flush()
+        return imported_count
+
+    @staticmethod
+    def import_order_transactions(db: Session, figure: Figure, order_txs_data: List[Dict[str, Any]], user_id: int) -> int:
+        """
+        导入手办关联的订单资金流水记录（资金账）
+        2026-07-31 修复：补全 buy/deposit/balance/supplement/refund/fee/cancel 全量历史
+
+        流程：
+        1. 删除 import_orders 重建的资金流水（按 Order 当前状态生成的占位行）
+        2. 按 JSON 数组精确还原（含 transaction_date / notes / parent_transaction_id / change_reason / previous_amount / current_amount / changed_field）
+        """
+        if not order_txs_data:
+            return 0
+
+        # 1. 清理 import_orders 重建的占位流水行
+        db.query(OrderTransaction).filter(
+            OrderTransaction.figure_id == figure.id,
+            OrderTransaction.user_id == user_id
+        ).delete(synchronize_session=False)
+        db.flush()
+
+        imported_count = 0
+        for tx_data in order_txs_data:
+            tx = OrderTransaction(
+                user_id=user_id,
+                figure_id=figure.id,
+                order_id=tx_data.get('order_id'),
+                sold_order_id=tx_data.get('sold_order_id'),
+                transaction_type=tx_data.get('transaction_type', 'buy'),
+                transaction_subtype=tx_data.get('transaction_subtype'),
+                direction=tx_data.get('direction', 'out'),
+                quantity=tx_data.get('quantity', 1),
+                unit_price=tx_data.get('unit_price', 0),
+                total_amount=tx_data.get('total_amount', 0),
+                currency=tx_data.get('currency', 'CNY'),
+                payment_method=tx_data.get('payment_method'),
+                payment_time=FigureImportService.parse_datetime(tx_data.get('payment_time')),
+                balance_payment_method=tx_data.get('balance_payment_method'),
+                balance_payment_time=FigureImportService.parse_datetime(tx_data.get('balance_payment_time')),
+                platform=tx_data.get('platform'),
+                transaction_date=FigureImportService.parse_datetime(tx_data.get('transaction_date')) or datetime.now(),
+                notes=tx_data.get('notes'),
+                parent_transaction_id=tx_data.get('parent_transaction_id'),
+                change_reason=tx_data.get('change_reason'),
+                previous_amount=tx_data.get('previous_amount'),
+                current_amount=tx_data.get('current_amount'),
+                changed_field=tx_data.get('changed_field'),
+                is_active=tx_data.get('is_active', 1),
+                created_at=FigureImportService.parse_datetime(tx_data.get('created_at')) or datetime.now(),
+                updated_at=FigureImportService.parse_datetime(tx_data.get('updated_at')) or datetime.now()
+            )
+            tx.deleted_at = FigureImportService.parse_datetime(tx_data.get('deleted_at'))
+            db.add(tx)
+            imported_count += 1
+        db.flush()
         return imported_count
 
     @classmethod

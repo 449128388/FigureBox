@@ -25,12 +25,6 @@
     <div class="header-actions">
       <div class="action-buttons">
         <button class="btn btn-add" @click="$emit('open-add-form')">添加手办</button>
-        <button class="btn btn-import" @click="$emit('import-figures')">
-          <i class="fa-solid fa-upload"></i> 导入手办
-        </button>
-        <button class="btn btn-download" @click="$emit('download-figures')">
-          <i class="fa-solid fa-download"></i> 下载数据
-        </button>
         <button class="btn btn-refresh" @click="$emit('refresh-figures')">
           <i class="fa-solid fa-refresh"></i>
         </button>
@@ -61,7 +55,7 @@ export default {
       default: 0
     }
   },
-  emits: ['open-add-form', 'import-figures', 'download-figures', 'refresh-figures', 'toggle-batch-mode', 'batch-delete', 'select-all']
+  emits: ['open-add-form', 'refresh-figures', 'toggle-batch-mode', 'batch-delete', 'select-all']
 }
 </script>
 
@@ -125,23 +119,6 @@ export default {
   background-color: #45a049;
 }
 
-.btn-download {
-  background-color: #ff9800;
-  color: white;
-  padding: 12px 24px;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 44px;
-  box-sizing: border-box;
-}
-
-.btn-download:hover {
-  background-color: #f57c00;
-}
-
 .btn-refresh {
   background-color: #2196F3;
   color: white;
@@ -156,23 +133,6 @@ export default {
 
 .btn-refresh:hover {
   background-color: #0b7dda;
-}
-
-.btn-import {
-  background-color: #9C27B0;
-  color: white;
-  padding: 12px 24px;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 44px;
-  box-sizing: border-box;
-}
-
-.btn-import:hover {
-  background-color: #7B1FA2;
 }
 
 /* 【新增】批量删除按钮样式 */

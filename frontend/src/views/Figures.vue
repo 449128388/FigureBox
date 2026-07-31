@@ -3,7 +3,6 @@
 
   功能说明：
   - 手办CRUD完整功能：添加、编辑、删除手办
-  - 数据导入导出：支持JSON格式批量导入和下载
   - 多维度搜索：按名称、购买类型、购买日期范围、标签筛选
   - 分页展示：支持自定义每页显示数量
   - 图片管理：支持多图上传、预览、删除
@@ -11,23 +10,22 @@
   - 【新增】批量选择功能：支持多选手办进行批量操作
 
   组件依赖：
-  - FiguresHeader.vue - 页面头部（添加、导入、下载、刷新按钮）
+  - FiguresHeader.vue - 页面头部（添加、刷新、批量删除按钮）
   - FiguresSearch.vue - 搜索筛选区域
   - FiguresList.vue - 手办卡片列表
   - FiguresPagination.vue - 分页组件
   - FigureForm.vue - 手办表单（添加/编辑）
   - ImagePreview.vue - 图片预览弹窗
-  - ImportFiguresDialog.vue - 数据导入对话框
   - FigureDeleteConfirmDialog.vue - 删除确认对话框
 
   维护提示：
   - 使用 useFigureManagement composable 管理业务逻辑
-  - 使用 useImportFigures composable 管理导入功能
   - 【新增】使用 useBatchSelection composable 管理批量选择功能
   - 表单验证在提交时统一处理
   - 搜索条件变化自动触发重新查询
   - 批量选择模式下，手办卡片显示复选框
   - 有关联订单的手办在批量选择模式下会被禁用
+  - 数据导入/导出已迁移至个人中心-系统备份
 -->
 <template>
   <TopHeader />
@@ -36,8 +34,6 @@
       :is-batch-mode="isBatchMode"
       :selected-count="selectedCount"
       @open-add-form="openAddForm"
-      @import-figures="openImportDialog"
-      @download-figures="handleDownload"
       @refresh-figures="fetchFigures"
       @toggle-batch-mode="toggleBatchMode"
       @batch-delete="handleBatchDelete"
@@ -150,12 +146,6 @@
       @close="closeImagePreview"
     />
 
-    <ImportFiguresDialog
-      :show="showImportDialog"
-      @close="closeImportDialog"
-      @import="handleImport"
-    />
-
     <FigureDeleteConfirmDialog
       v-model:show="showDeleteConfirmDialog"
       :figure="figureToDelete"
@@ -174,10 +164,8 @@ import FiguresList from './Figures/components/FiguresList.vue'
 import FiguresPagination from './Figures/components/FiguresPagination.vue'
 import FigureForm from './Figures/components/FigureForm.vue'
 import ImagePreview from './Figures/components/ImagePreview.vue'
-import ImportFiguresDialog from './Figures/components/ImportFiguresDialog.vue'
 import FigureDeleteConfirmDialog from './Figures/components/FigureDeleteConfirmDialog.vue'
 import { useFigureManagement } from './Figures/composables/useFigureManagement'
-import { useImportFigures } from './Figures/composables/useImportFigures'
 import { useBatchSelection } from './Figures/composables/useBatchSelection'
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -192,7 +180,6 @@ export default {
     FiguresPagination,
     FigureForm,
     ImagePreview,
-    ImportFiguresDialog,
     FigureDeleteConfirmDialog
   },
   setup() {
@@ -352,7 +339,6 @@ export default {
       filterByTag,
       getSortedTags,
       fetchFiguresWithSearch,
-      downloadFigures,
       viewImage,
       closeImagePreview,
       removeImage,
@@ -363,36 +349,6 @@ export default {
     const logout = (router) => {
       userStore.logout()
       router.push('/login')
-    }
-
-    const handleDownload = async () => {
-      const result = await downloadFigures()
-      if (result.success) {
-        // 显示成功消息
-      } else {
-        // 显示错误消息
-      }
-    }
-
-    // 导入功能
-    const {
-      showImportDialog,
-      openImportDialog,
-      closeImportDialog,
-      importFigures
-    } = useImportFigures()
-
-    const handleImport = async (data, callback) => {
-      const result = await importFigures(data)
-      if (result.success) {
-        // 刷新手办列表
-        await fetchFigures()
-      }
-      // 如果有回调函数，调用它返回结果
-      if (callback && typeof callback === 'function') {
-        callback(result)
-      }
-      return result
     }
 
     return {
@@ -461,16 +417,11 @@ export default {
       getSortedTags,
       fetchFiguresWithSearch,
       logout,
-      handleDownload,
       viewImage,
       closeImagePreview,
       removeImage,
       handleFileUpload,
       reorderImages,
-      showImportDialog,
-      openImportDialog,
-      closeImportDialog,
-      handleImport,
       // 【新增】批量选择相关
       selectedIds,
       disabledIds,

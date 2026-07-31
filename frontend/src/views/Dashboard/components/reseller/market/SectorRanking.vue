@@ -178,7 +178,7 @@ export default {
 
     // 拉取维度列表 + 兜底拉取首屏数据
     fetchDimensions()
-    ensureSectors(5)
+    ensureSectors(10)
 
     // 图片加载失败兜底
     const onImgError = (e) => {

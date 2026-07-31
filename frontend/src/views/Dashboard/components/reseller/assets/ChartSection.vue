@@ -177,7 +177,7 @@ export default {
           {
             type: 'pie',
             radius: ['40%', '65%'],
-            center: ['60%', '50%'],
+            center: ['70%', '50%'],
             avoidLabelOverlap: true,
             itemStyle: {
               borderRadius: 0,

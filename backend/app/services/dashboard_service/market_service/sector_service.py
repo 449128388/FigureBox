@@ -32,6 +32,9 @@ DIMENSION_CONFIG: Dict[str, tuple] = {
     "original_art": (Figure.original_art, "原画作者", "未注明"),
 }
 
+# 支持「多值拆包」的维度（字段值以"、"分隔时需均分权重与体数）
+SPLIT_DIMENSIONS = {"manufacturer", "material"}
+
 
 class SectorService:
     """板块分析服务类"""
@@ -167,8 +170,8 @@ class SectorService:
             dim_value = getattr(row, dimension, None)
             raw_sector_name = (str(dim_value).strip() if dim_value else "") or dim_fallback
 
-            # 处理多厂商（manufacturer 维度以"、"分隔），拆分后均分权重和体数
-            if dimension == "manufacturer" and "、" in raw_sector_name:
+            # 处理多值（manufacturer / material 维度以"、"分隔），拆分后均分权重和体数
+            if dimension in SPLIT_DIMENSIONS and "、" in raw_sector_name:
                 sector_names = [s.strip() for s in raw_sector_name.split("、") if s.strip()]
             else:
                 sector_names = [raw_sector_name]
@@ -220,7 +223,8 @@ class SectorService:
                 "change": round(sector_change, 1),
                 "stocks": stocks,
                 # 体数 = 板块内全部 in-cabinet + sold 行的 quantity 之和
-                "body_count": data["body_count"],
+                # 浮点除法（如 3/2=1.4999999999999998）统一 round 1 位避免前端展示长尾小数
+                "body_count": round(data["body_count"], 1),
                 # 唯一手办数（兼容旧字段）
                 "figure_count": data["figure_count"],
             })
@@ -312,8 +316,8 @@ class SectorService:
             comp = row[0]
             dim_value = getattr(row, dimension, None)
             raw_value = (str(dim_value).strip() if dim_value else "") or dim_fallback
-            # manufacturer 维度支持拆包匹配：value="Rocket Boy、PLEIADES", sector_name="Rocket Boy" → 匹配
-            if dimension == "manufacturer" and "、" in raw_value:
+            # SPLIT_DIMENSIONS 维度支持拆包匹配：value="进口PU、高级树脂、金属铭牌", sector_name="进口PU" → 匹配
+            if dimension in SPLIT_DIMENSIONS and "、" in raw_value:
                 names = [n.strip() for n in raw_value.split("、") if n.strip()]
                 if sector_name in names:
                     matched.append((row, comp))

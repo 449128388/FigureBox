@@ -56,6 +56,7 @@ app.include_router(wishlist.router, prefix="/api/wishlist", tags=["wishlist"])
 app.include_router(home.router, prefix="/api/home", tags=["home"])
 app.include_router(users.minio_config_router, prefix="/api", tags=["minio-config"])
 app.include_router(users.timeout_config_router, prefix="/api", tags=["timeout-config"])
+app.include_router(users.backup_router, prefix="/api", tags=["backup"])
 
 @app.get("/")
 def read_root():

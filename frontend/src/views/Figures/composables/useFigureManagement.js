@@ -377,36 +377,6 @@ export function useFigureManagement() {
     await figureStore.fetchFigures(params)
   }
 
-  const downloadFigures = async () => {
-    try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('/api/figures/download', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error('下载失败')
-      }
-
-      const jsonText = await response.text()
-      const blob = new Blob([jsonText], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `figures_${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      return { success: true }
-    } catch (error) {
-      return { success: false, error }
-    }
-  }
-
   const viewImage = (image) => {
     previewImage.value = image
     showImagePreview.value = true
@@ -520,7 +490,6 @@ export function useFigureManagement() {
     filterByTag,
     getSortedTags,
     fetchFiguresWithSearch,
-    downloadFigures,
     viewImage,
     closeImagePreview,
     removeImage,

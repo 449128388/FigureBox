@@ -51,10 +51,25 @@ class ProfitCurveService:
         Returns:
             float: 当日收益金额（正数表示盈利，负数表示亏损）
         """
-        # 查询截至该日期所有有效的买入交易记录
+        # 1. 聚合同 order 下所有 adjust 调整额（带符号：减少为负、追加为正）
+        adjust_map = {}
+        adjust_rows = db.query(
+            AssetTransaction.order_id,
+            AssetTransaction.price
+        ).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.transaction_type == "adjust",
+            AssetTransaction.is_active == True,
+            func.date(AssetTransaction.transaction_date) <= cache_date
+        ).all()
+        for order_id, adj_price in adjust_rows:
+            adjust_map[order_id] = adjust_map.get(order_id, 0.0) + (adj_price or 0.0)
+
+        # 2. 查询截至该日期所有有效的买入交易记录
         # 使用交易日期判断，而不是订单创建日期
         buy_transactions = db.query(
             AssetTransaction.figure_id,
+            AssetTransaction.order_id,
             AssetTransaction.remaining_quantity,
             AssetTransaction.price
         ).filter(
@@ -68,7 +83,7 @@ class ProfitCurveService:
         if not buy_transactions:
             return 0.0
 
-        # 按手办ID分组计算
+        # 按手办ID分组计算（每行 buy 成本 = buy.price + Σadjust）
         figure_data = {}
         for tx in buy_transactions:
             fig_id = tx.figure_id
@@ -77,7 +92,8 @@ class ProfitCurveService:
                     "total_remaining_cost": 0.0,
                     "total_remaining": 0
                 }
-            figure_data[fig_id]["total_remaining_cost"] += (tx.price or 0) * (tx.remaining_quantity or 0)
+            final_price = (tx.price or 0) + adjust_map.get(tx.order_id, 0.0)
+            figure_data[fig_id]["total_remaining_cost"] += final_price * (tx.remaining_quantity or 0)
             figure_data[fig_id]["total_remaining"] += tx.remaining_quantity or 0
 
         # 获取手办当前市场价

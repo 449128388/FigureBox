@@ -145,7 +145,11 @@ class HoldingPositionService:
 
         统计逻辑：
         - 只查询关联订单状态为"已完成"的买入记录（表示尾款已付清，手办已到手）
-        - 基于 remaining_quantity 和 price 计算剩余持仓的总成本
+        - 每笔 buy 的最终成本 = buy.price + 同 order_id 下所有 adjust 调整记录（带符号）之和
+        - adjust 记录由已完成订单编辑功能写入（2026-07-29 重构）：
+          * 定金/尾款减少 → adjust.price 为负
+          * 定金/尾款增加 → adjust.price 为正
+        - 基于 remaining_quantity 和最终成本计算剩余持仓的总成本
         - 平均成本 = 剩余总成本 / 剩余总数量
 
         Args:
@@ -156,7 +160,18 @@ class HoldingPositionService:
         Returns:
             当前剩余持仓的平均成本（只基于已完成尾款的订单计算）
         """
-        # 只查询关联订单状态为"已完成"的买入记录
+        # 1. 聚合同 order 下所有 adjust 调整额（带符号：减少为负、追加为正）
+        adjust_map: Dict[int, float] = {}
+        adjust_rows = db.query(AssetTransaction).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.figure_id == figure_id,
+            AssetTransaction.transaction_type == "adjust",
+            AssetTransaction.is_active == True,
+        ).all()
+        for a in adjust_rows:
+            adjust_map[a.order_id] = adjust_map.get(a.order_id, 0.0) + (a.price or 0.0)
+
+        # 2. 查询 buy 买入记录，每行的最终成本 = buy.price + Σadjust
         buy_transactions = db.query(AssetTransaction).join(
             Order, AssetTransaction.order_id == Order.id
         ).filter(
@@ -172,12 +187,13 @@ class HoldingPositionService:
 
         for tx in buy_transactions:
             remaining = tx.remaining_quantity or 0
+            final_price = (tx.price or 0) + adjust_map.get(tx.order_id, 0.0)
             total_remaining += remaining
-            total_remaining_cost += (tx.price or 0) * remaining
+            total_remaining_cost += final_price * remaining
 
         if total_remaining > 0:
             return round(total_remaining_cost / total_remaining, 2)
-        
+
         # 如果没有库存，返回手办的平均入手价作为备选
         figure = db.query(Figure).filter(Figure.id == figure_id).first()
         return figure.average_purchase_price or 0

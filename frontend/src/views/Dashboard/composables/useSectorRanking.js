@@ -65,7 +65,7 @@ export function useSectorRanking(props) {
   /**
    * 独立拉取板块排行
    */
-  const fetchSectors = async (dimension = activeDimension.value, limit = 5) => {
+  const fetchSectors = async (dimension = activeDimension.value, limit = 10) => {
     loading.value = true
     try {
       const res = await axios.get(`/market/sector-ranking?dimension=${dimension}&limit=${limit}`)
@@ -94,7 +94,7 @@ export function useSectorRanking(props) {
   const setDimension = async (dimension) => {
     if (!dimension || dimension === activeDimension.value) return
     activeDimension.value = dimension
-    await fetchSectors(dimension, 5)
+    await fetchSectors(dimension, 10)
   }
 
   /**
@@ -165,7 +165,7 @@ export function useSectorRanking(props) {
   /**
    * 优先使用 props 已有数据，缺失时再请求接口
    */
-  const ensureSectors = async (limit = 5) => {
+  const ensureSectors = async (limit = 10) => {
     syncFromProps()
     if (sectors.value.length > 0) return
     await fetchSectors(activeDimension.value, limit)

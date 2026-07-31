@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.models.figure import Figure
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
+from app.models.asset import AssetTransaction, OrderTransaction
 
 
 class FigureExportService:
@@ -66,6 +67,10 @@ class FigureExportService:
                 "logistics_company": order.logistics_company,
                 "order_number": order.order_number,
                 "display_order_number": order.display_order_number,
+                "payment_method": order.payment_method,
+                "payment_time": order.payment_time.isoformat() if order.payment_time else None,
+                "balance_payment_method": order.balance_payment_method,
+                "balance_payment_time": order.balance_payment_time.isoformat() if order.balance_payment_time else None,
                 "remarks": order.remarks,
                 "created_at": order.created_at.isoformat() if order.created_at else None,
                 "updated_at": order.updated_at.isoformat() if order.updated_at else None,
@@ -126,23 +131,96 @@ class FigureExportService:
         return sold_orders_data
 
     @staticmethod
+    def get_figure_asset_transactions(db: Session, figure_id: int) -> List[Dict[str, Any]]:
+        """
+        获取手办关联的资产交易记录（库存账）
+        2026-07-31 修复：补全库存账导出路径，包含 buy/sell/adjust 全量历史
+        """
+        txs = db.query(AssetTransaction).filter(AssetTransaction.figure_id == figure_id).all()
+        return [
+            {
+                "id": tx.id,
+                "user_id": tx.user_id,
+                "figure_id": tx.figure_id,
+                "order_id": tx.order_id,
+                "sold_order_id": tx.sold_order_id,
+                "transaction_type": tx.transaction_type,
+                "price": tx.price,
+                "quantity": tx.quantity,
+                "total_amount": tx.total_amount,
+                "remaining_quantity": tx.remaining_quantity,
+                "transaction_date": tx.transaction_date.isoformat() if tx.transaction_date else None,
+                "notes": tx.notes,
+                "created_at": tx.created_at.isoformat() if tx.created_at else None,
+                "updated_at": tx.updated_at.isoformat() if tx.updated_at else None,
+                "is_active": tx.is_active,
+                "deleted_at": tx.deleted_at.isoformat() if tx.deleted_at else None
+            }
+            for tx in txs
+        ]
+
+    @staticmethod
+    def get_figure_order_transactions(db: Session, figure_id: int) -> List[Dict[str, Any]]:
+        """
+        获取手办关联的订单资金流水记录（资金账）
+        2026-07-31 修复：补全资金账导出路径，包含 buy/deposit/balance/supplement/refund/fee/cancel 全量历史
+        """
+        txs = db.query(OrderTransaction).filter(OrderTransaction.figure_id == figure_id).all()
+        return [
+            {
+                "id": tx.id,
+                "user_id": tx.user_id,
+                "figure_id": tx.figure_id,
+                "order_id": tx.order_id,
+                "sold_order_id": tx.sold_order_id,
+                "transaction_type": tx.transaction_type,
+                "transaction_subtype": tx.transaction_subtype,
+                "direction": tx.direction,
+                "quantity": tx.quantity,
+                "unit_price": tx.unit_price,
+                "total_amount": tx.total_amount,
+                "currency": tx.currency,
+                "payment_method": tx.payment_method,
+                "payment_time": tx.payment_time.isoformat() if tx.payment_time else None,
+                "balance_payment_method": tx.balance_payment_method,
+                "balance_payment_time": tx.balance_payment_time.isoformat() if tx.balance_payment_time else None,
+                "platform": tx.platform,
+                "transaction_date": tx.transaction_date.isoformat() if tx.transaction_date else None,
+                "notes": tx.notes,
+                "parent_transaction_id": tx.parent_transaction_id,
+                "change_reason": tx.change_reason,
+                "previous_amount": tx.previous_amount,
+                "current_amount": tx.current_amount,
+                "changed_field": tx.changed_field,
+                "created_at": tx.created_at.isoformat() if tx.created_at else None,
+                "updated_at": tx.updated_at.isoformat() if tx.updated_at else None,
+                "is_active": tx.is_active,
+                "deleted_at": tx.deleted_at.isoformat() if tx.deleted_at else None
+            }
+            for tx in txs
+        ]
+
+    @staticmethod
     def serialize_tags(figure: Figure) -> List[Dict[str, Any]]:
         """
         序列化标签对象为字典列表
-        
+
+        2026-07-29 重构：figure.tags 已从 Tag 关联对象列表改为 JSON 字符串数组，
+        因此每个元素直接是字符串而非 ORM 对象。仅输出 name 字段以保持字典列表结构，
+        与 figure_import_service 的 import_figure 兼容（import 兼容 dict / str 两种格式）。
+
         Args:
             figure: 手办对象
-            
+
         Returns:
-            标签数据字典列表
+            标签数据字典列表（仅含 name 字段）
         """
         tags_data = []
-        for tag in figure.tags:
-            tag_dict = {
-                "id": tag.id,
-                "name": tag.name
-            }
-            tags_data.append(tag_dict)
+        for tag in (figure.tags or []):
+            # 兼容旧数据：若元素是 ORM Tag 对象则取 .name，否则视作字符串
+            tag_name = tag.name if hasattr(tag, "name") else tag
+            if tag_name:
+                tags_data.append({"name": tag_name})
         return tags_data
     
     @staticmethod
@@ -162,6 +240,12 @@ class FigureExportService:
 
         # 获取关联已出售订单
         sold_orders_data = FigureExportService.get_figure_sold_orders(db, figure.id)
+
+        # 获取关联资产交易记录（库存账）
+        asset_transactions_data = FigureExportService.get_figure_asset_transactions(db, figure.id)
+
+        # 获取关联订单资金流水（资金账）
+        order_transactions_data = FigureExportService.get_figure_order_transactions(db, figure.id)
 
         # 序列化标签
         tags_data = FigureExportService.serialize_tags(figure)
@@ -190,12 +274,17 @@ class FigureExportService:
             "material": figure.material,
             "size": figure.size,
             "images": figure.images,
+            "wishlist_status": figure.wishlist_status,
+            "source_url": figure.source_url,
+            "note": figure.note,
             "is_active": figure.is_active,
             "deleted_at": figure.deleted_at.isoformat() if figure.deleted_at else None,
             "created_at": figure.created_at.isoformat() if figure.created_at else None,
             "updated_at": figure.updated_at.isoformat() if figure.updated_at else None,
             "orders": orders_data,
-            "sold_orders": sold_orders_data
+            "sold_orders": sold_orders_data,
+            "asset_transactions": asset_transactions_data,
+            "order_transactions": order_transactions_data
         }
     
     @classmethod
@@ -216,10 +305,8 @@ class FigureExportService:
             Exception: 导出过程中发生错误时抛出
         """
         try:
-            # 获取所有手办数据（不含愿望清单）
-            figures = db.query(Figure).filter(
-                Figure.purchase_type != 'wishlist',
-            ).all()
+            # 获取所有手办数据（不区分在柜/已出/愿望清单，全部导出）
+            figures = db.query(Figure).all()
             
             # 转换为字典列表
             figures_data = []

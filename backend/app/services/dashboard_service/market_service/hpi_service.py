@@ -140,9 +140,13 @@ class HPIService:
 
         事务保护：
         - 异常时主动 rollback，防止 session 污染影响后续用户
+        - 跑批前先检测并补全缺失的快照日期（机器关机/调度异常导致），
+          以「上一个有效交易日的指数值」连续补全，HPI 走势图不会出现断点
         """
         try:
             today = date.today()
+            # 跑批前补全缺失的快照日期
+            cls._backfill_missing_snapshots(db, user_id, today)
             return cls._calculate_and_save(db, user_id, today)
         except Exception as e:
             logger.error(f"HPI 每日跑批失败 (user_id={user_id}): {e}")
@@ -152,6 +156,108 @@ class HPIService:
             except Exception:
                 pass
             return False
+
+    @classmethod
+    def _backfill_missing_snapshots(cls, db: Session, user_id: int, target_date: date) -> int:
+        """
+        补全 hpi_daily 缺失的快照日期
+
+        场景：服务器关机/调度异常导致某天未生成快照，HPI 走势曲线会断点。
+        补全策略：从「最近一次有效快照日期 + 1」开始到「target_date - 1」，
+        对每个缺失日期，沿用最近一次有效快照的指数值（index_value / avg_return /
+        total_figures / holding_figures / sold_figures / 各 up/down 计数 /
+        in_cabinet_value / sold_value）与 hpi_components 成分股数据。
+
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            target_date: 当前跑批日期（通常为今日）
+
+        Returns:
+            int: 实际补全的日期数
+        """
+        # 1. 找到该用户最近一次有效快照
+        latest = db.query(HPIDaily).filter(
+            HPIDaily.user_id == user_id
+        ).order_by(HPIDaily.record_date.desc()).first()
+
+        # 无快照：首次跑批由 run_daily_batch 主流程正常处理，无需补全
+        if not latest:
+            return 0
+
+        latest_date: date = latest.record_date
+        # 2. 计算缺失日期范围
+        if latest_date >= target_date:
+            return 0
+        # 从 latest_date + 1 到 target_date - 1（target_date 自身由主流程计算）
+        cursor = date.fromordinal(latest_date.toordinal() + 1)
+        end = date.fromordinal(target_date.toordinal() - 1)
+        if cursor > end:
+            return 0
+
+        # 3. 预取最近一次的成分股数据，补全时一并复制
+        latest_components = db.query(HPIComponent).filter(
+            HPIComponent.user_id == user_id,
+            HPIComponent.record_date == latest_date
+        ).all()
+
+        # 4. 已存在的快照日期集合（避免对已存在日期重复插入）
+        existing_dates = {
+            row[0] for row in db.query(HPIDaily.record_date).filter(
+                HPIDaily.user_id == user_id,
+                HPIDaily.record_date >= cursor,
+                HPIDaily.record_date <= end
+            ).all()
+        }
+
+        backfilled = 0
+        current = cursor
+        while current <= end:
+            if current not in existing_dates:
+                db.add(HPIDaily(
+                    user_id=user_id,
+                    index_value=latest.index_value,
+                    avg_return=latest.avg_return,
+                    total_figures=latest.total_figures,
+                    holding_figures=latest.holding_figures,
+                    sold_figures=latest.sold_figures,
+                    up_count=latest.up_count,
+                    flat_count=latest.flat_count,
+                    down_count=latest.down_count,
+                    sold_up_count=latest.sold_up_count,
+                    sold_down_count=latest.sold_down_count,
+                    in_cabinet_value=latest.in_cabinet_value,
+                    sold_value=latest.sold_value,
+                    record_date=current,
+                ))
+                for comp in latest_components:
+                    db.add(HPIComponent(
+                        user_id=user_id,
+                        figure_id=comp.figure_id,
+                        record_date=current,
+                        first_buy_price=comp.first_buy_price,
+                        first_buy_date=comp.first_buy_date,
+                        quantity=comp.quantity,
+                        total_buy_amount=comp.total_buy_amount,
+                        current_price=comp.current_price,
+                        is_sold=comp.is_sold,
+                        sell_price=comp.sell_price,
+                        return_pct=comp.return_pct,
+                        weight=comp.weight,
+                        contribution=comp.contribution,
+                        sell_fly=comp.sell_fly,
+                        sell_right=comp.sell_right,
+                    ))
+                backfilled += 1
+            current = date.fromordinal(current.toordinal() + 1)
+
+        if backfilled > 0:
+            db.commit()
+            logger.info(
+                f"HPI 补全缺失快照 (user_id={user_id}, "
+                f"范围 {cursor} ~ {end}, 补全 {backfilled} 天)"
+            )
+        return backfilled
 
     # ========== 内部方法 ==========
 

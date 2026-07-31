@@ -50,9 +50,23 @@ class AddPositionService:
         if not figure:
             raise ValueError(f"手办不存在: {figure_id}")
 
-        # 获取当前库存和成本
-        current_quantity = figure.quantity or 1
-        current_cost_price = figure.average_purchase_price or 0
+        # 获取当前库存
+        # 1) figure.quantity 字段：手办级「理论」数量（初始入库时设置）
+        # 2) calculate_remaining_cost_price 内的真实库存：来自 buy 行的 remaining_quantity
+        #    卖出后会减少，是用户实际持仓口径；与资产仪表盘 / 持仓列表保持一致
+        from app.services.dashboard_service.assets_service.holding_position_service import (
+            HoldingPositionService,
+        )
+        real_stock = HoldingPositionService.get_figure_inventory(db, figure_id, user_id)
+        # 以「真实剩余库存 + 已下补仓单未成交部分」作为当前持仓基数
+        # 当 figure.quantity 与真实库存不一致时（订单被编辑/卖出后未同步），优先信任真实库存
+        current_quantity = real_stock if real_stock > 0 else (figure.quantity or 1)
+
+        # 当前实际成本：取自 HoldingPositionService（已聚合 buy + Σadjust），
+        # 避免 figure.average_purchase_price 字段因历史订单编辑而失真
+        current_cost_price = HoldingPositionService.calculate_remaining_cost_price(
+            db, figure_id, user_id
+        )
 
         # 计算新的加权平均成本价
         # 新成本价 = (原成本 × 原数量 + 补仓价格 × 补仓数量) / (原数量 + 补仓数量)
@@ -74,7 +88,7 @@ class AddPositionService:
             db, user_id, figure_id, orders, price
         )
 
-        # 4. 更新手办信息
+        # 4. 更新手办信息（与新的加权平均成本口径对齐）
         figure.quantity = new_quantity
         figure.average_purchase_price = new_cost_price
 

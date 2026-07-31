@@ -45,17 +45,51 @@ class HoldingSnapshotService:
         if snapshot_date is None:
             snapshot_date = datetime.now().date()
 
-        # 查询用户所有有持仓的手办
-        holdings = db.query(
+        # 1. 聚合同 order 下所有 adjust 调整额（带符号：减少为负、追加为正）
+        adjust_map = {}
+        adjust_rows = db.query(
+            AssetTransaction.order_id,
+            AssetTransaction.price
+        ).filter(
+            AssetTransaction.user_id == user_id,
+            AssetTransaction.transaction_type == "adjust",
+            AssetTransaction.is_active == True
+        ).all()
+        for order_id, adj_price in adjust_rows:
+            adjust_map[order_id] = adjust_map.get(order_id, 0.0) + (adj_price or 0.0)
+
+        # 2. 查询用户所有有持仓的手办（基于 buy 行的 remaining_quantity 统计真实库存）
+        # 每行的最终成本 = buy.price + Σadjust（已完成订单编辑后的累计成本）
+        holdings_rows = db.query(
             AssetTransaction.figure_id,
-            func.sum(AssetTransaction.remaining_quantity).label('total_quantity'),
-            func.sum(AssetTransaction.price * AssetTransaction.remaining_quantity).label('total_cost')
+            AssetTransaction.order_id,
+            AssetTransaction.remaining_quantity,
+            AssetTransaction.price
         ).filter(
             AssetTransaction.user_id == user_id,
             AssetTransaction.transaction_type == "buy",
             AssetTransaction.remaining_quantity > 0,
             AssetTransaction.is_active == True
-        ).group_by(AssetTransaction.figure_id).all()
+        ).all()
+
+        # 按手办ID聚合（每行 buy 成本 = buy.price + Σadjust）
+        figure_agg = {}
+        for row in holdings_rows:
+            fid = row.figure_id
+            final_price = (row.price or 0) + adjust_map.get(row.order_id, 0.0)
+            if fid not in figure_agg:
+                figure_agg[fid] = {"total_quantity": 0, "total_cost": Decimal('0')}
+            figure_agg[fid]["total_quantity"] += int(row.remaining_quantity or 0)
+            figure_agg[fid]["total_cost"] += Decimal(str(final_price)) * Decimal(str(row.remaining_quantity or 0))
+
+        holdings = [
+            type("Holding", (), {
+                "figure_id": fid,
+                "total_quantity": agg["total_quantity"],
+                "total_cost": agg["total_cost"]
+            })()
+            for fid, agg in figure_agg.items()
+        ]
 
         if not holdings:
             # 无持仓，生成空快照

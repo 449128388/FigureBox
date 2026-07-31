@@ -256,10 +256,22 @@ class BuyOrderService:
                     # 跳过定金/尾款的变更、退款、调整等非初始交易，避免将差额显示为实际金额
                     if tx.transaction_type in ("deposit", "balance") and tx.transaction_subtype and tx.transaction_subtype != "initial":
                         continue
+                    # 定金/尾款初始交易展示的金额以订单当前金额为准
+                    # （编辑订单后，order.deposit/balance 已更新为新值；tx.total_amount 仍为初始旧值）
+                    if tx.transaction_type == "deposit":
+                        current_amount = order.deposit or 0
+                        current_currency = order.deposit_currency or tx.currency or "CNY"
+                    elif tx.transaction_type == "balance":
+                        current_amount = order.balance or 0
+                        current_currency = order.balance_currency or tx.currency or "CNY"
+                    else:
+                        current_amount = tx.total_amount or 0
+                        current_currency = tx.currency or "CNY"
                     payment_items.append({
                         "type": cls._map_payment_type(tx.transaction_type),
-                        "amount": tx.total_amount or 0,
-                        "currency": tx.currency or "CNY",
+                        "amount": current_amount,
+                        "amount_display": "--" if current_amount == 0 else None,
+                        "currency": current_currency,
                         "date": tx.transaction_date.strftime("%Y-%m-%d") if tx.transaction_date else "-",
                         "full_date": tx.transaction_date.strftime("%Y-%m-%d %H:%M:%S") if tx.transaction_date else "-",
                         "method": order_payment_method,
