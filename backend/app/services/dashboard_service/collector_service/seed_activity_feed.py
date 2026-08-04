@@ -1,4 +1,4 @@
-﻿"""
+"""
 seed_activity_feed.py - 动态流历史数据回填脚本
 
 功能说明：
@@ -24,7 +24,7 @@ from app.models.database import SessionLocal
 from app.models.order import Order
 from app.models.figure import Figure
 from app.models.sold_order import SoldOrder
-from app.models.cabinet_exclusion import CabinetFigureExclusion
+from app.models.cabinet_metadata import CabinetFigureExclusion
 from app.models.asset import OrderTransaction
 from app.models.activity_feed import ActivityFeed
 from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService

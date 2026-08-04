@@ -1,4 +1,4 @@
-﻿"""
+"""
 collector_exclusion_service.py - 收藏家模式展示分类排除服务
 
 功能说明：
@@ -22,7 +22,7 @@ collector_exclusion_service.py - 收藏家模式展示分类排除服务
 from sqlalchemy.orm import Session
 from typing import Set, Optional
 
-from app.models.cabinet_exclusion import CabinetFigureExclusion
+from app.models.cabinet_metadata import CabinetFigureExclusion
 from app.models.figure import Figure
 from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
 

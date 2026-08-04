@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 
 from app.models.favorite_manufacturer import FavoriteManufacturer
 from app.models.asset import AssetTransaction
-from app.models.cabinet_exclusion import CabinetFigureExclusion
+from app.models.cabinet_metadata import CabinetFigureExclusion
 
 
 class CollectorManufacturerService:

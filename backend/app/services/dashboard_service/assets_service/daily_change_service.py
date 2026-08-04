@@ -243,7 +243,7 @@ class DailyChangeService:
         snapshot_date: date,
         total_asset: float,
         total_cost: float = 0,
-        hpi_index: Optional[float] = None
+        pi_index: Optional[float] = None
     ) -> UserAssetSnapshot:
         """
         创建资产快照
@@ -254,7 +254,7 @@ class DailyChangeService:
             snapshot_date: 快照日期
             total_asset: 总资产
             total_cost: 总成本
-            hpi_index: 塑料手办指数
+            pi_index: 塑料手办指数 (PI)
 
         Returns:
             创建的快照对象
@@ -265,8 +265,8 @@ class DailyChangeService:
             # 更新现有记录
             existing.total_asset = total_asset
             existing.total_cost = total_cost
-            if hpi_index is not None:
-                existing.hpi_index = hpi_index
+            # pi_index = None 也要写入（清空当日无 PI 时的旧值）
+            existing.pi_index = pi_index
             db.commit()
             return existing
 
@@ -276,7 +276,7 @@ class DailyChangeService:
             snapshot_date=snapshot_date,
             total_asset=total_asset,
             total_cost=total_cost,
-            hpi_index=hpi_index,
+            pi_index=pi_index,
             created_at=datetime.now()
         )
         db.add(snapshot)
@@ -315,7 +315,7 @@ class DailyChangeService:
             user_id=user_id,
             snapshot_date=yesterday,
             total_asset=current_total_assets,
-            total_cost=0
+            total_cost=0  # 首次使用场景：昨日无任何历史数据可回溯，成本按 0 占位
         )
 
     @staticmethod

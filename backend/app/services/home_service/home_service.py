@@ -297,13 +297,18 @@ class HomeService:
         if today_released:
             return f"{today_released.name} 今日发售，准备好冲了吗？"
 
-        # 1c. 已到货未入库（订单已支付且未标记完成）
+        # 1c. 已到货未入库（订单已支付 + 存在物流单号 + 物流公司）
+        #     优先级最高：先于"已补尾款"显示（用户更关心入库）
         arrived = (
             db.query(Order)
             .filter(
                 Order.user_id == user_id,
                 Order.is_active == 1,
                 Order.status == "已支付",
+                Order.tracking_number.isnot(None),
+                Order.tracking_number != "",
+                Order.logistics_company.isnot(None),
+                Order.logistics_company != "",
             )
             .first()
         )
@@ -311,6 +316,25 @@ class HomeService:
             figure = db.query(Figure).filter(Figure.id == arrived.figure_id).first()
             name = figure.name if figure else "手办"
             return f"{name} 已到货，记得入库更新持仓"
+
+        # 1d. 已补尾款未发货（订单已支付 + 缺少物流单号或物流公司）
+        balance_paid = (
+            db.query(Order)
+            .filter(
+                Order.user_id == user_id,
+                Order.is_active == 1,
+                Order.status == "已支付",
+            )
+            .filter(
+                (Order.tracking_number.is_(None)) | (Order.tracking_number == "") |
+                (Order.logistics_company.is_(None)) | (Order.logistics_company == "")
+            )
+            .first()
+        )
+        if balance_paid:
+            figure = db.query(Figure).filter(Figure.id == balance_paid.figure_id).first()
+            name = figure.name if figure else "手办"
+            return f"{name} 已补尾款，工厂正在出货中"
 
         # ── Priority 2: 资产涨跌 ──
         if invest_days == 0:

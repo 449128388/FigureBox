@@ -69,7 +69,7 @@
     
     <!-- 塑料手办指数 -->
     <div class="index-item">
-      <span class="label">塑料手办指数:</span>
+      <span class="label">塑料手办指数 (PI):</span>
       <span class="value">{{ dashboardData?.summary?.plastic_index_comparison?.current_value || dashboardData?.summary?.plastic_index || '--' }}</span>
       <span
         v-if="dashboardData?.summary?.plastic_index_comparison"

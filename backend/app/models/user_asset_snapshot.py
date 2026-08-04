@@ -22,7 +22,7 @@ class UserAssetSnapshot(Base):
     - snapshot_date: 快照日期
     - total_asset: 当日总资产
     - total_cost: 当日总成本
-    - hpi_index: 当日塑料手办指数（可选）
+    - pi_index: 当日塑料手办指数 (PI)（可选）
     - created_at: 记录创建时间
     """
     __tablename__ = "user_asset_snapshots"
@@ -37,7 +37,7 @@ class UserAssetSnapshot(Base):
     snapshot_date = Column(Date, nullable=False, index=True, comment="快照日期")
     total_asset = Column(Numeric(15, 2), nullable=False, default=0, comment="当日总资产")
     total_cost = Column(Numeric(15, 2), nullable=False, default=0, comment="当日总成本")
-    hpi_index = Column(Numeric(10, 4), nullable=True, comment="当日塑料手办指数（可选）")
+    pi_index = Column(Numeric(10, 4), nullable=True, comment="当日塑料手办指数 (PI)（可选）")
 
     # 时间戳
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="记录创建时间")

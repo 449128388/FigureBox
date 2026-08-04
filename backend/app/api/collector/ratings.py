@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from app.models.database import get_db
 from app.models.user import User
-from app.models.cabinet_rating import CabinetRating
+from app.models.cabinet_metadata import CabinetRating
 from app.api.users import get_current_user
 
 router = APIRouter()
