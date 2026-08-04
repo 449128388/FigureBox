@@ -29,15 +29,14 @@ from .timeout_config import router as timeout_config_router
 from .backup import router as backup_router
 
 # 顶层聚合 router（main.py 仍通过 app.api.users.router 注册）
+# 注：backup / minio_config / timeout_config 三个子 router 不在此聚合，
+#     由 main.py 单独挂在 /api 前缀下（与前端契约保持一致，避免双重挂载）
 from fastapi import APIRouter
 router = APIRouter()
 router.include_router(account_router)
 router.include_router(profile_router)
 router.include_router(settings_router)
 router.include_router(admin_router)
-router.include_router(backup_router)
-router.include_router(minio_config_router)
-router.include_router(timeout_config_router)
 
 __all__ = [
     "router",

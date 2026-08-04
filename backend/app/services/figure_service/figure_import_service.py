@@ -1,4 +1,4 @@
-"""
+﻿"""
 手办导入服务
 提供手办数据导入相关的业务逻辑
 """
@@ -245,7 +245,7 @@ class FigureImportService:
             
             # 记录动态流 BUY 事件（与订单 CRUD 保持一致的 event_type 和状态映射）
             try:
-                from app.services.collector_service.collector_activity_service import CollectorActivityService
+                from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
                 status_map = {
                     "未支付": "等待补款",
                     "已支付": "等待补款",
@@ -382,7 +382,7 @@ class FigureImportService:
             
             # 记录动态流 SELL 事件（与 sold_order CRUD 保持一致）
             try:
-                from app.services.collector_service.collector_activity_service import CollectorActivityService
+                from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
                 hold_days = 0
                 if figure.purchase_date and sold_order.created_at:
                     out_date = sold_order.created_at.date()

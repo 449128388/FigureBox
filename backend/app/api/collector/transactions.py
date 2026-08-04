@@ -1,4 +1,4 @@
-"""
+﻿"""
 transactions.py - 收藏家模式收藏历程接口
 
 API端点：
@@ -16,7 +16,7 @@ from app.models.database import get_db
 from app.models.user import User
 from app.models.figure import Figure
 from app.api.users import get_current_user
-from app.services.collector_service.collector_transaction_service import CollectorTransactionService
+from app.services.dashboard_service.collector_service.collector_transaction_service import CollectorTransactionService
 
 router = APIRouter()
 

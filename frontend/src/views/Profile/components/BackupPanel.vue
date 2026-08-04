@@ -3,8 +3,8 @@
 
   功能说明：
   - 立即备份按钮：调用 GET /api/backup/download，触发浏览器下载 JSON 备份文件
-  - 自动备份开关：本地状态切换（暂未接入后端定时任务）
-  - 备份历史：本地状态列表（当前会话内累计，待后端提供历史表后接入）
+  - 自动备份开关：GET/PUT /api/backup/settings 持久化到后端
+  - 备份历史：GET /api/backup/records 分页拉取（每行带下载/删除按钮）
   - 数据恢复区：拖拽 / 点击上传 .json 备份文件，调用 POST /api/backup/restore 进行数据恢复
   - 业务逻辑全部抽离到 useBackup composable，本组件只负责 UI 渲染
   - 视觉与字段结构对齐 profile_settings_v5.html 中「系统备份」面板
@@ -99,6 +99,9 @@
               自动备份将在设定周期内执行，超出保留份数的历史备份将被自动清理
             </div>
           </div>
+          <div v-if="lastAutoBackupAt" class="form-hint" style="margin-top: 8px; color: #00a1d6;">
+            ⏱ 上次自动备份：{{ formatDate(lastAutoBackupAt) }}
+          </div>
         </div>
       </div>
 
@@ -106,6 +109,19 @@
       <div class="form-row">
         <label class="form-label">备份历史</label>
         <div class="form-control">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 12px; color: #9499a0;">
+              共 {{ historyTotal }} 条记录
+            </span>
+            <button
+              class="btn btn-outline btn-sm"
+              style="padding: 4px 12px; font-size: 12px;"
+              :disabled="historyLoading"
+              @click="refreshHistory"
+            >
+              {{ historyLoading ? '刷新中…' : '刷新' }}
+            </button>
+          </div>
           <div style="border: 1px solid #e3e5e7; border-radius: 8px; overflow: hidden; max-width: 720px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
               <thead>
@@ -113,18 +129,24 @@
                   <th style="padding: 10px 16px; text-align: left; font-weight: 600; color: #61666d; font-size: 12px;">备份时间</th>
                   <th style="padding: 10px 16px; text-align: left; font-weight: 600; color: #61666d; font-size: 12px;">类型</th>
                   <th style="padding: 10px 16px; text-align: left; font-weight: 600; color: #61666d; font-size: 12px;">大小</th>
+                  <th style="padding: 10px 16px; text-align: left; font-weight: 600; color: #61666d; font-size: 12px;">记录数</th>
                   <th style="padding: 10px 16px; text-align: right; font-weight: 600; color: #61666d; font-size: 12px;">操作</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="backupHistory.length === 0">
-                  <td colspan="4" style="padding: 20px 16px; text-align: center; color: #9499a0; font-size: 13px;">
+                <tr v-if="historyLoading && backupHistory.length === 0">
+                  <td colspan="5" style="padding: 20px 16px; text-align: center; color: #9499a0; font-size: 13px;">
+                    加载中…
+                  </td>
+                </tr>
+                <tr v-else-if="backupHistory.length === 0">
+                  <td colspan="5" style="padding: 20px 16px; text-align: center; color: #9499a0; font-size: 13px;">
                     暂无备份记录，点击「立即备份」生成第一条记录
                   </td>
                 </tr>
                 <tr
-                  v-for="(item, idx) in backupHistory"
-                  :key="idx"
+                  v-for="item in backupHistory"
+                  :key="item.id"
                   style="border-bottom: 1px solid #f0f0f0;"
                 >
                   <td style="padding: 12px 16px; color: #18191c;">{{ item.time }}</td>
@@ -155,20 +177,18 @@
                     </span>
                   </td>
                   <td style="padding: 12px 16px; color: #61666d;">{{ item.size }}</td>
+                  <td style="padding: 12px 16px; color: #61666d;">{{ item.recordCount || 0 }}</td>
                   <td style="padding: 12px 16px; text-align: right;">
-                    <button class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 12px;" @click="handleDownloadFromHistory(item)">下载</button>
+                    <button class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 12px;" @click="handleDownloadRecord(item.id)">下载</button>
                     <button
                       class="btn btn-outline btn-sm"
                       style="padding: 4px 10px; font-size: 12px; margin-left: 6px; color: #f25d8e; border-color: #ffd6d6;"
-                      @click="handleDeleteFromHistory(idx)"
+                      @click="handleDeleteRecord(item.id)"
                     >删除</button>
                   </td>
                 </tr>
               </tbody>
             </table>
-          </div>
-          <div v-if="backupHistory.length > 0" class="form-hint" style="margin-top: 8px;">
-            共 {{ backupHistory.length }} 条备份记录
           </div>
         </div>
       </div>
@@ -186,7 +206,7 @@
             @click="triggerFileInput"
           >
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9499a0" stroke-width="1.5" style="margin-bottom: 8px;">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 0-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
@@ -255,7 +275,6 @@
 
 <script>
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { useBackup } from '../composables/useBackup'
 
 export default {
@@ -280,14 +299,22 @@ export default {
       autoBackupEnabled,
       backupFrequency,
       backupRetain,
+      lastAutoBackupAt,
       backupHistory,
+      historyLoading,
+      historyTotal,
+      historyPage,
+      historyPageSize,
       lastBackupSummary,
       handleDownloadBackup,
       handleFileChange,
       handleRestore,
       clearSelectedFile,
       toggleAutoBackup,
-      saveBackupSettings
+      saveBackupSettings,
+      handleDownloadRecord,
+      handleDeleteRecord,
+      refreshHistory
     } = useBackup()
 
     const triggerFileInput = () => {
@@ -303,15 +330,11 @@ export default {
       }
     }
 
-    const handleDownloadFromHistory = (item) => {
-      // 历史记录中的「下载」按钮：当前阶段历史为前端本地记录，
-      // 仅做提示并复用即时下载逻辑（保留同一份文件流）。
-      ElMessage.info(`开始下载备份文件：${item.filename || item.time}`)
-      handleDownloadBackup()
-    }
-
-    const handleDeleteFromHistory = (idx) => {
-      backupHistory.value.splice(idx, 1)
+    const formatDate = (iso) => {
+      if (!iso) return ''
+      const d = new Date(iso)
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
     }
 
     return {
@@ -326,7 +349,12 @@ export default {
       autoBackupEnabled,
       backupFrequency,
       backupRetain,
+      lastAutoBackupAt,
       backupHistory,
+      historyLoading,
+      historyTotal,
+      historyPage,
+      historyPageSize,
       lastBackupSummary,
       handleDownloadBackup,
       handleFileChange,
@@ -334,10 +362,12 @@ export default {
       clearSelectedFile,
       toggleAutoBackup,
       saveBackupSettings,
+      handleDownloadRecord,
+      handleDeleteRecord,
+      refreshHistory,
       triggerFileInput,
       handleDrop,
-      handleDownloadFromHistory,
-      handleDeleteFromHistory
+      formatDate
     }
   }
 }

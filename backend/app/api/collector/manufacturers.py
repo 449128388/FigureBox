@@ -1,4 +1,4 @@
-"""
+﻿"""
 manufacturers.py - 本命厂商 API 接口
 
 API端点：
@@ -23,7 +23,7 @@ from typing import Optional
 from app.models.database import get_db
 from app.models.user import User
 from app.api.users import get_current_user
-from app.services.collector_service.collector_manufacturer_service import CollectorManufacturerService
+from app.services.dashboard_service.collector_service.collector_manufacturer_service import CollectorManufacturerService
 from app.services.storage_service.storage_service import StorageService
 
 logger = logging.getLogger(__name__)

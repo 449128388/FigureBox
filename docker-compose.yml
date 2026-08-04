@@ -40,6 +40,7 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      - ./backups_data:/app/storage/backups
     ports:
       - "28610:8000"
     depends_on:

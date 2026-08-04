@@ -1,4 +1,4 @@
-"""
+﻿"""
 已出售订单CRUD服务
 
 提供已出售订单的创建、更新、删除功能
@@ -17,7 +17,7 @@ from .sold_order_number_service import SoldOrderNumberService
 from app.services.sold_order_service.sold_order_transaction_service import SoldOrderTransactionService
 from app.services.sold_order_service.sold_order_inventory_service import SoldOrderInventoryService
 from app.services.sold_order_service.sold_order_figure_service import SoldOrderFigureService
-from app.services.collector_service.collector_activity_service import CollectorActivityService
+from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
 
 
 class SoldOrderCrudService:

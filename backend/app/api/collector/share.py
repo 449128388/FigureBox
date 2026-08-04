@@ -1,4 +1,4 @@
-"""
+﻿"""
 share.py - 收藏家分享接口（拆分式 API）
 
 API端点：
@@ -26,10 +26,10 @@ from app.models.activity_feed import ActivityFeed
 from app.models.collector_privacy import CollectorPrivacy
 from app.api.users import get_current_user
 from app.api.collector.dashboard import check_token_refresh
-from app.services.collector_service.collector_privacy_service import CollectorPrivacyService
-from app.services.collector_service.collector_manufacturer_service import CollectorManufacturerService
-from app.services.collector_service.collector_exclusion_service import CollectorExclusionService
-from app.services.collector_service.collector_tag_service import CollectorTagService
+from app.services.dashboard_service.collector_service.collector_privacy_service import CollectorPrivacyService
+from app.services.dashboard_service.collector_service.collector_manufacturer_service import CollectorManufacturerService
+from app.services.dashboard_service.collector_service.collector_exclusion_service import CollectorExclusionService
+from app.services.dashboard_service.collector_service.collector_tag_service import CollectorTagService
 from app.services.dashboard_service.assets_service.profit_analysis_service import ProfitAnalysisService
 
 router = APIRouter()

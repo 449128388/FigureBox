@@ -73,6 +73,12 @@ class User(Base):
     session_timeout_minutes = Column(Integer, default=30, comment="会话超时时间（分钟），0 表示永不超时")
     session_timeout_warning = Column(Boolean, default=True, comment="超时前是否弹窗提醒")
 
+    # ===== 自动备份配置 =====
+    auto_backup_enabled = Column(Boolean, default=False, comment="是否开启自动备份")
+    auto_backup_frequency = Column(String(16), default="weekly", comment="自动备份频率：daily / weekly / monthly")
+    auto_backup_retain = Column(Integer, default=5, comment="保留份数：0=不限制，≥1 保留最近 N 份")
+    last_auto_backup_at = Column(DateTime, nullable=True, comment="上次自动备份成功时间（用于调度到期判断）")
+
     def __init__(self, **kwargs):
         """自动将环境变量中的 MinIO 默认值注入新用户"""
         # SQLAlchemy 在从 DB 还原时不走 __init__，只影响 Python 侧新建用户

@@ -1,4 +1,4 @@
-"""
+﻿"""
 collector_exclusion_service.py - 收藏家模式展示分类排除服务
 
 功能说明：
@@ -7,7 +7,7 @@ collector_exclusion_service.py - 收藏家模式展示分类排除服务
 - 所有自动分类查询通过 LEFT JOIN 排除表过滤已移出的记录
 
 使用方式：
-    from app.services.collector_service.collector_exclusion_service import CollectorExclusionService
+    from app.services.dashboard_service.collector_service.collector_exclusion_service import CollectorExclusionService
 
     # 排除某手办
     CollectorExclusionService.exclude_figure(db, user_id, figure_id, cabinet_type)
@@ -24,7 +24,7 @@ from typing import Set, Optional
 
 from app.models.cabinet_exclusion import CabinetFigureExclusion
 from app.models.figure import Figure
-from app.services.collector_service.collector_activity_service import CollectorActivityService
+from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
 
 
 class CollectorExclusionService:

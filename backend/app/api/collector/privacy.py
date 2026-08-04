@@ -1,4 +1,4 @@
-"""
+﻿"""
 privacy.py - 收藏家隐私设置 API 接口
 
 API端点：
@@ -15,7 +15,7 @@ from app.models.database import get_db
 from app.models.user import User
 from app.api.users import get_current_user
 from app.api.collector.dashboard import check_token_refresh
-from app.services.collector_service.collector_privacy_service import CollectorPrivacyService
+from app.services.dashboard_service.collector_service.collector_privacy_service import CollectorPrivacyService
 
 router = APIRouter()
 

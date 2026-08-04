@@ -1,4 +1,4 @@
-"""
+﻿"""
 seed_activity_feed.py - 动态流历史数据回填脚本
 
 功能说明：
@@ -12,7 +12,7 @@ seed_activity_feed.py - 动态流历史数据回填脚本
 - order_transactions 表 → FULL_PAY / IN_STOCK 事件
 
 使用方式：
-在容器内执行: python -m app.services.collector_service.seed_activity_feed
+在容器内执行: python -m app.services.dashboard_service.collector_service.seed_activity_feed
 """
 
 import logging
@@ -27,7 +27,7 @@ from app.models.sold_order import SoldOrder
 from app.models.cabinet_exclusion import CabinetFigureExclusion
 from app.models.asset import OrderTransaction
 from app.models.activity_feed import ActivityFeed
-from app.services.collector_service.collector_activity_service import CollectorActivityService
+from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-"""
+﻿"""
 cabinets.py - 收藏家看板我的收藏柜接口
 
 API端点：
@@ -35,8 +35,8 @@ from app.models.sold_order import SoldOrder
 from app.models.asset import AssetTransaction
 from app.models.order import Order
 from app.api.users import get_current_user
-from app.services.collector_service.collector_manufacturer_service import CollectorManufacturerService
-from app.services.collector_service.collector_exclusion_service import CollectorExclusionService
+from app.services.dashboard_service.collector_service.collector_manufacturer_service import CollectorManufacturerService
+from app.services.dashboard_service.collector_service.collector_exclusion_service import CollectorExclusionService
 
 router = APIRouter()
 

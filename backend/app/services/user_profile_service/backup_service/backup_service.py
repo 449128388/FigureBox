@@ -8,7 +8,7 @@ backup_service.py - 系统备份/恢复业务服务层（企业级服务层架�
   的底层能力，向 API 层提供两个职责单一的接口
 
 使用示例：
-    from app.services.backup_service import BackupService
+    from app.services.user_profile_service.backup_service import BackupService
     BackupService.export_backup(db)
     BackupService.restore_backup(db, json_data, user_id)
 """

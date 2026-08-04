@@ -1,4 +1,4 @@
-"""
+﻿"""
 手办CRUD服务
 提供手办增删改查的业务逻辑，包括创建、更新、删除、批量删除等
 """
@@ -119,7 +119,7 @@ class FigureCrudService:
 
         # 记录标签快照到动态流（TAG_ADD）- append-only，记录全部当前标签
         if tag_names is not None and tag_names != "__no_change__" and user_id:
-            from app.services.collector_service.collector_activity_service import CollectorActivityService
+            from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
             new_tag_names_set = set(tag_names or [])
             added_tags = new_tag_names_set - (old_tag_names or set())
             if added_tags:
@@ -144,7 +144,7 @@ class FigureCrudService:
             price_changed = new_price != (old_market_price or 0)
             currency_changed = new_currency != (old_market_currency or "CNY")
             if price_changed or currency_changed:
-                from app.services.collector_service.collector_activity_service import CollectorActivityService
+                from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
                 CollectorActivityService.record_price_update_event(
                     db=db,
                     user_id=user_id,

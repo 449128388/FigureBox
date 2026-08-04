@@ -126,3 +126,37 @@ class TimeoutConfigUpdate(BaseModel):
     """超时登出配置更新请求"""
     timeout_minutes: Optional[int] = None
     timeout_warning: Optional[bool] = None
+
+
+# ===== 自动备份设置 Schemas =====
+
+class BackupSettingsUpdate(BaseModel):
+    """自动备份设置更新请求"""
+    enabled: Optional[bool] = None
+    frequency: Optional[str] = None  # daily / weekly / monthly
+    retain: Optional[int] = None     # 0=不限制，≥1
+
+    @field_validator('frequency')
+    @classmethod
+    def validate_frequency(cls, v):
+        if v is not None and v not in ('daily', 'weekly', 'monthly'):
+            raise ValueError('frequency must be daily/weekly/monthly')
+        return v
+
+    @field_validator('retain')
+    @classmethod
+    def validate_retain(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('retain must be >= 0')
+        return v
+
+
+class BackupSettingsResponse(BaseModel):
+    """自动备份设置响应"""
+    enabled: bool
+    frequency: str
+    retain: int
+    last_auto_backup_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True

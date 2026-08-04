@@ -20,7 +20,7 @@
   <div class="search-section">
     <div class="search-form">
       <span style="margin-right: 5px; font-weight: 500;">名称:</span>
-      <el-input v-model="localSearchName" placeholder="搜索名称" style="width: 200px; margin-right: 10px;"></el-input>
+      <el-input v-model="localSearchName" placeholder="搜索名称" style="width: 200px; margin-right: 10px;" @keyup.enter="handleSearch"></el-input>
       <span style="margin-right: 5px; font-weight: 500;">入手形式:</span>
       <el-select v-model="localSearchPurchaseType" placeholder="选择入手形式" style="width: 200px; margin-right: 10px;">
         <el-option value="" label="全部" />

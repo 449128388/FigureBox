@@ -5,6 +5,7 @@
 from .asset_cache_scheduler import AssetCacheScheduler, start_scheduler as start_asset_cache_scheduler, stop_scheduler as stop_asset_cache_scheduler
 from .daily_snapshot_scheduler import DailySnapshotScheduler, start_daily_snapshot_scheduler, stop_daily_snapshot_scheduler
 from .holding_snapshot_scheduler import HoldingSnapshotScheduler, start_holding_snapshot_scheduler, stop_holding_snapshot_scheduler
+from .auto_backup_scheduler import AutoBackupScheduler, start_scheduler as start_auto_backup_scheduler, stop_scheduler as stop_auto_backup_scheduler
 from app.services.exchange_rate_service.exchange_rate_scheduler import start_scheduler as start_exchange_rate_scheduler, stop_scheduler as stop_exchange_rate_scheduler
 from app.services.dashboard_service.market_service.hpi_scheduler import start_scheduler as start_hpi_scheduler, stop_scheduler as stop_hpi_scheduler
 
@@ -20,6 +21,7 @@ class SchedulerManager:
         start_holding_snapshot_scheduler()
         start_exchange_rate_scheduler()
         start_hpi_scheduler()
+        start_auto_backup_scheduler()
 
     @staticmethod
     def stop_scheduler():
@@ -29,6 +31,7 @@ class SchedulerManager:
         stop_holding_snapshot_scheduler()
         stop_exchange_rate_scheduler()
         stop_hpi_scheduler()
+        stop_auto_backup_scheduler()
 
 
 def start_scheduler():
@@ -45,6 +48,7 @@ __all__ = [
     'AssetCacheScheduler',
     'DailySnapshotScheduler',
     'HoldingSnapshotScheduler',
+    'AutoBackupScheduler',
     'SchedulerManager',
     'start_scheduler',
     'stop_scheduler'

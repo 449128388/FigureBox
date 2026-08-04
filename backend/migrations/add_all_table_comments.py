@@ -41,6 +41,7 @@ TABLE_COMMENTS = {
     "hpi_daily": "HPI每日快照表 - 投资生涯全周期收益指数每日快照",
     "hpi_components": "HPI成分明细表 - 记录每手办对指数的贡献",
     "hpoi_scrape_cache": "HPOI 抓取缓存表 - 存储 HPOI 页面抓取结果与解析数据（30 天 TTL）",
+    "backup_records": "备份历史记录表 - 记录每次备份的元数据指针",
 }
 
 # 需要补充列注释的表（id 主键列无注释）
@@ -52,6 +53,13 @@ COLUMN_COMMENTS = {
     "orders": {
         "payment_method": "定金支付方式：支付宝、微信、银行卡转账、现金",
         "payment_time": "定金支付时间",
+    },
+    # users_info 表自动备份配置 4 字段注释同步（原由 add_auto_backup_fields.py 承担，现归口到本脚本）
+    "users_info": {
+        "auto_backup_enabled": "是否开启自动备份",
+        "auto_backup_frequency": "自动备份频率：daily / weekly / monthly",
+        "auto_backup_retain": "保留份数：0=不限制，≥1 保留最近 N 份",
+        "last_auto_backup_at": "上次自动备份成功时间（用于调度到期判断）",
     },
 }
 
@@ -126,6 +134,14 @@ def get_column_type(conn, table_name: str, col_name: str) -> str:
         parts.append("NOT NULL")
     if col_default is not None:
         default_val = col_default if col_default != "CURRENT_TIMESTAMP" else "CURRENT_TIMESTAMP"
+        # 字符串/时间字面量类型（VARCHAR/CHAR/ENUM/SET/TEXT/日期时间）的 DEFAULT 需要加单引号
+        # information_schema 中 col_default 是裸字面量（如 weekly / 2024-01-01），
+        # 拼回 MODIFY COLUMN 语句时若不加引号，MySQL 解析会报 1064
+        if default_val != "CURRENT_TIMESTAMP" and col_type.lower().startswith(
+            ("varchar", "char", "enum", "set", "text", "tinytext", "mediumtext", "longtext",
+             "date", "datetime", "timestamp")
+        ):
+            default_val = f"'{default_val}'"
         parts.append(f"DEFAULT {default_val}")
     if extra:
         parts.append(extra)

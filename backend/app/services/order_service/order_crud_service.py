@@ -1,4 +1,4 @@
-"""
+﻿"""
 订单CRUD服务
 提供订单增删改查的业务逻辑，包括创建、更新、删除等
 """
@@ -186,7 +186,7 @@ class OrderCrudService:
 
         # 记录动态流事件
         try:
-            from app.services.collector_service.collector_activity_service import CollectorActivityService
+            from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
             if db_order.status == "已取消":
                 CollectorActivityService.record_order_cancel_event(
                     db=db,
@@ -478,7 +478,7 @@ class OrderCrudService:
 
         # 同步更新动态流事件
         try:
-            from app.services.collector_service.collector_activity_service import CollectorActivityService
+            from app.services.dashboard_service.collector_service.collector_activity_service import CollectorActivityService
 
             figure = db.query(Figure).filter(Figure.id == db_order.figure_id).first()
             figure_name = figure.name if figure else ""
