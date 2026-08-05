@@ -170,7 +170,7 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; padding-bottom
 }
 .btn-primary { background: #00a1d6; color: #fff; }
 .btn-primary:hover { background: #008db1; }
-.form-actions { margin-top: 8px; padding-left: 130px; display: flex; gap: 16px; }
+.form-actions { margin-top: 8px; display: flex; justify-content: center; gap: 16px; }
 
 @media (max-width: 900px) {
   .form-row { flex-direction: column; }

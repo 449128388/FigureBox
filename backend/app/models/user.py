@@ -79,6 +79,16 @@ class User(Base):
     auto_backup_retain = Column(Integer, default=5, comment="保留份数：0=不限制，≥1 保留最近 N 份")
     last_auto_backup_at = Column(DateTime, nullable=True, comment="上次自动备份成功时间（用于调度到期判断）")
 
+    # ===== 邮箱设置（SMTP 发件配置，用于密码重置/尾款提醒/资产周报等系统通知）=====
+    smtp_host = Column(String(255), default="", comment="SMTP 服务器地址，如 smtp.163.com")
+    smtp_port = Column(Integer, default=465, comment="SMTP 端口：SSL 通常 465，STARTTLS 通常 587，无加密 25")
+    smtp_from_email = Column(String(255), default="", comment="发件人邮箱地址（系统发件时显示的 From 地址）")
+    smtp_from_name = Column(String(100), default="FigureBox 系统通知", comment="发件人昵称（邮件中显示的发件人名称）")
+    smtp_password = Column(String(255), default="", comment="SMTP 授权码 / 密码（建议使用邮箱服务商提供的授权码）")
+    smtp_secure_mode = Column(String(16), default="ssl", comment="安全连接：ssl / starttls / none")
+    smtp_last_test_at = Column(DateTime, nullable=True, comment="SMTP 连接测试成功时间")
+    smtp_last_test_status = Column(String(20), default="", comment="SMTP 连接测试状态：success / failed（便于面板展示连接状态）")
+
     def __init__(self, **kwargs):
         """自动将环境变量中的 MinIO 默认值注入新用户"""
         # SQLAlchemy 在从 DB 还原时不走 __init__，只影响 Python 侧新建用户

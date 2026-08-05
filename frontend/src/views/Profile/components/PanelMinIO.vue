@@ -124,7 +124,8 @@ export default {
 
 .minio-status-card {
   display: flex; align-items: center; gap: 16px; padding: 16px 20px;
-  background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 8px; margin-bottom: 24px;
+  background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 8px;
+  max-width: 640px; margin: 0 auto 24px;
 }
 .minio-status-card.warning { background: #fffbe6; border-color: #ffe58f; }
 .minio-status-card.error { background: #fff2f0; border-color: #ffccc7; }
@@ -134,7 +135,7 @@ export default {
 .minio-status-card.error .status-text { color: #ff4d4f; }
 .status-text .detail { font-size: 12px; font-weight: normal; color: #9499a0; margin-top: 2px; }
 
-.form-row { display: flex; align-items: flex-start; margin-bottom: 24px; }
+.form-row { display: flex; align-items: flex-start; max-width: 640px; margin: 0 auto 24px; }
 .form-label { width: 110px; text-align: right; padding-right: 20px; padding-top: 9px; font-size: 14px; color: #61666d; flex-shrink: 0; white-space: nowrap; }
 .form-control { flex: 1; min-width: 0; }
 .input-wrap { position: relative; max-width: 480px; }
@@ -173,7 +174,7 @@ input::placeholder { color: #9499a0; }
 .btn-success:hover { background: #389e0d; }
 .btn-success:disabled { background: #a3d987; cursor: not-allowed; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.form-actions { margin-top: 8px; padding-left: 130px; display: flex; gap: 16px; }
+.form-actions { margin-top: 8px; display: flex; justify-content: center; gap: 16px; }
 
 @media (max-width: 900px) {
   .form-row { flex-direction: column; }

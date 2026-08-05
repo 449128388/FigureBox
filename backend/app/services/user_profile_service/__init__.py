@@ -11,5 +11,6 @@ from .user_profile_service import UserProfileService
 from .minio_config_service import MinIOConfigService
 from .timeout_config_service import TimeoutConfigService
 from .security_service import SecurityService
+from .email_config_service import EmailConfigService
 
-__all__ = ["UserProfileService", "MinIOConfigService", "TimeoutConfigService", "SecurityService"]
+__all__ = ["UserProfileService", "MinIOConfigService", "TimeoutConfigService", "SecurityService", "EmailConfigService"]

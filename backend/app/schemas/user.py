@@ -39,6 +39,51 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+# ===== 密码重置 Schemas =====
+
+class ForgotPasswordRequest(BaseModel):
+    """请求密码重置验证码"""
+    email: EmailStr
+
+
+class VerifyResetCodeRequest(BaseModel):
+    """校验密码重置验证码"""
+    email: EmailStr
+    code: str
+
+    @field_validator('code')
+    @classmethod
+    def validate_code(cls, v):
+        if v is None or not v.strip():
+            raise ValueError('请输入验证码')
+        if not v.strip().isdigit() or len(v.strip()) != 6:
+            raise ValueError('验证码为 6 位数字')
+        return v.strip()
+
+
+class ResetPasswordRequest(BaseModel):
+    """通过验证码重置密码"""
+    email: EmailStr
+    code: str
+    new_password: str
+
+    @field_validator('code')
+    @classmethod
+    def validate_code(cls, v):
+        if v is None or not v.strip():
+            raise ValueError('请输入验证码')
+        if not v.strip().isdigit() or len(v.strip()) != 6:
+            raise ValueError('验证码为 6 位数字')
+        return v.strip()
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password(cls, v):
+        if not v or len(v) < 8 or len(v) > 20:
+            raise ValueError('新密码长度需在 8-20 位之间')
+        return v
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -166,3 +211,56 @@ class BackupSettingsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ===== 邮箱设置 Schemas =====
+
+class EmailConfigUpdate(BaseModel):
+    """SMTP 邮箱设置更新请求"""
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_from_email: Optional[str] = None
+    smtp_from_name: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_secure_mode: Optional[str] = None  # ssl / starttls / none
+
+    @field_validator('smtp_secure_mode')
+    @classmethod
+    def validate_secure_mode(cls, v):
+        if v is not None and v not in ('ssl', 'starttls', 'none'):
+            raise ValueError('smtp_secure_mode must be ssl/starttls/none')
+        return v
+
+    @field_validator('smtp_port')
+    @classmethod
+    def validate_port(cls, v):
+        if v is not None and (v < 1 or v > 65535):
+            raise ValueError('smtp_port must be in [1, 65535]')
+        return v
+
+
+class EmailConfigResponse(BaseModel):
+    """SMTP 邮箱设置响应（密码字段屏蔽返回）"""
+    smtp_host: str
+    smtp_port: int
+    smtp_from_email: str
+    smtp_from_name: str
+    smtp_password_set: bool  # 仅返回是否已设置，原始密码不回传
+    smtp_secure_mode: str
+    smtp_last_test_at: Optional[str] = None
+    smtp_last_test_status: str
+
+
+class EmailTestRequest(BaseModel):
+    """SMTP 测试邮件请求"""
+    test_to: str  # 测试收件邮箱
+
+    @field_validator('test_to')
+    @classmethod
+    def validate_test_to(cls, v):
+        if v is None or v.strip() == '':
+            raise ValueError('请输入测试收件邮箱')
+        pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+        if not __import__('re').match(pattern, v):
+            raise ValueError('收件邮箱格式不正确')
+        return v

@@ -3,7 +3,7 @@
 
 功能说明：
 - 聚合 users 包内全部 Feature 子 router 与鉴权依赖
-- 7 个子模块：
+- 8 个子模块：
   * auth.py              - 公共鉴权依赖 get_current_user（不挂端点）
   * account.py           - 账号基础接口（/me）→ 账号安全面板
   * profile.py           - 个人资料接口（/profile）→ 基本资料面板
@@ -12,6 +12,7 @@
   * minio_config.py      - MinIO 图床配置（/minio/*）→ MinIO 设置面板
   * timeout_config.py    - 超时登出配置（/timeout/*）→ 超时登出面板
   * backup.py            - 系统备份/恢复（/backup/*）→ 系统备份面板
+  * email_config.py      - 邮箱设置（/email/*）→ 系统备份-邮箱设置子面板
 - 顶层 router = 各子 router 顺序聚合，OpenAPI 端点列表与拆分前完全一致
 - get_current_user 仍由本包 re-export，31 个下游 `from app.api.users import get_current_user` 零修改
 """
@@ -27,9 +28,10 @@ from .admin import router as admin_router
 from .minio_config import router as minio_config_router
 from .timeout_config import router as timeout_config_router
 from .backup import router as backup_router
+from .email_config import router as email_config_router
 
 # 顶层聚合 router（main.py 仍通过 app.api.users.router 注册）
-# 注：backup / minio_config / timeout_config 三个子 router 不在此聚合，
+# 注：backup / minio_config / timeout_config / email_config 四个子 router 不在此聚合，
 #     由 main.py 单独挂在 /api 前缀下（与前端契约保持一致，避免双重挂载）
 from fastapi import APIRouter
 router = APIRouter()
@@ -49,4 +51,5 @@ __all__ = [
     "minio_config_router",
     "timeout_config_router",
     "backup_router",
+    "email_config_router",
 ]

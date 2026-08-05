@@ -124,13 +124,13 @@ export default {
 .timeout-info-card {
   display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px;
   border-radius: 8px; background: #f6f7f8; border: 1px solid #e3e5e7;
-  margin-bottom: 24px; max-width: 640px;
+  max-width: 640px; margin: 0 auto 24px;
 }
 .timeout-info-icon { width: 20px; height: 20px; color: #00a1d6; flex-shrink: 0; margin-top: 1px; }
 .timeout-info-text { font-size: 13px; color: #61666d; line-height: 1.7; }
 .timeout-info-text strong { color: #18191c; }
 
-.form-row { display: flex; align-items: flex-start; margin-bottom: 24px; }
+.form-row { display: flex; align-items: flex-start; max-width: 640px; margin: 0 auto 24px; }
 .form-label { width: 110px; text-align: right; padding-right: 20px; padding-top: 9px; font-size: 14px; color: #61666d; flex-shrink: 0; white-space: nowrap; }
 .form-control { flex: 1; min-width: 0; }
 .form-hint { margin-top: 6px; font-size: 12px; color: #9499a0; }
@@ -176,7 +176,7 @@ export default {
 .btn-primary { background: #00a1d6; color: #fff; }
 .btn-primary:hover { background: #008db1; }
 .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
-.form-actions { margin-top: 8px; padding-left: 130px; display: flex; gap: 16px; }
+.form-actions { margin-top: 8px; display: flex; justify-content: center; gap: 16px; }
 
 @media (max-width: 900px) {
   .form-row { flex-direction: column; }

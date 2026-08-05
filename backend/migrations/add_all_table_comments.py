@@ -60,12 +60,36 @@ COLUMN_COMMENTS = {
         "auto_backup_frequency": "自动备份频率：daily / weekly / monthly",
         "auto_backup_retain": "保留份数：0=不限制，≥1 保留最近 N 份",
         "last_auto_backup_at": "上次自动备份成功时间（用于调度到期判断）",
+        # 邮箱设置（SMTP 发件配置）8 字段（用于密码重置/尾款提醒/资产周报等系统通知）
+        "smtp_host": "SMTP 服务器地址，如 smtp.163.com",
+        "smtp_port": "SMTP 端口：SSL 通常 465，STARTTLS 通常 587，无加密 25",
+        "smtp_from_email": "发件人邮箱地址（系统发件时显示的 From 地址）",
+        "smtp_from_name": "发件人昵称（邮件中显示的发件人名称）",
+        "smtp_password": "SMTP 授权码 / 密码（建议使用邮箱服务商提供的授权码）",
+        "smtp_secure_mode": "安全连接：ssl / starttls / none",
+        "smtp_last_test_at": "SMTP 连接测试成功时间",
+        "smtp_last_test_status": "SMTP 连接测试状态：success / failed（便于面板展示连接状态）",
+    },
+}
+
+# 增量补列：Base.metadata.create_all() 只建新表，不会给已存在表加新列
+# 字段定义与 [models/user.py] Column 完全一致；存在则跳过，缺失则 ADD COLUMN
+COLUMN_DEFINITIONS = {
+    "users_info": {
+        "smtp_host": "VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'SMTP 服务器地址，如 smtp.163.com'",
+        "smtp_port": "INT NOT NULL DEFAULT 465 COMMENT 'SMTP 端口：SSL 通常 465，STARTTLS 通常 587，无加密 25'",
+        "smtp_from_email": "VARCHAR(255) NOT NULL DEFAULT '' COMMENT '发件人邮箱地址（系统发件时显示的 From 地址）'",
+        "smtp_from_name": "VARCHAR(100) NOT NULL DEFAULT 'FigureBox 系统通知' COMMENT '发件人昵称（邮件中显示的发件人名称）'",
+        "smtp_password": "VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'SMTP 授权码 / 密码（建议使用邮箱服务商提供的授权码）'",
+        "smtp_secure_mode": "VARCHAR(16) NOT NULL DEFAULT 'ssl' COMMENT '安全连接：ssl / starttls / none'",
+        "smtp_last_test_at": "DATETIME NULL COMMENT 'SMTP 连接测试成功时间'",
+        "smtp_last_test_status": "VARCHAR(20) NOT NULL DEFAULT '' COMMENT 'SMTP 连接测试状态：success / failed（便于面板展示连接状态）'",
     },
 }
 
 
 def upgrade():
-    """为所有表添加注释"""
+    """为所有表添加注释 + 增量补列（Base.metadata.create_all 不会给已存在表加新列）"""
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
     # 先确保所有表已创建（ORM 模型自动建表）
@@ -81,6 +105,26 @@ def upgrade():
         existing_tables = {}
         for row in result:
             existing_tables[row[0]] = row[1] or ""
+
+        # 增量补列：Base.metadata.create_all() 不会给已存在表加新列，需主动 ADD COLUMN
+        # 存在性判断：information_schema.columns 查列名，缺失则 ADD
+        add_col_count = 0
+        for table_name, columns in COLUMN_DEFINITIONS.items():
+            if table_name not in existing_tables:
+                print(f"  ⚠️ {table_name}: 表不存在，跳过增量补列")
+                continue
+            for col_name, col_ddl in columns.items():
+                exists = conn.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.columns "
+                    "WHERE table_schema = DATABASE() AND table_name = :t AND column_name = :c"
+                ), {"t": table_name, "c": col_name}).scalar()
+                if exists:
+                    print(f"  - {table_name}.{col_name}: 列已存在，跳过")
+                    continue
+                conn.execute(text(f"ALTER TABLE `{table_name}` ADD COLUMN `{col_name}` {col_ddl}"))
+                conn.commit()
+                print(f"  ✅ {table_name}.{col_name}: 新列已添加")
+                add_col_count += 1
 
         count = 0
         for table_name, comment in TABLE_COMMENTS.items():
@@ -116,7 +160,7 @@ def upgrade():
                 print(f"  ✅ {table_name}.{col_name}: 列注释已更新")
                 col_count += 1
 
-    print(f"\n🎉 共更新 {count} 张表的注释，{col_count} 个列的注释")
+    print(f"\n🎉 共更新 {count} 张表的注释，{col_count} 个列的注释，新增 {add_col_count} 个列")
 
 
 def get_column_type(conn, table_name: str, col_name: str) -> str:

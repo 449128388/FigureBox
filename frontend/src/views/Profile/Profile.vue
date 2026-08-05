@@ -1,7 +1,7 @@
 <!--
   Profile/Profile.vue - 个人中心主入口父页面
-  职责：① 引入并初始化 useProfile() 与 useBackup() ② 渲染侧边栏 + 10 个子面板 ③ 透传 state / 桥接事件
-  原 44KB / 1300+ 行的 Profile.vue 已按 Feature 分层拆为：主入口 + 9 个 Panel 子组件 + ProfileSidebar + BackupPanel
+  职责：① 引入并初始化 useProfile() / useSecurity() / useEmailConfig() ② 渲染侧边栏 + 10 个子面板 ③ 透传 state / 桥接事件
+  原 44KB / 1300+ 行的 Profile.vue 已按 Feature 分层拆为：主入口 + 10 个 Panel 子组件 + ProfileSidebar + BackupPanel
 -->
 <template>
   <TopHeader />
@@ -60,7 +60,7 @@
         :visible="dialogVisible"
         :form="pwdForm"
         :errors="errors"
-        :password-visible="passwordVisible"
+        :password-visible="pwdPasswordVisible"
         :strength-segments="strengthSegments"
         :strength-label="strengthLabel"
         :strength-color="strengthColor"
@@ -94,6 +94,24 @@
 
       <BackupPanel :active-panel="activePanel" />
 
+      <PanelEmail
+        :active="activePanel === 'panel-email'"
+        :email-config="emailConfig"
+        :password-visible="emailPasswordVisible"
+        v-model:test-recipient="testRecipient"
+        :saving-config="emailSavingConfig"
+        :testing-connection="emailTestingConnection"
+        :sending-test-email="sendingTestEmail"
+        :email-status-text="emailStatusText"
+        :email-status-detail="emailStatusDetail"
+        :email-status-class="emailStatusClass"
+        :email-status-icon-color="emailStatusIconColor"
+        @save="saveEmailConfig"
+        @test="testEmailConnection"
+        @send-test="sendTestEmail"
+        @toggle-pwd="togglePasswordVisible"
+      />
+
       <PanelDelete
         :active="activePanel === 'panel-delete'"
         @confirm="showDeleteConfirm"
@@ -103,6 +121,7 @@
 </template>
 
 <script>
+import { onMounted } from 'vue'
 import TopHeader from '../../components/TopHeader.vue'
 import ProfileSidebar from './components/ProfileSidebar.vue'
 import PanelBasic from './components/PanelBasic.vue'
@@ -113,10 +132,12 @@ import PanelSecurity from './components/PanelSecurity.vue'
 import ChangePasswordDialog from './components/ChangePasswordDialog.vue'
 import PanelMinIO from './components/PanelMinIO.vue'
 import PanelTimeout from './components/PanelTimeout.vue'
+import PanelEmail from './components/PanelEmail.vue'
 import PanelDelete from './components/PanelDelete.vue'
 import BackupPanel from './components/BackupPanel.vue'
 import { useProfile } from './composables/useProfile'
 import { useSecurity } from './composables/useSecurity'
+import { useEmailConfig } from './composables/useEmailConfig'
 
 export default {
   name: 'Profile',
@@ -131,6 +152,7 @@ export default {
     ChangePasswordDialog,
     PanelMinIO,
     PanelTimeout,
+    PanelEmail,
     PanelDelete,
     BackupPanel
   },
@@ -183,7 +205,7 @@ export default {
       closeDialog,
       pwdForm,
       errors,
-      passwordVisible,
+      passwordVisible: pwdPasswordVisible,
       submitting,
       strengthSegments,
       strengthLabel,
@@ -191,6 +213,30 @@ export default {
       strengthShown,
       submitChangePassword
     } = useSecurity()
+
+    // 邮箱设置（SMTP 发件配置）业务逻辑
+    const {
+      emailConfig,
+      passwordVisible: emailPasswordVisible,
+      testRecipient,
+      savingConfig: emailSavingConfig,
+      testingConnection: emailTestingConnection,
+      sendingTestEmail,
+      emailStatusText,
+      emailStatusDetail,
+      emailStatusClass,
+      emailStatusIconColor,
+      loadEmailConfig,
+      saveEmailConfig,
+      testEmailConnection,
+      sendTestEmail,
+      togglePasswordVisible
+    } = useEmailConfig()
+
+    // 挂载时拉取 SMTP 邮箱配置
+    onMounted(() => {
+      loadEmailConfig()
+    })
 
     // 侧边栏导航配置（10 个面板）
     const sidebarItems = [
@@ -202,6 +248,7 @@ export default {
       { id: 'panel-minio', label: 'MinIO 设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><path d="M15 12l3-3"/><path d="M9 6l3-3"/></svg>' },
       { id: 'panel-timeout', label: '超时登出', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
       { id: 'panel-backup', label: '系统备份', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' },
+      { id: 'panel-email', label: '邮箱设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>' },
       { id: 'panel-delete', label: '账号注销', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' }
     ]
 
@@ -248,13 +295,29 @@ export default {
       closeDialog,
       pwdForm,
       errors,
-      passwordVisible,
+      passwordVisible: pwdPasswordVisible,
       submitting,
       strengthSegments,
       strengthLabel,
       strengthColor,
       strengthShown,
       submitChangePassword,
+      // 邮箱设置（SMTP 发件配置）
+      emailConfig,
+      emailPasswordVisible,
+      testRecipient,
+      emailSavingConfig,
+      emailTestingConnection,
+      sendingTestEmail,
+      emailStatusText,
+      emailStatusDetail,
+      emailStatusClass,
+      emailStatusIconColor,
+      loadEmailConfig,
+      saveEmailConfig,
+      testEmailConnection,
+      sendTestEmail,
+      togglePasswordVisible,
       // sidebar config
       sidebarItems,
       // store

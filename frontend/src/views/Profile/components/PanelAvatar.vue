@@ -64,7 +64,7 @@ export default {
 .panel-header { padding: 20px 24px; border-bottom: 1px solid #e3e5e7; font-size: 18px; font-weight: 700; color: #18191c; }
 .panel-body { padding: 24px 32px 32px; }
 
-.avatar-section { display: flex; gap: 40px; align-items: flex-start; }
+.avatar-section { display: flex; gap: 40px; align-items: flex-start; justify-content: center; }
 .avatar-preview-box { text-align: center; }
 .avatar-preview-box .label { font-size: 13px; color: #9499a0; margin-bottom: 12px; }
 .avatar-large {
@@ -92,7 +92,7 @@ export default {
 }
 .btn-primary { background: #00a1d6; color: #fff; }
 .btn-primary:hover { background: #008db1; }
-.form-actions { margin-top: 8px; padding-left: 130px; display: flex; gap: 16px; }
+.form-actions { margin-top: 8px; display: flex; justify-content: center; gap: 16px; }
 
 @media (max-width: 900px) {
   .form-actions { padding-left: 0; }

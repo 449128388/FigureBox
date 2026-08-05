@@ -410,7 +410,8 @@ export default {
 .form-row {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 24px;
+  max-width: 640px;
+  margin: 0 auto 24px;
 }
 .form-label {
   width: 110px;
@@ -427,7 +428,9 @@ export default {
 
 .form-actions {
   margin-top: 8px;
-  padding-left: 130px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
 }
 .form-actions .btn + .btn { margin-left: 12px; }
 
@@ -464,8 +467,8 @@ export default {
   border-radius: 8px;
   background: #f6f7f8;
   border: 1px solid #e3e5e7;
-  margin-bottom: 24px;
   max-width: 640px;
+  margin: 0 auto 24px;
 }
 .timeout-info-icon {
   width: 20px; height: 20px;

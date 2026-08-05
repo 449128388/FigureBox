@@ -54,7 +54,7 @@ export default {
 .panel-header { padding: 20px 24px; border-bottom: 1px solid #e3e5e7; font-size: 18px; font-weight: 700; color: #18191c; }
 .panel-body { padding: 24px 32px 32px; }
 
-.security-list { max-width: 640px; }
+.security-list { width: 100%; }
 .security-item {
   display: flex; align-items: center; justify-content: space-between;
   padding: 20px 0; border-bottom: 1px solid #e3e5e7;
