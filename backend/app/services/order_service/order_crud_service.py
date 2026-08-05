@@ -10,7 +10,8 @@ from sqlalchemy import func
 from app.models.order import Order
 from app.models.figure import Figure
 from app.models.user import User
-from app.models.asset import AssetTransaction, OrderTransaction
+from app.models.asset_transaction import AssetTransaction
+from app.models.order_finance import OrderTransaction
 from app.schemas.order import OrderCreate, OrderUpdate
 from app.services.asset_transaction_service import AssetTransactionService
 from app.services.order_transaction_service import OrderTransactionService
@@ -87,7 +88,7 @@ class OrderCrudService:
         # - "已支付"：只记录资金流水（有资金流出但未到货）
         # - "已取消"：只记录定金资金流水，不创建尾款记录
         try:
-            from app.models.asset import OrderTransaction
+            from app.models.order_finance import OrderTransaction
             now = datetime.now()
 
             if db_order.status in ("未支付", "已完成", "已支付", "已取消"):
@@ -307,7 +308,7 @@ class OrderCrudService:
         # - "已取消"：只记录定金资金流水，不创建尾款记录
         try:
             if db_order.status in ("未支付", "已完成", "已支付", "已取消"):
-                from app.models.asset import OrderTransaction as OrderTransactionModel
+                from app.models.order_finance import OrderTransaction
                 now = datetime.now()
 
                 # 分别检查定金和尾款记录，缺失的部分单独补充，避免因为已有某类记录而跳过所有记录

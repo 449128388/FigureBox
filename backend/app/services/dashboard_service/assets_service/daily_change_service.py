@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.models.user_asset_snapshot import UserAssetSnapshot
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 from app.models.figure import Figure
 from app.models.order import Order
 

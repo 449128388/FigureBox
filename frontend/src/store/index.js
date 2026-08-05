@@ -14,6 +14,7 @@ export const useUserStore = defineStore('user', {
   actions: {
     async login(email, password) {
       const response = await axios.post('/auth/login', { email, password })
+      // axios 拦截器（src/axios/index.js:38）已经返回 response.data，所以这里是直接的 data
       this.token = response.access_token
       localStorage.setItem('token', response.access_token)
       await this.fetchUser()
@@ -34,6 +35,7 @@ export const useUserStore = defineStore('user', {
     },
     async fetchProfile() {
       try {
+        // axios 拦截器（src/axios/index.js:38）已经返回 response.data，所以这里是直接的 data
         const response = await axios.get('/users/profile')
         this.profile = response
         return response

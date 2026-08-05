@@ -38,7 +38,7 @@ from sqlalchemy import func, desc
 from app.models.figure import Figure
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 from app.models.hpi import HPIDaily, HPIComponent
 from app.services.sold_order_service.currency_service import CurrencyService
 

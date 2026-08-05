@@ -11,7 +11,7 @@ from calendar import monthrange
 from sqlalchemy.orm import Session
 from sqlalchemy import case
 
-from app.models.asset import OrderTransaction
+from app.models.order_finance import OrderTransaction
 from app.models.sold_order import SoldOrder
 from app.models.order import Order
 from app.models.figure import Figure

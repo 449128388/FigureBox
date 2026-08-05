@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.models.figure import Figure
 from app.models.order import Order
-from app.models.asset import AssetTransaction, OrderTransaction, AssetValueCache
+from app.models.asset_transaction import AssetTransaction, AssetValueCache
+from app.models.order_finance import OrderTransaction
 from app.models.user import User
 
 

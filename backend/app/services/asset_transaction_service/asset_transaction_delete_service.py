@@ -4,7 +4,7 @@
 """
 from sqlalchemy.orm import Session
 
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 
 
 class AssetTransactionDeleteService:

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.models.figure import Figure
-from app.models.asset import AssetPriceHistory, AssetTransaction
+from app.models.asset_transaction import AssetPriceHistory, AssetTransaction
 from app.models.order import Order
 
 

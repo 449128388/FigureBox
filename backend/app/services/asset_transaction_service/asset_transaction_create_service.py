@@ -7,7 +7,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 from app.models.order import Order
 
 

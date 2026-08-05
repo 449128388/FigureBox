@@ -27,7 +27,7 @@ from app.models.order import Order
 from app.models.figure import Figure
 from app.models.user import User
 from app.models.sold_order import SoldOrder
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 from app.api.users import get_current_user
 
 router = APIRouter()

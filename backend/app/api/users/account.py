@@ -2,9 +2,10 @@
 account.py - 账号基础接口路由（个人中心-账号安全面板数据源）
 
 功能说明：
-- GET  /api/me   - 获取当前登录用户基础信息
-- PUT  /api/me   - 更新当前登录用户基础信息（username / email / password）
-- 业务逻辑原地内联（仅字段级赋值 + password hash），未引入额外 Service
+- GET  /api/me                  - 获取当前登录用户基础信息
+- PUT  /api/me                  - 更新当前登录用户基础信息（username / email / password）
+- POST /api/me/change-password  - 修改当前登录用户登录密码（校验当前密码 + 新密码强度）
+- 业务逻辑：密码修改走 SecurityService 服务层，其余字段级赋值原地内联
 - 鉴权依赖：app.api.users.auth.get_current_user
 """
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,7 +14,8 @@ from sqlalchemy.orm import Session
 from app.api.users.auth import get_current_user
 from app.models.database import get_db
 from app.models.user import User
-from app.schemas.user import User as UserSchema, UserUpdate
+from app.schemas.user import User as UserSchema, UserUpdate, ChangePasswordRequest
+from app.services.user_profile_service import SecurityService
 
 router = APIRouter()
 
@@ -46,3 +48,18 @@ def update_me(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.post("/me/change-password", response_model=dict)
+def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """修改当前登录用户的登录密码
+
+    - 校验当前密码是否匹配（防止他人借已登录会话改密）
+    - 新密码长度 8-20 位，且不能与当前密码相同
+    - 业务逻辑在 SecurityService 服务层实现
+    """
+    return SecurityService.change_password(db, current_user, request)

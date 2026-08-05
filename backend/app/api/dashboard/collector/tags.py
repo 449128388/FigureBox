@@ -1,4 +1,4 @@
-﻿"""
+"""
 tags.py - 收藏家看板标签云接口
 
 API端点：
@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models.user import User
 from app.api.users import get_current_user
-from app.api.collector.dashboard import check_token_refresh
+from app.api.dashboard.collector.dashboard import check_token_refresh
 from app.services.dashboard_service.collector_service.collector_tag_service import CollectorTagService
 
 router = APIRouter()

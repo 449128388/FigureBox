@@ -25,7 +25,7 @@ from sqlalchemy import or_, and_, func
 
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
-from app.models.asset import OrderTransaction
+from app.models.order_finance import OrderTransaction
 from app.models.figure import Figure
 
 

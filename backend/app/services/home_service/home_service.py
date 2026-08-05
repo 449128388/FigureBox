@@ -14,7 +14,7 @@ from app.models.figure import Figure
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
 from app.models.user import User
-from app.models.asset import AssetPriceHistory
+from app.models.asset_transaction import AssetPriceHistory
 from app.services import AssetCalculationService, IndexService
 from app.services.dashboard_service.market_service.hpi_service import HPIService
 

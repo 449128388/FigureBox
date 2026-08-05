@@ -10,7 +10,7 @@ from datetime import datetime
 
 from app.models.figure import Figure
 from app.models.sold_order import SoldOrder
-from app.models.asset import OrderTransaction
+from app.models.order_finance import OrderTransaction
 
 
 class TradeProfitAnalysisService:

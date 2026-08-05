@@ -10,7 +10,7 @@ from datetime import datetime, date, timedelta
 from decimal import Decimal
 
 from app.models.holding_snapshot import HoldingSnapshot, HoldingSnapshotSummary
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 from app.models.figure import Figure
 from app.models.user import User
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
-from app.models.asset import AssetValueCache, AssetTransaction
+from app.models.asset_transaction import AssetValueCache, AssetTransaction
 from app.models.holding_snapshot import HoldingSnapshotSummary
 from app.models.order import Order
 from app.models.figure import Figure

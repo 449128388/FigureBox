@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import desc, func, or_, text
 
 from app.models.figure import Figure
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 from app.schemas.figure import FigureListItem
 from .figure_price_service import FigurePriceService
 
@@ -342,9 +342,7 @@ class FigureQueryService:
         Returns:
             List[FigureListItem]: 有库存的手办列表
         """
-        from app.models.asset import AssetTransaction
-
-        # 第一步：获取有库存的手办ID列表
+        from app.models.asset_transaction import AssetTransaction
         figure_ids_result = db.query(AssetTransaction.figure_id).filter(
             AssetTransaction.user_id == user_id,
             AssetTransaction.transaction_type == 'buy',

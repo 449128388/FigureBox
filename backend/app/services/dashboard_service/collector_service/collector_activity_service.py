@@ -867,7 +867,7 @@ class CollectorActivityService:
         Returns:
             List[str]: 藏品柜展示名称列表，如 ["最近入柜", "海景房专区"]
         """
-        from app.models.asset import AssetTransaction
+        from app.models.asset_transaction import AssetTransaction
         from app.models.order import Order
         from app.models.sold_order import SoldOrder
 

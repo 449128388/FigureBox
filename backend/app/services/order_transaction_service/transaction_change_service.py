@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from app.models.order import Order
-from app.models.asset import OrderTransaction
+from app.models.order_finance import OrderTransaction
 from app.models.user import User
 from app.services.figure_service.figure_price_service import FigurePriceService
 

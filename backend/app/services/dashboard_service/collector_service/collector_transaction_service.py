@@ -18,7 +18,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
 from datetime import datetime
 
-from app.models.asset import OrderTransaction, AssetTransaction
+from app.models.asset_transaction import AssetTransaction
+
+from app.models.order_finance import OrderTransaction
 
 
 class CollectorTransactionService:

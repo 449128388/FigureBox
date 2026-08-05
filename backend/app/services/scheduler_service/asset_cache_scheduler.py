@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.models.database import SessionLocal
 from app.models.user import User
 from app.models.order import Order
-from app.models.asset import AssetValueCache
+from app.models.asset_transaction import AssetValueCache
 from app.services.dashboard_service.assets_service.asset_core_calculations import (
     TotalAssetsCalculator,
     DailyCacheService,

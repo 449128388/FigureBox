@@ -13,7 +13,7 @@ import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
-from app.models.asset import StockIndexCache, StockIndexHistory
+from app.models.market_index import StockIndexCache, StockIndexHistory
 
 logger = logging.getLogger(__name__)
 

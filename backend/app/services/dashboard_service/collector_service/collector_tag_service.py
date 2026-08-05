@@ -21,7 +21,7 @@ import json
 
 from app.models.figure import Figure
 from app.models.order import Order
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 from app.models.sold_order import SoldOrder
 
 

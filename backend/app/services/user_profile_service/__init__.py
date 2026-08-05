@@ -10,5 +10,6 @@
 from .user_profile_service import UserProfileService
 from .minio_config_service import MinIOConfigService
 from .timeout_config_service import TimeoutConfigService
+from .security_service import SecurityService
 
-__all__ = ["UserProfileService", "MinIOConfigService", "TimeoutConfigService"]
+__all__ = ["UserProfileService", "MinIOConfigService", "TimeoutConfigService", "SecurityService"]

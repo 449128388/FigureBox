@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from collections import defaultdict
 
 from app.models.figure import Figure
-from app.models.asset import OrderTransaction
+from app.models.order_finance import OrderTransaction
 from app.models.sold_order import SoldOrder
 from app.models.order import Order
 from app.services.exchange_rate_service import ExchangeRateService

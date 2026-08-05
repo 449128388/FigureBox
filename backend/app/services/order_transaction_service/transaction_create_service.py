@@ -4,7 +4,7 @@
 """
 
 from sqlalchemy.orm import Session
-from app.models.asset import OrderTransaction
+from app.models.order_finance import OrderTransaction
 from app.services.figure_service.figure_price_service import FigurePriceService
 from datetime import datetime
 

@@ -8,7 +8,7 @@ from typing import Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, and_
 
-from app.models.asset import OrderTransaction
+from app.models.order_finance import OrderTransaction
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
 

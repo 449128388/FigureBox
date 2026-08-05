@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.asset import AssetValueCache, AssetTransaction
+from app.models.asset_transaction import AssetValueCache, AssetTransaction
 from app.models.figure import Figure
 from app.models.order import Order
 from app.models.user import User

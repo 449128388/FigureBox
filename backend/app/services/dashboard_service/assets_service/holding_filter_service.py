@@ -9,7 +9,7 @@ from sqlalchemy import or_
 
 from app.models.figure import Figure
 from app.models.order import Order
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 
 
 class HoldingFilterService:

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.models.database import SessionLocal
 from app.models.user import User
 from app.models.order import Order
-from app.models.asset import AssetTransaction, PlasticIndexHistory
+from app.models.asset_transaction import AssetTransaction, PlasticIndexHistory
 from app.services.dashboard_service.assets_service.daily_change_service import DailyChangeService
 from app.services.sold_order_service.currency_service import CurrencyService
 

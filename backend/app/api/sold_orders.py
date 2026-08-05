@@ -1,20 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+﻿from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+import re
+from datetime import datetime, date
+
 from app.models.database import get_db
-from app.models.sold_order import SoldOrder
-from app.models.figure import Figure
 from app.schemas.sold_order import SoldOrder as SoldOrderSchema, SoldOrderCreate, SoldOrderUpdate, SoldOrderListItem, SoldOrderStatistics
 from app.api.users import get_current_user
 from app.models.user import User
 from app.services.sold_order_service import SoldOrderService
-from app.services.sold_order_service.sold_order_crud_service import SoldOrderCrudService
+from app.services.sold_order_service.sold_order_inventory_service import SoldOrderInventoryService
 from app.services.sold_order_service.quick_sell_service import QuickSellService
-from app.services.sold_order_service.sold_order_number_service import SoldOrderNumberService
 from app.services.dashboard_service.assets_service.holding_position_service import HoldingPositionService
-from pydantic import BaseModel, field_validator
-import re
-from datetime import datetime, date
 
 router = APIRouter()
 
@@ -333,86 +330,40 @@ def create_sell_order_from_inventory(
     db: Session = Depends(get_db)
 ):
     """
-    从库存创建卖出订单
+    从库存创建卖出订单（API 薄壳）
 
-    完整的卖出订单创建流程（由 SoldOrderCrudService.create_sold_order 内部自动完成）：
-    1. 验证库存是否充足
-    2. 创建已出售订单记录
-    3. 创建交易流水记录（资金账）
-    4. 扣减库存（更新 AssetTransaction 的 remaining_quantity）
-    5. 更新手办状态（重新计算 figure.quantity）
-
-    Args:
-        figure_id: 手办ID
-        figure_name: 手办名称
-        quantity: 卖出数量
-        sell_price: 卖出单价
-        cost_price: 成本单价
-        shipping_fee: 运费
-        platform_fee: 平台手续费
-        sell_platform: 卖出平台
-        buyer_phone: 买家手机号
-        buyer_address: 买家地址
-        remarks: 备注
-
-    Returns:
-        创建的已出售订单对象
-
-    Raises:
-        HTTPException: 库存不足或创建失败
+    完整业务编排委托给 SoldOrderInventoryService.create_sell_order_from_inventory：
+    1. 库存校验（业务）
+    2. 生成订单号（业务）
+    3. 计算总价（业务）
+    4. 构造 SoldOrderCreate（业务）
+    5. 创建订单（含交易记录、库存扣减、手办状态更新，业务）
+    6. 异常翻译（API 薄壳职责）
     """
     try:
-        # 1. 验证库存是否充足
-        stock = HoldingPositionService.get_figure_inventory(
-            db, request.figure_id, current_user.id
-        )
-        if stock < request.quantity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"库存不足，当前库存: {stock}体，尝试卖出: {request.quantity}体"
-            )
-
-        # 2. 构建订单数据
-        order_number = SoldOrderNumberService.generate_order_number()
-
-        total_sell_price = request.sell_price * request.quantity
-        total_cost_price = request.cost_price * request.quantity
-
-        order_data = SoldOrderCreate(
+        return SoldOrderInventoryService.create_sell_order_from_inventory(
+            db=db,
             figure_id=request.figure_id,
             quantity=request.quantity,
-            payment_method=request.payment_method,
-            sell_price=total_sell_price,
-            cost_price=total_cost_price,
+            sell_price=request.sell_price,
+            cost_price=request.cost_price,
             shipping_fee=request.shipping_fee,
             platform_fee=request.platform_fee,
-            sell_price_currency='CNY',
-            cost_price_currency='CNY',
-            shipping_fee_currency='CNY',
-            platform_fee_currency='CNY',
             sell_platform=request.sell_platform,
-            order_number=order_number,
+            payment_method=request.payment_method,
+            sell_date=request.sell_date,
             buyer_phone=request.buyer_phone,
             buyer_address=request.buyer_address,
             remarks=request.remarks,
-            status='已完成',
-            sell_date=request.sell_date
+            current_user=current_user
         )
-
-        # 3. 创建卖出订单（内部自动处理：交易记录、库存扣减、手办状态更新）
-        sold_order = SoldOrderCrudService.create_sold_order(
-            db, order_data, current_user
-        )
-
-        return sold_order
-
-    except HTTPException:
-        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

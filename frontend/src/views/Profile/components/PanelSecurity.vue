@@ -1,7 +1,8 @@
 <!--
   PanelSecurity.vue - 账号安全面板
   props: active / email / username
-  三个修改按钮目前都是 disabled，未来可接入修改邮箱/密码/用户名流程
+  emits: open-change-password（点击「修改密码」打开修改密码弹窗）
+  修改邮箱 / 修改用户名 按钮仍为 disabled，暂未接入流程
 -->
 <template>
   <div class="panel" :class="{ active: active }">
@@ -20,7 +21,7 @@
             <div class="security-title">登录密码</div>
             <div class="security-desc">已设置密码</div>
           </div>
-          <button class="btn btn-outline btn-sm" disabled>修改密码</button>
+          <button class="btn btn-outline btn-sm" @click="$emit('open-change-password')">修改密码</button>
         </div>
         <div class="security-item">
           <div class="security-info">
@@ -41,7 +42,8 @@ export default {
     active: { type: Boolean, default: false },
     email: { type: String, default: '' },
     username: { type: String, default: '' }
-  }
+  },
+  emits: ['open-change-password']
 }
 </script>
 

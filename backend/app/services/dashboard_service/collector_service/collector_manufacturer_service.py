@@ -19,7 +19,7 @@ from sqlalchemy import desc, or_
 from datetime import datetime, timezone
 
 from app.models.favorite_manufacturer import FavoriteManufacturer
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 from app.models.cabinet_metadata import CabinetFigureExclusion
 
 

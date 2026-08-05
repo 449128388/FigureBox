@@ -33,6 +33,12 @@ class UserLogin(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    """修改登录密码请求"""
+    current_password: str
+    new_password: str
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str

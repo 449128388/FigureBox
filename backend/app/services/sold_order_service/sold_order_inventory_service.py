@@ -11,8 +11,11 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.asset import AssetTransaction, OrderTransaction
+from app.models.asset_transaction import AssetTransaction
+from app.models.order_finance import OrderTransaction
 from app.models.sold_order import SoldOrder
+from app.models.user import User
+from app.schemas.sold_order import SoldOrderCreate
 
 
 class SoldOrderInventoryService:
@@ -631,3 +634,99 @@ class SoldOrderInventoryService:
 
         db.flush()
         return result
+
+    @staticmethod
+    def create_sell_order_from_inventory(
+        db: Session,
+        figure_id: int,
+        quantity: int,
+        sell_price: float,
+        cost_price: float,
+        shipping_fee: float,
+        platform_fee: float,
+        sell_platform: str,
+        payment_method: str,
+        sell_date,
+        buyer_phone: str,
+        buyer_address: str,
+        remarks: str,
+        current_user: User
+    ) -> SoldOrder:
+        """
+        从库存创建卖出订单业务编排
+
+        完整 6 步业务流（API 层只调用本方法，不做任何业务处理）：
+        1. 库存校验：调用 get_figure_inventory 检查 figure_id 在 current_user 下的剩余持仓是否 ≥ quantity
+        2. 生成订单号：调用 SoldOrderNumberService.generate_order_number
+        3. 计算总价：sell_price × quantity + cost_price × quantity（4 个币种字段统一 CNY）
+        4. 构造 SoldOrderCreate Pydantic 模型
+        5. 创建卖出订单：调用 SoldOrderCrudService.create_sold_order（内部自动处理：交易记录、库存扣减、手办状态更新）
+        6. 异常翻译：ValueError → 业务异常（由 API 层翻译为 400），Exception → 500 内部错误
+
+        Args:
+            db: 数据库会话
+            figure_id: 手办ID
+            quantity: 卖出数量
+            sell_price: 卖出单价
+            cost_price: 成本单价
+            shipping_fee: 运费
+            platform_fee: 平台手续费
+            sell_platform: 卖出平台
+            payment_method: 支付方式
+            sell_date: 卖出日期
+            buyer_phone: 买家手机号
+            buyer_address: 买家地址
+            remarks: 备注
+            current_user: 当前登录用户
+
+        Returns:
+            创建的 SoldOrder 对象
+        """
+        from app.services.sold_order_service.sold_order_number_service import SoldOrderNumberService
+        from app.services.sold_order_service.sold_order_crud_service import SoldOrderCrudService
+        from app.services.dashboard_service.assets_service.holding_position_service import HoldingPositionService
+
+        # 1. 库存校验
+        stock = HoldingPositionService.get_figure_inventory(
+            db, figure_id, current_user.id
+        )
+        if stock < quantity:
+            raise ValueError(
+                f"库存不足，当前库存: {stock}体，尝试卖出: {quantity}体"
+            )
+
+        # 2. 生成订单号
+        order_number = SoldOrderNumberService.generate_order_number()
+
+        # 3. 计算总价
+        total_sell_price = sell_price * quantity
+        total_cost_price = cost_price * quantity
+
+        # 4. 构造 SoldOrderCreate
+        order_data = SoldOrderCreate(
+            figure_id=figure_id,
+            quantity=quantity,
+            payment_method=payment_method,
+            sell_price=total_sell_price,
+            cost_price=total_cost_price,
+            shipping_fee=shipping_fee,
+            platform_fee=platform_fee,
+            sell_price_currency='CNY',
+            cost_price_currency='CNY',
+            shipping_fee_currency='CNY',
+            platform_fee_currency='CNY',
+            sell_platform=sell_platform,
+            order_number=order_number,
+            buyer_phone=buyer_phone,
+            buyer_address=buyer_address,
+            remarks=remarks,
+            status='已完成',
+            sell_date=sell_date
+        )
+
+        # 5. 创建卖出订单（内部自动处理：交易记录、库存扣减、手办状态更新）
+        sold_order = SoldOrderCrudService.create_sold_order(
+            db, order_data, current_user
+        )
+
+        return sold_order

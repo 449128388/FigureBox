@@ -10,7 +10,8 @@ from datetime import datetime, date, timedelta
 
 from app.models.order import Order
 from app.models.figure import Figure
-from app.models.asset import OrderTransaction, AssetTransaction
+from app.models.asset_transaction import AssetTransaction
+from app.models.order_finance import OrderTransaction
 from app.services.asset_transaction_service import AssetTransactionService
 from app.services.figure_service import FigureService
 from app.services.figure_service.figure_price_service import FigurePriceService

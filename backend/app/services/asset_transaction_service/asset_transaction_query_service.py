@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 
-from app.models.asset import AssetTransaction
+from app.models.asset_transaction import AssetTransaction
 
 
 class AssetTransactionQueryService:

@@ -16,7 +16,7 @@ from typing import Dict, Optional, Any, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
-from app.models.asset import PlasticIndexHistory
+from app.models.asset_transaction import PlasticIndexHistory
 from app.models.figure import Figure
 
 

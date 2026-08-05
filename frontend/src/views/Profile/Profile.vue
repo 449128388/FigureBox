@@ -52,6 +52,22 @@
         :active="activePanel === 'panel-security'"
         :email="userStore.currentUser?.email || ''"
         :username="userStore.currentUser?.username || ''"
+        @open-change-password="openDialog"
+      />
+
+      <!-- 修改登录密码弹窗（账号安全） -->
+      <ChangePasswordDialog
+        :visible="dialogVisible"
+        :form="pwdForm"
+        :errors="errors"
+        :password-visible="passwordVisible"
+        :strength-segments="strengthSegments"
+        :strength-label="strengthLabel"
+        :strength-color="strengthColor"
+        :strength-shown="strengthShown"
+        :submitting="submitting"
+        @close="closeDialog"
+        @submit="submitChangePassword"
       />
 
       <PanelMinIO
@@ -94,11 +110,13 @@ import PanelAvatar from './components/PanelAvatar.vue'
 import PanelPrivacy from './components/PanelPrivacy.vue'
 import PanelPush from './components/PanelPush.vue'
 import PanelSecurity from './components/PanelSecurity.vue'
+import ChangePasswordDialog from './components/ChangePasswordDialog.vue'
 import PanelMinIO from './components/PanelMinIO.vue'
 import PanelTimeout from './components/PanelTimeout.vue'
 import PanelDelete from './components/PanelDelete.vue'
 import BackupPanel from './components/BackupPanel.vue'
 import { useProfile } from './composables/useProfile'
+import { useSecurity } from './composables/useSecurity'
 
 export default {
   name: 'Profile',
@@ -110,6 +128,7 @@ export default {
     PanelPrivacy,
     PanelPush,
     PanelSecurity,
+    ChangePasswordDialog,
     PanelMinIO,
     PanelTimeout,
     PanelDelete,
@@ -156,6 +175,22 @@ export default {
       // store
       userStore
     } = useProfile()
+
+    // 修改登录密码（账号安全）业务逻辑
+    const {
+      dialogVisible,
+      openDialog,
+      closeDialog,
+      pwdForm,
+      errors,
+      passwordVisible,
+      submitting,
+      strengthSegments,
+      strengthLabel,
+      strengthColor,
+      strengthShown,
+      submitChangePassword
+    } = useSecurity()
 
     // 侧边栏导航配置（10 个面板）
     const sidebarItems = [
@@ -207,6 +242,19 @@ export default {
       selectTimeout,
       saveTimeoutConfig,
       showDeleteConfirm,
+      // 修改登录密码（账号安全）
+      dialogVisible,
+      openDialog,
+      closeDialog,
+      pwdForm,
+      errors,
+      passwordVisible,
+      submitting,
+      strengthSegments,
+      strengthLabel,
+      strengthColor,
+      strengthShown,
+      submitChangePassword,
       // sidebar config
       sidebarItems,
       // store

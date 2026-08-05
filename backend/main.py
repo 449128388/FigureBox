@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
-from app.api import auth, figures, orders, users, assets, asset_transactions, sold_orders, market, collector, records, upload, wishlist, home
+from app.api import auth, figures, orders, users, asset_transactions, sold_orders, upload, wishlist, home
+from app.api.dashboard.trade_records import router as trade_records_router
+from app.api.dashboard.market import router as market_router
+from app.api.dashboard.assets import router as dashboard_assets_router
+from app.api.dashboard.collector import router as dashboard_collector_router
 from app.models.database import engine, Base
 from app.models.exchange_rate import ExchangeRateRealtime, ExchangeRateHistory
 from app.models.hpi import HPIDaily, HPIComponent
@@ -45,12 +49,12 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(figures.router, prefix="/api/figures", tags=["figures"])
 app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
-app.include_router(assets.router, prefix="/api/assets", tags=["assets"])
-app.include_router(market.router, prefix="/api/market", tags=["market"])
-app.include_router(collector.router, prefix="/api/collector", tags=["collector"])
+app.include_router(dashboard_assets_router, prefix="/api/assets", tags=["assets"])
+app.include_router(market_router, prefix="/api/market", tags=["market"])
+app.include_router(dashboard_collector_router, prefix="/api/collector", tags=["collector"])
 app.include_router(asset_transactions.router, prefix="/api/asset-transactions", tags=["asset-transactions"])
 app.include_router(sold_orders.router, prefix="/api/sold-orders", tags=["sold-orders"])
-app.include_router(records.router, prefix="/api/trade_records", tags=["records"])
+app.include_router(trade_records_router, prefix="/api/trade_records", tags=["trade_records"])
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(wishlist.router, prefix="/api/wishlist", tags=["wishlist"])
 app.include_router(home.router, prefix="/api/home", tags=["home"])

@@ -27,7 +27,8 @@ from sqlalchemy import func, extract
 from app.models.database import get_db
 from app.models.user import User
 from app.models.figure import Figure
-from app.models.asset import AssetTransaction, OrderTransaction
+from app.models.asset_transaction import AssetTransaction
+from app.models.order_finance import OrderTransaction
 from app.models.order import Order
 from app.models.sold_order import SoldOrder
 from app.api.users import get_current_user

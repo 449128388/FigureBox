@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from app.models.asset import OrderTransaction
+from app.models.order_finance import OrderTransaction
 from app.models.sold_order import SoldOrder
 from .currency_service import CurrencyService
 
