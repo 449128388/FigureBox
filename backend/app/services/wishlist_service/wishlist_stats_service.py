@@ -23,7 +23,7 @@ class WishlistStatsService:
     @staticmethod
     def get_stats(db: Session, user_id: int) -> Dict[str, Any]:
         """
-        获取愿望清单统计指标
+        获取愿望清单统计指标（2026-08-05 修复：全链路 user_id 数据隔离）
 
         Returns:
             {
@@ -35,10 +35,11 @@ class WishlistStatsService:
                 "top_manufacturers": TOP 厂商,
             }
         """
-        # 基础查询
+        # 基础查询（2026-08-05 修复：按用户过滤，防止跨用户汇总）
         base_query = db.query(Figure).filter(
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,
         )
 
         # 1. 愿望总数
@@ -74,26 +75,28 @@ class WishlistStatsService:
             Figure.wishlist_status == "released"
         ).count()
 
-        # 5. 状态分布
+        # 5. 状态分布（2026-08-05 修复：补 user_id 过滤）
         status_dist_rows = db.query(
             Figure.wishlist_status,
             func.count(Figure.id).label("count"),
         ).filter(
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,
         ).group_by(Figure.wishlist_status).all()
 
         status_distribution = {}
         for status, count in status_dist_rows:
             status_distribution[status or "wish"] = count
 
-        # 6. TOP 厂商
+        # 6. TOP 厂商（2026-08-05 修复：补 user_id 过滤）
         top_mfr_rows = db.query(
             Figure.manufacturer,
             func.count(Figure.id).label("count"),
         ).filter(
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,
             Figure.manufacturer.isnot(None),
             Figure.manufacturer != "",
         ).group_by(Figure.manufacturer) \
@@ -105,33 +108,36 @@ class WishlistStatsService:
             for name, count in top_mfr_rows
         ]
 
-        # 7. 较上月新增（上月同期总数，用于趋势展示）
+        # 7. 较上月新增（上月同期总数，用于趋势展示；2026-08-05 修复：补 user_id 过滤）
         from datetime import timedelta
         last_month_start = (first_day - timedelta(days=1)).replace(day=1)
         last_month_count = db.query(Figure).filter(
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,
             Figure.created_at >= last_month_start,
             Figure.created_at < first_day,
         ).count()
         last_month_total = total - last_month_count
 
-        # 8. 本月即将发售的名称（最多 3 个）
+        # 8. 本月即将发售的名称（最多 3 个；2026-08-05 修复：补 user_id 过滤）
         releasing_names = [
             f.name for f in db.query(Figure.name).filter(
                 Figure.purchase_type == PURCHASE_TYPE,
                 Figure.is_active == 1,
+                Figure.user_id == user_id,
                 Figure.release_date >= first_day,
                 Figure.release_date < next_month_first,
                 Figure.name.isnot(None),
             ).order_by(Figure.release_date.asc()).limit(3).all()
         ]
 
-        # 9. 已转采购金额
+        # 9. 已转采购金额（2026-08-05 修复：补 user_id 过滤）
         transferred_amount = 0.0
         transferred_rows = db.query(Figure).filter(
             Figure.purchase_type != PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,
             Figure.wishlist_status == "purchased",
             Figure.price.isnot(None),
             Figure.price > 0,

@@ -1,4 +1,4 @@
-﻿"""
+"""
 transactions.py - 收藏家模式收藏历程接口
 
 API端点：
@@ -38,8 +38,11 @@ async def get_figure_transactions(
     返回：
     - transactions: 交易流水列表（按日期倒序）
     """
-    # 验证手办存在
-    figure = db.query(Figure).filter(Figure.id == figure_id).first()
+    # 验证手办存在且属于当前用户（2026-08-05 新增：按 user_id 校验所有权）
+    figure = db.query(Figure).filter(
+        Figure.id == figure_id,
+        Figure.user_id == current_user.id,  # 2026-08-05 新增：数据隔离
+    ).first()
     if not figure:
         raise HTTPException(status_code=404, detail="手办不存在")
 

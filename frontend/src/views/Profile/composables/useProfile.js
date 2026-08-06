@@ -381,15 +381,14 @@ export function useProfile() {
     window.location.href = '/login'
   }
 
+  // ========== 挂载初始化 ==========
+  // 2026-08-05 改造：进入个人中心不再全量加载，只保留与「默认激活面板(基本资料)」无关的全局初始化
+  // 各面板数据改为「点击模块时才请求」（由 Profile.vue 的 handleSwitchPanel 按需调度 loadXXX）
   onMounted(() => {
     if (!userStore.currentUser) {
       userStore.fetchUser()
     }
-    loadProfile()
-    loadPrivacySettings()
     avatarSrc.value = userStore.currentUser?.avatar_url || userStore.profile?.avatar_url || '/imgs/none.jpg'
-    loadMinIOConfig()
-    loadTimeoutConfig()
   })
 
   return {

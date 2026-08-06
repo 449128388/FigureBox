@@ -67,24 +67,28 @@ class AssetsCommonService:
         return set(order.figure_id for order in orders)
 
     @staticmethod
-    def get_figures_with_valid_orders(db: Session, orders: List[Order]) -> List[Figure]:
+    def get_figures_with_valid_orders(db: Session, orders: List[Order], user_id: Optional[int] = None) -> List[Figure]:
         """
         获取有有效订单的手办列表
-        
+
         Args:
             db: 数据库会话
             orders: 有效订单列表
-        
+            user_id: 用户ID（2026-08-05 新增：数据隔离，可选；None 时返回所有手办，调用方应自行校验）
+
         Returns:
             List[Figure]: 手办列表
         """
         figure_ids = AssetsCommonService.get_figure_ids_with_valid_orders(orders)
-        
+
         if not figure_ids:
             return []
-        
-        all_figures = db.query(Figure).all()
-        return [fig for fig in all_figures if fig.id in figure_ids]
+
+        # 2026-08-05 新增：按 user_id 过滤防止越权
+        query = db.query(Figure).filter(Figure.id.in_(figure_ids))
+        if user_id is not None:
+            query = query.filter(Figure.user_id == user_id)
+        return query.all()
 
     @staticmethod
     def calculate_time_range(time_range: str) -> datetime:

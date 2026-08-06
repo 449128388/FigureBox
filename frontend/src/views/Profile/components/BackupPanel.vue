@@ -274,7 +274,7 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useBackup } from '../composables/useBackup'
 
 export default {
@@ -285,7 +285,7 @@ export default {
       default: ''
     }
   },
-  setup() {
+  setup(props) {
     const fileInputRef = ref(null)
     const dragOver = ref(false)
 
@@ -314,8 +314,23 @@ export default {
       saveBackupSettings,
       handleDownloadRecord,
       handleDeleteRecord,
-      refreshHistory
+      refreshHistory,
+      loadSettings,
+      loadHistory
     } = useBackup()
+
+    // 2026-08-05 新增：按需加载 — 首次进入「系统备份」面板时才拉取自动备份配置 + 备份历史
+    let backupLoaded = false
+    watch(
+      () => props.activePanel,
+      (val) => {
+        if (val === 'panel-backup' && !backupLoaded) {
+          backupLoaded = true
+          loadSettings()
+          loadHistory()
+        }
+      }
+    )
 
     const triggerFileInput = () => {
       fileInputRef.value?.click()

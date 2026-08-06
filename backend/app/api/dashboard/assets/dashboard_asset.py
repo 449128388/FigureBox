@@ -62,11 +62,11 @@ async def get_asset_dashboard(
     # 计算时间范围
     start_date = AssetsCommonService.calculate_time_range(time_range)
     
-    # 获取所有有效订单
-    valid_orders = AssetsCommonService.get_valid_orders(db)
-    
-    # 获取有有效订单的手办列表
-    figures = AssetsCommonService.get_figures_with_valid_orders(db, valid_orders)
+    # 获取所有有效订单（2026-08-05 新增：按 user_id 过滤）
+    valid_orders = AssetsCommonService.get_valid_orders(db, current_user.id)
+
+    # 获取有有效订单的手办列表（2026-08-05 新增：传入 user_id 做数据隔离）
+    figures = AssetsCommonService.get_figures_with_valid_orders(db, valid_orders, current_user.id)
     
     # 使用基于已完成订单的方法计算总资产
     total_assets = TotalAssetsCalculator.calculate_by_orders(db, current_user.id, valid_orders)
@@ -217,17 +217,12 @@ async def get_asset_dashboard(
             })
     rankings.sort(key=lambda x: abs(x["change_percentage"]), reverse=True)
     rankings = rankings[:10]
-    
-    # 操作建议
-    advice = [
-        {"figure_name": "Saber", "advice": "Saber跌幅超10%,建议持有或止损"}
-    ]
 
     # 持仓分布数据
     distribution_data = HoldingAnalysisService.analyze_all_distributions(
         db, figures, total_assets, current_user.id
     )
-    
+
     # 检查token续期
     AssetsCommonService.check_token_refresh(request, response)
 
@@ -236,7 +231,6 @@ async def get_asset_dashboard(
         "profit": profit,
         "kline_data": kline_data,
         "rankings": rankings,
-        "advice": advice,
         "holdings": distribution_data["holdings"],
         "risk_distribution": distribution_data["risk_distribution"],
         "manufacturer_distribution": distribution_data["manufacturer_distribution"],
@@ -265,7 +259,9 @@ def init_daily_change_baseline(
     from app.services.dashboard_service.assets_service.asset_core_calculations import TotalAssetsCalculator
     from app.models.order import Order
 
+    # 2026-08-05 新增：按用户过滤订单（数据隔离）
     valid_orders = db.query(Order).filter(
+        Order.user_id == current_user.id,
         Order.status == "已完成",
         Order.is_active == True
     ).all()

@@ -1,4 +1,4 @@
-﻿"""
+"""
 手办CRUD服务
 提供手办增删改查的业务逻辑，包括创建、更新、删除、批量删除等
 """
@@ -49,6 +49,10 @@ class FigureCrudService:
         # 2026-07-29 重构：直接设置 tags JSON 字段
         if tag_names is not None:
             figure_data['tags'] = tag_names if isinstance(tag_names, list) else []
+
+        # 2026-08-05 新增：数据隔离 — 写入 user_id
+        if user_id is not None and 'user_id' not in figure_data:
+            figure_data['user_id'] = user_id
 
         # 创建手办对象
         db_figure = Figure(**figure_data)
@@ -160,13 +164,14 @@ class FigureCrudService:
         return db_figure
 
     @staticmethod
-    def delete_figure(db: Session, figure_id: int) -> bool:
+    def delete_figure(db: Session, figure_id: int, user_id: Optional[int] = None) -> bool:
         """
         删除手办（软删除）
 
         Args:
             db: 数据库会话
             figure_id: 手办ID
+            user_id: 用户ID（2026-08-05 新增：数据隔离所有权校验）
 
         Returns:
             bool: 是否删除成功
@@ -175,10 +180,14 @@ class FigureCrudService:
             ValueError: 当手办存在未软删除的关联订单时
         """
         # 只删除激活状态的手办
-        db_figure = db.query(Figure).filter(
+        # 2026-08-05 新增：数据隔离 — 校验所有权
+        db_figure_query = db.query(Figure).filter(
             Figure.id == figure_id,
             Figure.is_active == True
-        ).first()
+        )
+        if user_id is not None:
+            db_figure_query = db_figure_query.filter(Figure.user_id == user_id)
+        db_figure = db_figure_query.first()
         if not db_figure:
             return False
 
@@ -214,13 +223,14 @@ class FigureCrudService:
         return True
 
     @staticmethod
-    def batch_delete_figures(db: Session, figure_ids: List[int]) -> Dict[str, Any]:
+    def batch_delete_figures(db: Session, figure_ids: List[int], user_id: Optional[int] = None) -> Dict[str, Any]:
         """
         批量删除手办（软删除）
 
         Args:
             db: 数据库会话
             figure_ids: 要删除的手办ID列表
+            user_id: 用户ID（2026-08-05 新增：数据隔离所有权校验，只删属于该用户的手办）
 
         Returns:
             Dict: 删除结果统计

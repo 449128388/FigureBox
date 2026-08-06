@@ -106,9 +106,9 @@ class FigureService:
         )
 
     @staticmethod
-    def get_figure_by_id(db: Session, figure_id: int) -> Optional[Figure]:
-        """根据ID获取手办详情"""
-        return FigureQueryService.get_figure_by_id(db, figure_id)
+    def get_figure_by_id(db: Session, figure_id: int, user_id: Optional[int] = None) -> Optional[Figure]:
+        """根据ID获取手办详情（2026-08-05 新增 user_id 数据隔离透传）"""
+        return FigureQueryService.get_figure_by_id(db, figure_id, user_id)
 
     @staticmethod
     def get_figures_with_stock(
@@ -138,11 +138,11 @@ class FigureService:
         return FigureCrudService.update_figure(db, figure_id, figure_data, user_id)
 
     @staticmethod
-    def delete_figure(db: Session, figure_id: int) -> bool:
-        """删除手办（软删除）"""
-        return FigureCrudService.delete_figure(db, figure_id)
+    def delete_figure(db: Session, figure_id: int, user_id: Optional[int] = None) -> bool:
+        """删除手办（软删除）（2026-08-05 新增 user_id 所有权校验）"""
+        return FigureCrudService.delete_figure(db, figure_id, user_id)
 
     @staticmethod
-    def batch_delete_figures(db: Session, figure_ids: List[int]) -> Dict[str, Any]:
-        """批量删除手办（软删除）"""
-        return FigureCrudService.batch_delete_figures(db, figure_ids)
+    def batch_delete_figures(db: Session, figure_ids: List[int], user_id: Optional[int] = None) -> Dict[str, Any]:
+        """批量删除手办（软删除）（2026-08-05 新增 user_id 所有权校验）"""
+        return FigureCrudService.batch_delete_figures(db, figure_ids, user_id)

@@ -10,7 +10,7 @@
     <ProfileSidebar
       :items="sidebarItems"
       :active-panel="activePanel"
-      @select="switchPanel"
+      @select="handleSwitchPanel"
     />
 
     <main class="profile-main">
@@ -194,6 +194,11 @@ export default {
       selectTimeout,
       saveTimeoutConfig,
       showDeleteConfirm,
+      // 2026-08-05 新增：按需加载（点击模块才请求）
+      loadProfile,
+      loadPrivacySettings,
+      loadMinIOConfig,
+      loadTimeoutConfig,
       // store
       userStore
     } = useProfile()
@@ -233,9 +238,28 @@ export default {
       togglePasswordVisible
     } = useEmailConfig()
 
-    // 挂载时拉取 SMTP 邮箱配置
+    // ========== 面板按需加载（2026-08-05 新增） ==========
+    // 进入个人中心不再全量请求所有模块，改为「点击哪个模块才加载哪个模块」：
+    // 每个面板首次激活时拉取一次对应数据，切回时不重复请求（状态保留在 composable）
+    const loadedPanels = new Set()
+    const panelLoaders = {
+      'panel-basic': loadProfile,
+      'panel-privacy': loadPrivacySettings,
+      'panel-minio': loadMinIOConfig,
+      'panel-timeout': loadTimeoutConfig,
+      'panel-email': loadEmailConfig
+    }
+    const handleSwitchPanel = (panelId) => {
+      switchPanel(panelId)
+      if (!loadedPanels.has(panelId) && panelLoaders[panelId]) {
+        loadedPanels.add(panelId)
+        panelLoaders[panelId]()
+      }
+    }
+
+    // 挂载时默认激活「基本资料」面板 → 只加载该面板数据（其余面板点击时才请求）
     onMounted(() => {
-      loadEmailConfig()
+      handleSwitchPanel('panel-basic')
     })
 
     // 侧边栏导航配置（10 个面板）
@@ -289,6 +313,8 @@ export default {
       selectTimeout,
       saveTimeoutConfig,
       showDeleteConfirm,
+      // 2026-08-05 新增：按需加载
+      handleSwitchPanel,
       // 修改登录密码（账号安全）
       dialogVisible,
       openDialog,

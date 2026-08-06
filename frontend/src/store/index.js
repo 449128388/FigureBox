@@ -197,8 +197,10 @@ export const useOrderStore = defineStore('order', {
     totalUnpaidBalance: 0
   }),
   actions: {
-    async fetchOrders() {
-      const response = await axios.get('/orders/')
+    async fetchOrders(params = {}) {
+      // 2026-08-06 修复：透传搜索参数（figure_name / due_date_start / due_date_end），
+      // 让后端 OrderService.get_orders 按条件过滤，前端搜索按钮才会真正生效
+      const response = await axios.get('/orders/', { params })
       this.orders = response
       // 同时获取未支付尾款总额
       await this.fetchUnpaidBalance()

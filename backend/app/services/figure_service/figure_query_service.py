@@ -76,7 +76,8 @@ class FigureQueryService:
         purchase_type: Optional[str] = None,
         purchase_date_start: Optional[str] = None,
         purchase_date_end: Optional[str] = None,
-        tag_names: Optional[List[str]] = None
+        tag_names: Optional[List[str]] = None,
+        user_id: Optional[int] = None
     ):
         """
         构建手办列表查询
@@ -88,6 +89,7 @@ class FigureQueryService:
             purchase_date_start: 入手日期开始
             purchase_date_end: 入手日期结束
             tag_names: 标签名称列表（多标签同时包含，AND 关系）
+            user_id: 用户ID（数据隔离用，2026-08-05 新增；None 时返回全表，历史数据迁移用）
 
         Returns:
             Query对象
@@ -97,6 +99,10 @@ class FigureQueryService:
             Figure.is_active == True,
             Figure.purchase_type != 'wishlist',
         )
+
+        # 2026-08-05 新增：用户数据隔离过滤
+        if user_id is not None:
+            query = query.filter(Figure.user_id == user_id)
 
         # 按名称搜索（模糊匹配）- 同时匹配中文名称和日文名称
         if name:
@@ -172,7 +178,7 @@ class FigureQueryService:
 
         query = FigureQueryService.build_figure_list_query(
             db, name, purchase_type, purchase_date_start,
-            purchase_date_end, tag_names
+            purchase_date_end, tag_names, user_id  # 2026-08-05 修复：user_id 必须透传，否则列表全表扫描（数据隔离失效）
         )
 
         if query is None:
@@ -256,18 +262,23 @@ class FigureQueryService:
         return {"items": result, "total": total}
 
     @staticmethod
-    def get_figure_by_id(db: Session, figure_id: int) -> Optional[Figure]:
+    def get_figure_by_id(db: Session, figure_id: int, user_id: Optional[int] = None) -> Optional[Figure]:
         """
         根据ID获取手办详情
 
         Args:
             db: 数据库会话
             figure_id: 手办ID
+            user_id: 用户ID（2026-08-05 新增：数据隔离用；None 时不过滤，仅用于内部 service 调用）
 
         Returns:
             Figure对象或None
         """
-        return db.query(Figure).filter(Figure.id == figure_id).first()
+        query = db.query(Figure).filter(Figure.id == figure_id)
+        # 2026-08-05 新增：数据隔离（user_id 不为 None 时按用户过滤）
+        if user_id is not None:
+            query = query.filter(Figure.user_id == user_id)
+        return query.first()
 
     @staticmethod
     def get_figure_count(
@@ -294,7 +305,7 @@ class FigureQueryService:
         """
         query = FigureQueryService.build_figure_list_query(
             db, name, purchase_type, purchase_date_start,
-            purchase_date_end, tag_names
+            purchase_date_end, tag_names, user_id  # 2026-08-05 修复：user_id 必须透传，否则列表全表扫描（数据隔离失效）
         )
 
         if query is None:
@@ -358,7 +369,9 @@ class FigureQueryService:
         # 第二步：查询这些手办的基本信息（简化查询，避免复杂预加载）
         query = db.query(Figure).filter(
             Figure.id.in_(figure_ids),
-            Figure.is_active == True
+            Figure.is_active == True,
+            # 2026-08-05 新增：数据隔离兜底（防止 NULL 数据的全局手办越权）
+            Figure.user_id == user_id
         )
 
         # 按名称搜索

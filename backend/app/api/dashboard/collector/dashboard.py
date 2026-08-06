@@ -20,6 +20,7 @@ API端点：
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from typing import Optional
 from sqlalchemy import func, extract
 
 from app.models.database import get_db
@@ -42,13 +43,16 @@ def get_valid_orders(db: Session, user_id: int):
     ).all()
 
 
-def get_figures_with_valid_orders(db: Session, orders):
-    """获取有有效订单的手办列表"""
+def get_figures_with_valid_orders(db: Session, orders, user_id: Optional[int] = None):
+    """获取有有效订单的手办列表（2026-08-05 新增：按 user_id 过滤，防止越权）"""
     figure_ids = set(order.figure_id for order in orders)
     if not figure_ids:
         return []
-    all_figures = db.query(Figure).all()
-    return [fig for fig in all_figures if fig.id in figure_ids]
+    # 2026-08-05 修复：全表扫描后内存过滤 → SQL 层按 user_id 过滤（性能 + 数据隔离）
+    query = db.query(Figure).filter(Figure.id.in_(figure_ids))
+    if user_id is not None:
+        query = query.filter(Figure.user_id == user_id)
+    return query.all()
 
 
 def check_token_refresh(request, response):
@@ -76,8 +80,8 @@ async def get_collector_dashboard(
     # 获取用户的所有有效订单
     valid_orders = get_valid_orders(db, current_user.id)
     
-    # 获取有有效订单的手办列表
-    figures = get_figures_with_valid_orders(db, valid_orders)
+    # 获取有有效订单的手办列表（2026-08-05 新增：传入 user_id 做数据隔离）
+    figures = get_figures_with_valid_orders(db, valid_orders, current_user.id)
     
     # 获取当前年月
     now = datetime.now()

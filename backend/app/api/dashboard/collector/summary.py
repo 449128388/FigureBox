@@ -45,8 +45,8 @@ async def get_collector_summary(
     # 获取用户的所有有效订单
     valid_orders = get_valid_orders(db, current_user.id)
     
-    # 获取有有效订单的手办列表
-    figures = get_figures_with_valid_orders(db, valid_orders)
+    # 获取有有效订单的手办列表（2026-08-05 新增：传入 user_id 做数据隔离）
+    figures = get_figures_with_valid_orders(db, valid_orders, current_user.id)
     
     # 获取当前年月
     now = datetime.now()
@@ -75,8 +75,11 @@ async def get_collector_summary(
         if trans.remaining_quantity and trans.remaining_quantity > 0
     )
 
-    # 获取这些手办的详细信息
-    figures_with_stock = db.query(Figure).filter(Figure.id.in_(figure_ids_with_stock)).all() if figure_ids_with_stock else []
+    # 获取这些手办的详细信息（2026-08-05 新增：按用户过滤防止越权）
+    figures_with_stock = db.query(Figure).filter(
+        Figure.id.in_(figure_ids_with_stock),
+        Figure.user_id == current_user.id,  # 2026-08-05 新增：数据隔离
+    ).all() if figure_ids_with_stock else []
 
     # 统计覆盖的作品数和厂商数
     unique_works = set(fig.work for fig in figures_with_stock if fig.work)

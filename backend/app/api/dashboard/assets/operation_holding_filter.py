@@ -74,11 +74,11 @@ async def filter_holdings(
     返回:
         分页后的持仓列表
     """
-    # 获取所有有效订单
-    valid_orders = AssetsCommonService.get_valid_orders(db)
+    # 获取所有有效订单（2026-08-05 新增：按 user_id 过滤）
+    valid_orders = AssetsCommonService.get_valid_orders(db, current_user.id)
 
-    # 获取有有效订单的手办列表
-    figures = AssetsCommonService.get_figures_with_valid_orders(db, valid_orders)
+    # 获取有有效订单的手办列表（2026-08-05 新增：按 user_id 过滤）
+    figures = AssetsCommonService.get_figures_with_valid_orders(db, valid_orders, current_user.id)
 
     # 使用服务层分析持仓分布数据
     distribution_data = HoldingAnalysisService.analyze_all_distributions(
@@ -135,9 +135,12 @@ async def get_inventory_holdings(
         手办列表，包含id、name、quantity、cost_price、image_url
     """
     # 获取所有手办
-    # Figure 模型没有 user_id 字段，需要通过订单关联获取用户的手办
-    valid_orders = AssetsCommonService.get_valid_orders(db, current_user.id)
-    figure_ids = AssetsCommonService.get_figure_ids_with_valid_orders(valid_orders)
+    # 2026-08-05 新增：直接通过 Figure.user_id 过滤（不再依赖 order 间接关联）
+    figure_ids = db.query(Figure.id).filter(
+        Figure.user_id == current_user.id,
+        Figure.is_active == True
+    ).all()
+    figure_ids = [fid[0] for fid in figure_ids]
     figures = db.query(Figure).filter(Figure.id.in_(figure_ids)).all() if figure_ids else []
 
     result = []

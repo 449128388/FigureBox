@@ -46,6 +46,10 @@ class Figure(Base):
     # 主键
     id = Column(Integer, primary_key=True, index=True, comment="手办唯一标识ID")
 
+    # 所属用户（数据隔离：每条手办只属于创建它的用户）
+    # 2026-08-05 新增：用于修复多用户数据隔离缺陷
+    user_id = Column(Integer, index=True, nullable=True, comment="所属用户ID（数据隔离用，NULL 表示全局共享/历史数据）")
+
     # 基本信息
     name = Column(String(200), nullable=False, comment="手办名称（中文/英文）")
     japanese_name = Column(String(200), comment="日文名称")

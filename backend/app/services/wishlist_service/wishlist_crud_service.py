@@ -33,6 +33,10 @@ class WishlistCrudService:
             data: 包含 name/japanese_name/price/currency/manufacturer/scale/...
                   release_date/source_url/note/tags/images/wishlist_status
         """
+        # 2026-08-05 修复：强制 user_id 非 NULL 校验，防止任何调用路径漏传导致无主数据
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="缺少用户上下文")
+
         # 必填校验
         if not data.get("name"):
             raise HTTPException(status_code=400, detail="手办名称不能为空")
@@ -77,6 +81,7 @@ class WishlistCrudService:
             images=images,
             quantity=1,
             is_active=1,
+            user_id=user_id,  # 2026-08-05 修复：写入所有者，否则愿望清单项为 NULL 无主数据
         )
 
         db.add(figure)
@@ -108,6 +113,7 @@ class WishlistCrudService:
             Figure.id == figure_id,
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,  # 2026-08-05 修复：所有权校验，防止越权更新他人愿望
         ).first()
         if not figure:
             return None
@@ -180,6 +186,7 @@ class WishlistCrudService:
             Figure.id == figure_id,
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,  # 2026-08-05 修复：所有权校验，防止越权删除他人愿望
         ).first()
         if not figure:
             return False
@@ -218,6 +225,7 @@ class WishlistCrudService:
             Figure.id == figure_id,
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,  # 2026-08-05 修复：所有权校验，防止越权转库他人愿望
         ).first()
         if not figure:
             return None

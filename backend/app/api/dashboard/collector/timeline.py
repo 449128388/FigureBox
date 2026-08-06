@@ -91,7 +91,8 @@ async def get_timeline_event_detail(
     current_user: User = Depends(get_current_user)
 ):
     """获取单条事件详情"""
-    detail = CollectorActivityService.get_event_detail(db, event_id)
+    # 2026-08-05 新增：传入 user_id 防止越权查看他人动态
+    detail = CollectorActivityService.get_event_detail(db, event_id, user_id=current_user.id)
 
     check_token_refresh(request, response)
 

@@ -463,16 +463,26 @@ export function useOrderManagement() {
     }
   }
   
-  // 【新增】处理搜索
-  const handleSearch = () => {
+  // 【新增】处理搜索 - 2026-08-06 修复：点击搜索时调用后端接口按条件查询
+  const handleSearch = async () => {
     currentPage.value = 1 // 搜索时重置到第一页
+    const params = {}
+    if (searchFigureName.value && searchFigureName.value.trim()) {
+      params.figure_name = searchFigureName.value.trim()
+    }
+    if (searchDueDateRange.value && searchDueDateRange.value.length === 2) {
+      params.due_date_start = searchDueDateRange.value[0]
+      params.due_date_end = searchDueDateRange.value[1]
+    }
+    await orderStore.fetchOrders(params)
   }
-  
-  // 【新增】处理重置
-  const handleReset = () => {
+
+  // 【新增】处理重置 - 2026-08-06 修复：清空搜索条件后重新拉取全量订单
+  const handleReset = async () => {
     searchFigureName.value = ''
     searchDueDateRange.value = []
     currentPage.value = 1 // 重置时回到第一页
+    await orderStore.fetchOrders()
   }
   
   return {

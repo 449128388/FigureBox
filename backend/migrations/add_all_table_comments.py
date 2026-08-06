@@ -70,6 +70,10 @@ COLUMN_COMMENTS = {
         "smtp_last_test_at": "SMTP 连接测试成功时间",
         "smtp_last_test_status": "SMTP 连接测试状态：success / failed（便于面板展示连接状态）",
     },
+    # 2026-08-05 新增：figures.user_id 字段（数据隔离）
+    "figures": {
+        "user_id": "所属用户ID（数据隔离用，NULL 表示全局共享/历史数据）",
+    },
 }
 
 # 增量补列：Base.metadata.create_all() 只建新表，不会给已存在表加新列
@@ -84,6 +88,19 @@ COLUMN_DEFINITIONS = {
         "smtp_secure_mode": "VARCHAR(16) NOT NULL DEFAULT 'ssl' COMMENT '安全连接：ssl / starttls / none'",
         "smtp_last_test_at": "DATETIME NULL COMMENT 'SMTP 连接测试成功时间'",
         "smtp_last_test_status": "VARCHAR(20) NOT NULL DEFAULT '' COMMENT 'SMTP 连接测试状态：success / failed（便于面板展示连接状态）'",
+    },
+    # 2026-08-05 新增：figures.user_id 字段（数据隔离：每条手办只属于创建它的用户）
+    "figures": {
+        "user_id": "INT NULL COMMENT '所属用户ID（数据隔离用，NULL 表示全局共享/历史数据）'",
+    },
+}
+
+# 增量补索引：Base.metadata.create_all() 不会给已存在表加新索引，需主动 CREATE INDEX
+# 索引名规则：ix_<表名>_<列名>
+INDEX_DEFINITIONS = {
+    # 2026-08-05 新增：figures.user_id 索引（数据隔离查询性能优化）
+    "figures": {
+        "ix_figures_user_id": ["user_id"],
     },
 }
 
@@ -126,6 +143,28 @@ def upgrade():
                 print(f"  ✅ {table_name}.{col_name}: 新列已添加")
                 add_col_count += 1
 
+        # 增量补索引：Base.metadata.create_all() 不会给已存在表加新索引，需主动 CREATE INDEX
+        # 存在性判断：information_schema.statistics 查索引名
+        add_idx_count = 0
+        for table_name, indexes in INDEX_DEFINITIONS.items():
+            if table_name not in existing_tables:
+                print(f"  ⚠️ {table_name}: 表不存在，跳过增量补索引")
+                continue
+            for idx_name, idx_cols in indexes.items():
+                # 索引存在性：information_schema.statistics 查 index_name
+                idx_exists = conn.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.statistics "
+                    "WHERE table_schema = DATABASE() AND table_name = :t AND index_name = :i"
+                ), {"t": table_name, "i": idx_name}).scalar()
+                if idx_exists:
+                    print(f"  - {table_name}.{idx_name}: 索引已存在，跳过")
+                    continue
+                cols_sql = ", ".join(f"`{c}`" for c in idx_cols)
+                conn.execute(text(f"CREATE INDEX `{idx_name}` ON `{table_name}` ({cols_sql})"))
+                conn.commit()
+                print(f"  ✅ {table_name}.{idx_name}: 新索引已添加")
+                add_idx_count += 1
+
         count = 0
         for table_name, comment in TABLE_COMMENTS.items():
             if table_name in existing_tables:
@@ -160,7 +199,7 @@ def upgrade():
                 print(f"  ✅ {table_name}.{col_name}: 列注释已更新")
                 col_count += 1
 
-    print(f"\n🎉 共更新 {count} 张表的注释，{col_count} 个列的注释，新增 {add_col_count} 个列")
+    print(f"\n🎉 共更新 {count} 张表的注释，{col_count} 个列的注释，新增 {add_col_count} 个列，{add_idx_count} 个索引")
 
 
 def get_column_type(conn, table_name: str, col_name: str) -> str:

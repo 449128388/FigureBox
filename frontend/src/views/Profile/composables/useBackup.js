@@ -13,7 +13,7 @@
  * - handleDownloadRecord  按记录 ID 重新下载
  * - handleDeleteRecord    DELETE 后端记录 + 重新拉历史
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { backupApi } from '../api/backupApi'
 
@@ -95,10 +95,8 @@ export function useBackup() {
     }
   }
 
-  onMounted(() => {
-    loadSettings()
-    loadHistory()
-  })
+  // 2026-08-05 改造：移除启动自动加载（loadSettings + loadHistory）
+  // 改为由 BackupPanel.vue 监听 activePanel === 'panel-backup' 时按需调用（首次进入面板才请求）
 
   // ========== 立即备份 ==========
   const handleDownloadBackup = async () => {

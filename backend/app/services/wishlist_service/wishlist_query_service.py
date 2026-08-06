@@ -74,10 +74,11 @@ class WishlistQueryService:
         Returns:
             {"items": [...], "total": int, "skip": int, "limit": int}
         """
-        # 基础查询
+        # 基础查询（2026-08-05 修复：补充 user_id 过滤，否则全量泄漏他人愿望清单）
         query = db.query(Figure).filter(
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,
         )
 
         if name:
@@ -126,31 +127,34 @@ class WishlistQueryService:
 
     @staticmethod
     def get_manufacturers(db: Session, user_id: int) -> List[str]:
-        """获取所有手办中去重后的厂商列表"""
+        """获取当前用户手办中去重后的厂商列表（2026-08-05 修复：补充 user_id 过滤）"""
         results = db.query(Figure.manufacturer).filter(
             Figure.is_active == 1,
             Figure.manufacturer.isnot(None),
             Figure.manufacturer != '',
+            Figure.user_id == user_id,
         ).distinct().order_by(Figure.manufacturer).all()
         return [r[0] for r in results]
 
     @staticmethod
     def get_scales(db: Session, user_id: int) -> List[str]:
-        """获取所有手办中去重后的比例列表"""
+        """获取当前用户手办中去重后的比例列表（2026-08-05 修复：补充 user_id 过滤）"""
         results = db.query(Figure.scale).filter(
             Figure.is_active == 1,
             Figure.scale.isnot(None),
             Figure.scale != '',
+            Figure.user_id == user_id,
         ).distinct().order_by(Figure.scale).all()
         return [r[0] for r in results]
 
     @staticmethod
     def get_wishlist_detail(db: Session, user_id: int, figure_id: int) -> Optional[Dict[str, Any]]:
-        """获取愿望清单详情"""
+        """获取愿望清单详情（2026-08-05 修复：补充 user_id 过滤，防止越权读取他人愿望）"""
         figure = db.query(Figure).filter(
             Figure.id == figure_id,
             Figure.purchase_type == PURCHASE_TYPE,
             Figure.is_active == 1,
+            Figure.user_id == user_id,
         ).first()
         if not figure:
             return None

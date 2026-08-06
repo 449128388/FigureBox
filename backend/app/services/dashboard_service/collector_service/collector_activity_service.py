@@ -812,18 +812,23 @@ class CollectorActivityService:
         return result, has_more
 
     @staticmethod
-    def get_event_detail(db: Session, event_id: int) -> Optional[Dict]:
+    def get_event_detail(db: Session, event_id: int, user_id: Optional[int] = None) -> Optional[Dict]:
         """
         获取单条事件详情
 
         Args:
             db: 数据库会话
             event_id: 事件ID
+            user_id: 用户ID（2026-08-05 新增：数据隔离；不传时不过滤，仅用于内部 service 调用）
 
         Returns:
             dict: 事件详情（包含 figure_image 字段）
         """
-        ev = db.query(ActivityFeed).filter(ActivityFeed.id == event_id).first()
+        # 2026-08-05 新增：按用户过滤事件（防止越权查看他人事件）
+        event_query = db.query(ActivityFeed).filter(ActivityFeed.id == event_id)
+        if user_id is not None:
+            event_query = event_query.filter(ActivityFeed.user_id == user_id)
+        ev = event_query.first()
         if not ev:
             return None
 
@@ -835,7 +840,11 @@ class CollectorActivityService:
         figure_scale = ""
         figure_manufacturer = ""
         if ev.figure_id:
-            figure = db.query(Figure).filter(Figure.id == ev.figure_id).first()
+            # 2026-08-05 新增：手办查询也按用户过滤（防止越权）
+            figure_query = db.query(Figure).filter(Figure.id == ev.figure_id)
+            if user_id is not None:
+                figure_query = figure_query.filter(Figure.user_id == user_id)
+            figure = figure_query.first()
             if figure:
                 if figure.images and isinstance(figure.images, list) and len(figure.images) > 0:
                     figure_image = figure.images[0]

@@ -144,10 +144,14 @@ class HomeService:
                 "figure_id": figure.id,
             })
 
-        # 3. 添加愿望 - 最新愿望清单项
+        # 3. 添加愿望 - 最新愿望清单项（2026-08-05 新增：按用户过滤愿望清单）
         wishlist_items = (
             db.query(Figure)
-            .filter(Figure.purchase_type == "wishlist", Figure.is_active == 1)
+            .filter(
+                Figure.purchase_type == "wishlist",
+                Figure.is_active == 1,
+                Figure.user_id == user_id,  # 2026-08-05 新增：数据隔离
+            )
             .order_by(Figure.created_at.desc())
             .limit(limit)
             .all()
@@ -163,15 +167,20 @@ class HomeService:
                 "figure_id": wl.id,
             })
 
-        # 4. 价格变动 - 最近的价格变更记录
+        # 4. 价格变动 - 最近的价格变更记录（2026-08-06 修复：通过 Figure 关联按用户过滤）
         price_records = (
             db.query(AssetPriceHistory)
+            .join(Figure, Figure.id == AssetPriceHistory.figure_id)
+            .filter(Figure.user_id == user_id, Figure.is_active == 1)
             .order_by(AssetPriceHistory.date.desc())
             .limit(limit)
             .all()
         )
         for pr in price_records:
-            figure = db.query(Figure).filter(Figure.id == pr.figure_id).first()
+            figure = db.query(Figure).filter(
+                Figure.id == pr.figure_id,
+                Figure.user_id == user_id,
+            ).first()
             if not figure:
                 continue
             activities.append({
@@ -412,12 +421,13 @@ class HomeService:
             (fig.market_price or 0) * (fig.quantity or 1) for fig in owned_figures
         )
 
-        # wishlist_count：统计所有愿望清单记录（与愿望清单页面统计口径一致）
+        # wishlist_count：当前用户的愿望清单记录数（2026-08-05 新增：按用户过滤）
         wishlist_count = (
             db.query(Figure)
             .filter(
                 Figure.purchase_type == "wishlist",
                 Figure.is_active == 1,
+                Figure.user_id == user_id,  # 2026-08-05 新增：数据隔离
             )
             .count()
         )

@@ -31,6 +31,7 @@ def get_figures(
     purchase_date_start: str = None,
     purchase_date_end: str = None,
     tag_names: list[str] = Query(None),
+    current_user: User = Depends(get_current_user),  # 2026-08-05 新增：数据隔离鉴权
     db: Session = Depends(get_db)
 ):
     """
@@ -50,7 +51,8 @@ def get_figures(
         purchase_type=purchase_type,
         purchase_date_start=purchase_date_start,
         purchase_date_end=purchase_date_end,
-        tag_names=tag_names
+        tag_names=tag_names,
+        user_id=current_user.id  # 2026-08-05 新增：仅返回当前用户的手办
     )
 
 
@@ -172,7 +174,11 @@ def delete_tag(
 
 @router.get("/{figure_id}", response_model=FigureDetailResponse, response_model_exclude={'image'})
 @router.get("/{figure_id}/", response_model=FigureDetailResponse, response_model_exclude={'image'})
-def get_figure(figure_id: int, db: Session = Depends(get_db)):
+def get_figure(
+    figure_id: int,
+    current_user: User = Depends(get_current_user),  # 2026-08-05 新增：数据隔离鉴权
+    db: Session = Depends(get_db)
+):
     """
     获取手办详情
 
@@ -180,7 +186,8 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
     - 基础信息（名称、定价等）
     - 平均入手价格（根据关联订单自动计算）
     """
-    figure = FigureService.get_figure_by_id(db, figure_id)
+    # 2026-08-05 新增：仅返回当前用户的手办
+    figure = FigureService.get_figure_by_id(db, figure_id, user_id=current_user.id)
     if not figure:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -191,7 +198,7 @@ def get_figure(figure_id: int, db: Session = Depends(get_db)):
     from sqlalchemy.orm import joinedload
     figure_with_orders = db.query(Figure).options(
         joinedload(Figure.orders)
-    ).filter(Figure.id == figure_id).first()
+    ).filter(Figure.id == figure_id, Figure.user_id == current_user.id).first()
 
     if figure_with_orders:
         # 【重构】使用服务层方法计算平均入手价格
@@ -242,8 +249,8 @@ def update_figure(
     if figure_data.get("images"):
         figure_data["images"] = StorageService.upload_external_images(figure_data["images"], request)
 
-    # 获取原始手办数据
-    original_figure = FigureService.get_figure_by_id(db, figure_id)
+    # 获取原始手办数据（2026-08-05 新增：带 user_id 校验，防止越权探测他人手办）
+    original_figure = FigureService.get_figure_by_id(db, figure_id, user_id=current_user.id)
     if not original_figure:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -265,6 +272,7 @@ def update_figure(
 @router.get("/{figure_id}/orders/count")
 def get_figure_orders_count(
     figure_id: int,
+    current_user: User = Depends(get_current_user),  # 2026-08-05 新增：数据隔离鉴权
     db: Session = Depends(get_db)
 ):
     """
@@ -275,9 +283,18 @@ def get_figure_orders_count(
     """
     from app.models.order import Order
 
-    # 查询该手办的未软删除订单数量
+    # 2026-08-05 新增：先校验手办属于当前用户（防止越权探测）
+    figure = FigureService.get_figure_by_id(db, figure_id, user_id=current_user.id)
+    if not figure:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="手办不存在"
+        )
+
+    # 查询该手办的未软删除订单数量（仅当前用户的订单）
     order_count = db.query(Order).filter(
         Order.figure_id == figure_id,
+        Order.user_id == current_user.id,  # 2026-08-05 新增：按用户过滤
         Order.is_active == 1
     ).count()
 
@@ -297,7 +314,8 @@ def delete_figure(
     删除手办
     """
     try:
-        success = FigureService.delete_figure(db, figure_id)
+        # 2026-08-05 新增：传 user_id 做所有权校验（防止越权删除）
+        success = FigureService.delete_figure(db, figure_id, user_id=current_user.id)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -342,7 +360,8 @@ def batch_delete_figures(
                 detail="未提供要删除的手办ID列表"
             )
 
-        result = FigureService.batch_delete_figures(db, figure_ids)
+        # 2026-08-05 新增：传 user_id 做所有权校验
+        result = FigureService.batch_delete_figures(db, figure_ids, user_id=current_user.id)
 
         return {
             "message": f"批量删除完成，成功 {result['success_count']} 个，失败 {result['failed_count']} 个",
