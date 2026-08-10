@@ -194,14 +194,48 @@ export const useTagStore = defineStore('tag', {
 export const useOrderStore = defineStore('order', {
   state: () => ({
     orders: [],
+    totalCount: 0,       // 2026-08-06 新增：分页总数（来自后端，符合当前过滤条件的订单总数）
+    statusCounts: {      // 2026-08-06 新增：各状态订单计数（来自后端，用于状态 Tab 展示）
+      all: 0,
+      '未支付': 0,
+      '已支付': 0,
+      '已取消': 0,
+      '已完成': 0
+    },
     totalUnpaidBalance: 0
   }),
   actions: {
     async fetchOrders(params = {}) {
-      // 2026-08-06 修复：透传搜索参数（figure_name / due_date_start / due_date_end），
-      // 让后端 OrderService.get_orders 按条件过滤，前端搜索按钮才会真正生效
+      // 2026-08-06 改造：透传搜索 + 分页 + 状态参数（figure_name / due_date_start / due_date_end / status / skip / limit），
+      // 后端 OrderService.get_orders_page 按条件过滤并分页；返回新响应结构 {items, total, status_counts}
+      // 兼容旧版 list 响应（手办详情页 useFigureDetail 仍可能命中该路径）
       const response = await axios.get('/orders/', { params })
-      this.orders = response
+      if (Array.isArray(response)) {
+        // 旧版 list 响应（手办详情页用 figure_id 单点查询，理论上不会命中，但保留兼容）
+        this.orders = response
+        this.totalCount = response.length
+        this.statusCounts = {
+          all: response.length,
+          '未支付': 0,
+          '已支付': 0,
+          '已取消': 0,
+          '已完成': 0
+        }
+      } else {
+        // 新版 {items, total, status_counts} 响应
+        this.orders = response.items || []
+        this.totalCount = response.total || 0
+        if (response.status_counts) {
+          this.statusCounts = {
+            all: 0,
+            '未支付': 0,
+            '已支付': 0,
+            '已取消': 0,
+            '已完成': 0,
+            ...response.status_counts
+          }
+        }
+      }
       // 同时获取未支付尾款总额
       await this.fetchUnpaidBalance()
       return response
@@ -250,8 +284,10 @@ export const useSoldOrderStore = defineStore('soldOrder', {
     totalNetProfit: 0
   }),
   actions: {
-    async fetchSoldOrders() {
-      const response = await axios.get('/sold-orders/')
+    async fetchSoldOrders(params = {}) {
+      // 2026-08-06 修复：透传搜索参数（figure_name / order_number / sell_platform），
+      // 后端 SoldOrderService.get_sold_orders 按条件过滤，前端搜索按钮才会真正生效
+      const response = await axios.get('/sold-orders/', { params })
       this.soldOrders = response
       await this.fetchSoldOrderStatistics()
       return response

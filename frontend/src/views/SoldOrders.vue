@@ -47,6 +47,7 @@
       v-model:searchSellPlatform="searchSellPlatform"
       @search="handleSearch"
       @reset="handleReset"
+      @enter-search="handleEnterSearch"
     />
 
     <!-- 状态筛选 Tab 和统计 -->
@@ -173,6 +174,7 @@ const {
   searchOrderNumber,
   searchSellPlatform,
   handleSearch,
+  handleEnterSearch,
   handleReset
 } = useSoldOrderManagement()
 

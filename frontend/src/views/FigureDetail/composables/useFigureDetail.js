@@ -9,7 +9,7 @@
  * 所有业务函数以纯函数导出（无需响应式），组件按需导入解构使用
  */
 
-import { useFigureStore, useOrderStore } from '../../../store'
+import { useFigureStore } from '../../../store'
 import axios from '../../../axios'
 
 // ============== 数据拉取 ==============
@@ -30,15 +30,27 @@ const fetchFigureDetail = async (figureId) => {
 }
 
 /**
- * 获取当前用户所有订单
+ * 获取手办关联订单（仅当前手办，过滤在后端完成）
+ *
+ * 直接调用后端 /orders/?figure_id=xxx 而非 useOrderStore.fetchOrders()，
+ * 避免触发 store 内的 fetchUnpaidBalance() 副作用调用。
+ *
+ * 2026-08-06 适配：后端 /orders/ 改返回 {items, total, status_counts} 结构，
+ * 提取 .items 数组返回（手办详情页只需要当前手办关联的全量订单列表）
  */
-const fetchOrders = async () => {
-  const orderStore = useOrderStore()
-  return orderStore.fetchOrders()
+const fetchOrders = async (figureId) => {
+  if (!figureId) return []
+  const response = await axios.get('/orders/', { params: { figure_id: figureId, limit: 100 } })
+  // 新版响应：{items: [...], total, status_counts} → 提取 items
+  // 旧版 list 响应（兼容）：直接返回数组
+  if (Array.isArray(response)) {
+    return response
+  }
+  return response.items || []
 }
 
 /**
- * 从全量订单中筛选关联订单
+ * 从订单列表中筛选关联订单（后端已按 figure_id 过滤，此处保留兼容旧调用方）
  */
 const getRelatedOrders = (figureId, orders) => {
   return orders.filter(order => order.figure_id === parseInt(figureId))

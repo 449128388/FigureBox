@@ -3,15 +3,16 @@ dashboard.py - 行情看板业务层
 
 功能说明：
 - 提供行情看板相关API端点
-- 包括塑料小人指数(HPI)、成分股列表、HPI历史K线等
+- 包括塑料小人指数(HPI)、成分股列表、HPI历史K线、板块排行等
 
 API端点：
-- GET /dashboard: 获取行情看板数据
-- GET /hpi-history: 获取 HPI 历史数据
-- GET /hpi-components: 获取成分股详情
-- GET /sector-ranking: 获取用户持仓板块涨幅排行
-- GET /sector-dimensions: 获取支持的板块维度列表
-- GET /sector-figures: 获取板块下手办明细（用于二级展开）
+- GET /dashboard/hpi                 行情看板 HPI 指数摘要（不含 components）
+- GET /hpi-history                   获取 HPI 历史数据（K线）
+- GET /hpi-components                获取成分股详情（投资复盘页）
+- GET /sector-ranking                获取用户持仓板块涨幅排行（按指定维度聚合，首屏默认 dimension=work&limit=10）
+- GET /sector-dimensions             获取支持的板块维度列表
+- GET /sector-figures                获取板块下手办明细（用于二级展开）
+
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -26,28 +27,41 @@ from app.services.dashboard_service.market_service.sector_service import SectorS
 router = APIRouter()
 
 
-@router.get("/dashboard")
-async def get_market_dashboard(
+# ============== 内部辅助：从 HPI 字典剥离 components 数组 ==============
+
+def _strip_components(hpi_data: dict) -> dict:
+    """
+    行情看板 HPI 摘要专用：从 HPIService 返回的完整数据中移除 components 数组。
+    """
+    if not isinstance(hpi_data, dict):
+        return hpi_data
+    return {k: v for k, v in hpi_data.items() if k != "components"}
+
+
+# ============== 端点 1/2：行情看板 HPI 摘要 ==============
+
+@router.get("/dashboard/hpi")
+async def get_market_dashboard_hpi(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    获取行情看板 HPI 数据
-
+    行情看板 HPI 指数摘要（不含 components 数组）。
     返回塑料小人指数(HPI)相关数据：
-    - HPI：投资生涯全周期收益指数
-    - 成分股盈亏分布
-    - 卖飞/卖对统计
-    - sectors：默认按作品出处的板块涨幅排行 TOP 5
+    - index_value / avg_return / first_buy_date
+    - total_figures / holding_figures / sold_figures
+    - up_count / flat_count / down_count / sold_up_count / sold_down_count
+    - in_cabinet_value / sold_value
     """
     hpi_data = HPIService.get_hpi_dashboard(db, current_user.id)
-    sector_data = SectorService.get_user_sector_ranking(db, current_user.id, dimension="work", limit=5)
+    return {"index": _strip_components(hpi_data)}
 
-    return {
-        "index": hpi_data,
-        "sectors": sector_data.get("sectors", []),
-        "sector_total": sector_data.get("total", 0),
-    }
+
+# ============== 原 /dashboard 与 /dashboard/sector-default 已删除 ==============
+# 2026-08-06 拆分重构：
+# - 原 GET /dashboard（单接口返回 index 含完整 components + sectors + sector_total）已替换为 /dashboard/hpi
+# - 行情页首屏默认板块排行复用既有 /sector-ranking?dimension=work&limit=10 端点，
+#   不再新增专用的 /dashboard/sector-default（与 /sector-ranking 重复）
 
 
 @router.get("/hpi-history")

@@ -114,6 +114,7 @@ export default {
     const chartRef = ref(null)
     const selectedRange = ref(30)
     const historyData = ref([])
+    const historyLoading = ref(false)  // 2026-08-06 修复：防止 onMounted 与 watch 在初次挂载时并发触发同一请求
     let chartInstance = null
 
     const timeRanges = [
@@ -140,11 +141,18 @@ export default {
     })
 
     const fetchHistory = async (days) => {
+      // 2026-08-06 修复：onMounted 与 watch（监听 marketData）会在初次挂载时并发触发 fetchHistory(30)，
+      // 导致 /api/market/hpi-history?days=30 重复请求。加 historyLoading 守卫，in-flight 期间直接 return
+      if (historyLoading.value) return
+      historyLoading.value = true
       try {
         const res = await axios.get(`/market/hpi-history?days=${days}`)
         historyData.value = res.history || []
         renderChart()
       } catch { /* ignore */ }
+      finally {
+        historyLoading.value = false
+      }
     }
 
     const switchRange = (days) => {

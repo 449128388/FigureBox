@@ -1,4 +1,4 @@
-﻿"""
+"""
 cabinets.py - 收藏家看板我的收藏柜接口
 
 API端点：
@@ -40,9 +40,7 @@ from app.services.dashboard_service.collector_service.collector_exclusion_servic
 
 router = APIRouter()
 
-# 每个分类返回的最大 items 数量（前端橱窗卡片展示用）
-# count 仍返回全量总数，items 截取前 N 条
-CABINET_ITEMS_LIMIT = 20
+CABINET_ITEMS_LIMIT = 0  # 0 表示不切片，返回全量
 
 
 def get_image_url(figure):
@@ -468,10 +466,12 @@ async def get_collector_cabinets(
         return round(total / count)
 
     def sliced_items(items):
-        """截取前 N 条，减少响应体大小"""
+        """根据 CABINET_ITEMS_LIMIT 截取 items；0 表示不切片返回全量（供详情页分页使用）"""
+        if CABINET_ITEMS_LIMIT <= 0:
+            return items
         return items[:CABINET_ITEMS_LIMIT]
 
-    # ====== 构建8个分类（items 截取前20条，count 返回全量） ======
+    # ====== 构建8个分类（items 全量返回供详情页分页，count 仍为全量总数） ======
     cabinets = [
         {
             "key": "star",

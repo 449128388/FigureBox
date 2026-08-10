@@ -203,6 +203,8 @@ export default {
     const loading = ref(false)
     const filteredHoldingsData = ref([])
     const hasSearched = ref(false)
+    // 2026-08-07 修复：记录后端返回的总条数（服务端分页）
+    const serverTotal = ref(0)
 
     // 筛选后的持仓列表（总数据源）
     const holdingsSource = computed(() => {
@@ -212,19 +214,21 @@ export default {
       return props.dashboardData?.holdings || []
     })
 
+    // 2026-08-07 修复：搜索模式下用后端返回的 total 覆盖数组长度，使翻页器正确显示总条数
+    const totalOverride = computed(() => {
+      return hasSearched.value ? serverTotal.value : null
+    })
+
     // 使用分页业务逻辑
     const {
       page,
       pageSize,
       pageSizeOptions,
       total,
-      totalPages,
       paginatedData,
       rangeText,
-      handlePageChange,
-      handleSizeChange,
       resetPage
-    } = useHoldingsPagination(holdingsSource)
+    } = useHoldingsPagination(holdingsSource, totalOverride)
 
     // 手办状态筛选选项 - 使用实际风险状态
     const statusFilters = [
@@ -320,6 +324,8 @@ export default {
         const data = await axios.get('/assets/holdings/filter', { params })
         if (data && data.holdings) {
           filteredHoldingsData.value = data.holdings
+          // 2026-08-07 修复：记录后端返回的总条数，翻页器按真实条数展示并可翻页
+          serverTotal.value = data.total || 0
           hasSearched.value = true
         }
       } catch (error) {
@@ -327,6 +333,20 @@ export default {
       } finally {
         loading.value = false
       }
+    }
+
+    // 2026-08-07 修复：分页切换时统一请求后端接口（服务端分页），
+    // 不再区分是否搜索态 —— 任何翻页操作都触发 /assets/holdings/filter 请求，翻页真正由后端响应驱动
+    const handlePageChange = (newPage) => {
+      page.value = newPage
+      handleSearch()
+    }
+
+    // 2026-08-07 修复：每页条数变化时回到第1页并统一请求后端接口
+    const handleSizeChange = (newSize) => {
+      pageSize.value = newSize
+      page.value = 1
+      handleSearch()
     }
 
     // 重置筛选条件

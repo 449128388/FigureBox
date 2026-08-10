@@ -44,10 +44,29 @@ class OrderService:
         current_user: User,
         figure_name: Optional[str] = None,
         due_date_start: Optional[date] = None,
-        due_date_end: Optional[date] = None
+        due_date_end: Optional[date] = None,
+        figure_id: Optional[int] = None
     ) -> List[OrderListItem]:
-        """获取订单列表"""
-        return OrderQueryService.get_orders(db, current_user, figure_name, due_date_start, due_date_end)
+        """获取订单列表（无分页，兼容手办详情页等需要全量返回的场景）"""
+        return OrderQueryService.get_orders(db, current_user, figure_name, due_date_start, due_date_end, figure_id)
+
+    @staticmethod
+    def get_orders_page(
+        db: Session,
+        current_user: User,
+        figure_name: Optional[str] = None,
+        due_date_start: Optional[date] = None,
+        due_date_end: Optional[date] = None,
+        figure_id: Optional[int] = None,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 10
+    ) -> Dict[str, Any]:
+        """获取订单分页列表 + 各状态计数（2026-08-06 新增：尾款管理翻页走服务端）"""
+        return OrderQueryService.get_orders_page(
+            db, current_user, figure_name, due_date_start, due_date_end,
+            figure_id, status, skip, limit
+        )
 
     @staticmethod
     def get_order_by_id(db: Session, order_id: int, current_user: User) -> Optional[Order]:

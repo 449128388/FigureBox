@@ -118,37 +118,15 @@ export function useSoldOrderManagement() {
     }
   }
   
-  // 【新增】搜索过滤后的订单（不包含状态筛选，用于状态栏计数）
-  const searchFilteredOrders = computed(() => {
-    let orders = soldOrderStore.soldOrders
-
-    // 按手办名称模糊搜索
-    if (searchFigureName.value) {
-      const keyword = searchFigureName.value.toLowerCase()
-      orders = orders.filter(order =>
-        order.figure_name && order.figure_name.toLowerCase().includes(keyword)
-      )
-    }
-
-    // 按订单编号模糊搜索
-    if (searchOrderNumber.value) {
-      const keyword = searchOrderNumber.value.toLowerCase()
-      orders = orders.filter(order =>
-        order.order_number && order.order_number.toLowerCase().includes(keyword)
-      )
-    }
-
-    // 按卖出平台筛选
-    if (searchSellPlatform.value) {
-      orders = orders.filter(order => order.sell_platform === searchSellPlatform.value)
-    }
-
-    return orders
-  })
+  // 2026-08-06 修复：删除客户端 searchFilteredOrders 计算属性，
+  // 搜索条件仅在用户点击「搜索」按钮（或按 Enter）时通过后端接口生效，
+  // 不再在用户输入时实时触发前端过滤。filteredOrders / statusCounts / totalNetProfit
+  // 改为直接消费 soldOrderStore.soldOrders（后端最近一次返回的数据，已包含搜索过滤结果）
 
   // 计算属性
   const filteredOrders = computed(() => {
-    let orders = searchFilteredOrders.value
+    // 2026-08-06 修复：直接取 store 数据，不再叠加客户端搜索过滤（搜索由后端完成）
+    let orders = soldOrderStore.soldOrders
 
     if (currentStatus.value !== 'all') {
       orders = orders.filter(order => order.status === currentStatus.value)
@@ -159,20 +137,20 @@ export function useSoldOrderManagement() {
       return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99)
     })
   })
-  
+
   const paginatedOrders = computed(() => {
     const startIndex = (currentPage.value - 1) * pageSize.value
     const endIndex = startIndex + pageSize.value
     return filteredOrders.value.slice(startIndex, endIndex)
   })
-  
+
   const totalOrders = computed(() => {
     return filteredOrders.value.length
   })
-  
+
   const statusCounts = computed(() => {
-    // 【修复】使用搜索过滤后的订单计算状态数量
-    const orders = searchFilteredOrders.value
+    // 2026-08-06 修复：状态计数直接取 store 数据（已含搜索过滤结果），不再依赖客户端 searchFilteredOrders
+    const orders = soldOrderStore.soldOrders
     const counts = {
       all: orders.length,
       '待发货': 0,
@@ -189,15 +167,29 @@ export function useSoldOrderManagement() {
 
     return counts
   })
-  
   const availableFigures = computed(() => {
-    return figureStore.figures
+    const figures = figureStore.figures
+    if (isEditing.value && newOrder.value && newOrder.value.figure_id) {
+      const figureId = Number(newOrder.value.figure_id)
+      const exists = figures.some(f => Number(f.id) === figureId)
+      if (!exists) {
+        return [
+          ...figures,
+          {
+            id: figureId,
+            name: newOrder.value.figure_name || `手办#${figureId}`,
+            quantity: 1,
+            average_purchase_price: 0
+          }
+        ]
+      }
+    }
+    return figures
   })
 
-  // 【修复】基于搜索过滤后的订单计算累计净利润
+  // 2026-08-06 修复：累计净利润直接基于 store 数据计算（已含搜索过滤结果）
   const totalNetProfit = computed(() => {
-    const orders = searchFilteredOrders.value
-    return orders.reduce((sum, order) => sum + (order.net_profit || 0), 0)
+    return soldOrderStore.soldOrders.reduce((sum, order) => sum + (order.net_profit || 0), 0)
   })
   
   // 方法
@@ -225,7 +217,19 @@ export function useSoldOrderManagement() {
   
   const openAddForm = () => {
     resetForm()
+    // 懒加载有库存的手办列表（仅在打开表单时按需拉取，避免进入页面就预加载浪费请求）
+    ensureFiguresWithStockLoaded()
     showAddForm.value = true
+  }
+
+  /**
+   * 懒加载有库存的手办列表：仅在 figureStore.figures 为空时才请求 /api/figures/with-stock，避免重复请求
+   * 解决「已出订单页进入即预加载手办列表」造成的冗余接口调用
+   */
+  const ensureFiguresWithStockLoaded = async () => {
+    if (figureStore.figures.length === 0) {
+      await figureStore.fetchFiguresWithStock()
+    }
   }
 
   const handleCancelForm = () => {
@@ -296,10 +300,12 @@ export function useSoldOrderManagement() {
   }
   
   const handleEditOrder = (order) => {
+    // 懒加载有库存的手办列表（编辑表单同样需要 availableFigures，编辑时虽然不可改手办，但下拉框仍要展示）
+    ensureFiguresWithStockLoaded()
     showAddForm.value = true
     isEditing.value = true
     currentEditOrderId.value = order.id
-    
+
     newOrder.value = {
       ...order,
       figure_id: order.figure_id
@@ -326,23 +332,41 @@ export function useSoldOrderManagement() {
   
   const initializeData = () => {
     soldOrderStore.fetchSoldOrders()
-    figureStore.fetchFiguresWithStock()
+    // 2026-08-06 修复：移除 figureStore.fetchFiguresWithStock() 预加载，
+    // 改为懒加载（在 openAddForm / handleEditOrder 时按需加载），避免进入页面就请求 /api/figures/with-stock
     if (localStorage.getItem('token') && !userStore.currentUser) {
       userStore.fetchUser()
     }
   }
 
-  // 【新增】处理搜索
-  const handleSearch = () => {
+  // 【新增】处理搜索 - 2026-08-06 修复：调用后端按条件查询（之前只改 currentPage 不发请求）
+  const handleSearch = async () => {
     currentPage.value = 1 // 搜索时重置到第一页
+    const params = {}
+    if (searchFigureName.value && searchFigureName.value.trim()) {
+      params.figure_name = searchFigureName.value.trim()
+    }
+    if (searchOrderNumber.value && searchOrderNumber.value.trim()) {
+      params.order_number = searchOrderNumber.value.trim()
+    }
+    if (searchSellPlatform.value) {
+      params.sell_platform = searchSellPlatform.value
+    }
+    await soldOrderStore.fetchSoldOrders(params)
   }
 
-  // 【新增】处理重置
-  const handleReset = () => {
+  // 【新增】处理回车键搜索 - 2026-08-06 新增：搜索输入框按 Enter 触发搜索（与点击搜索按钮等价）
+  const handleEnterSearch = () => {
+    return handleSearch()
+  }
+
+  // 【新增】处理重置 - 2026-08-06 修复：清空搜索条件后重新拉取全量订单（之前只改 ref）
+  const handleReset = async () => {
     searchFigureName.value = ''
     searchOrderNumber.value = ''
     searchSellPlatform.value = ''
     currentPage.value = 1 // 重置时回到第一页
+    await soldOrderStore.fetchSoldOrders()
   }
 
   return {
@@ -399,6 +423,7 @@ export function useSoldOrderManagement() {
 
     // 【新增】搜索方法
     handleSearch,
+    handleEnterSearch,
     handleReset
   }
 }

@@ -72,6 +72,7 @@
       v-model:searchDueDateRange="searchDueDateRange"
       @search="handleSearch"
       @reset="handleReset"
+      @enter-search="handleEnterSearch"
     />
     
     <!-- 状态筛选 Tab -->
@@ -84,7 +85,9 @@
 
     <!-- 订单列表 -->
     <div class="orders-list">
-      <div v-if="filteredOrders.length === 0" class="empty-state">
+      <!-- 2026-08-06 翻页重构：空态判断改用 totalOrders（后端返回，符合当前过滤条件的总数），
+           避免在分页过程中 filteredOrders 中途为 0 误触发空态 -->
+      <div v-if="totalOrders === 0" class="empty-state">
         <el-empty description="暂无数据" />
       </div>
       <OrderItem 
@@ -162,7 +165,6 @@ const {
   newOrder,
   showDeleteConfirmDialog,
   orderToDelete,
-  filteredOrders,
   paginatedOrders,
   totalOrders,
   statusCounts,
@@ -203,6 +205,7 @@ const {
 
   // 【新增】搜索方法
   handleSearch,
+  handleEnterSearch,
   handleReset
 } = useOrderManagement()
 
@@ -232,7 +235,9 @@ onMounted(() => {
 })
 
 // 处理从动态流跳转过来的编辑订单请求
-watch(filteredOrders, (orders) => {
+// 2026-08-06 翻页重构：监听 paginatedOrders（后端返回的当前页订单），
+// filteredOrders 已删除；paginatedOrders 在订单加载完成后会触发 watch
+watch(paginatedOrders, (orders) => {
   const editOrderId = route.query.editOrderId
   if (editOrderId && orders.length > 0) {
     const order = orders.find(o => o.id === Number(editOrderId))

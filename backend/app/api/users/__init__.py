@@ -29,6 +29,7 @@ from .minio_config import router as minio_config_router
 from .timeout_config import router as timeout_config_router
 from .backup import router as backup_router
 from .email_config import router as email_config_router
+from .license_config import router as license_config_router
 
 # 顶层聚合 router（main.py 仍通过 app.api.users.router 注册）
 # 注：backup / minio_config / timeout_config / email_config 四个子 router 不在此聚合，

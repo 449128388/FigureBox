@@ -127,6 +127,8 @@ export function useOrderManagement() {
   }
   
   // 【新增】搜索过滤后的订单（不包含状态筛选，用于状态栏计数）
+  // 2026-08-06 翻页重构：状态计数由后端 status_counts 提供，前端不再用 orderStore.orders 全量聚合
+  // 此处保留 searchFilteredOrders computed 是为了在搜索条件下统计「未支付」的尾款总额
   const searchFilteredOrders = computed(() => {
     let orders = orderStore.orders
 
@@ -156,83 +158,16 @@ export function useOrderManagement() {
     return orders
   })
 
-  // 计算属性
-  const filteredOrders = computed(() => {
-    let orders = searchFilteredOrders.value
+  // 2026-08-06 翻页重构：paginatedOrders 改为直接取 orderStore.orders（后端已按 skip/limit 切好页）
+  // 旧的客户端 slice 逻辑删除，避免翻页"哑铃"（UI 可点但不发请求）
+  const paginatedOrders = computed(() => orderStore.orders)
 
-    // 按状态筛选
-    if (currentStatus.value !== 'all') {
-      orders = orders.filter(order => order.status === currentStatus.value)
-    }
-
-    // 按出荷日期排序
-    return orders.sort((a, b) => {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      const dueA = a.due_date ? new Date(a.due_date) : new Date('9999-12-31')
-      const dueB = b.due_date ? new Date(b.due_date) : new Date('9999-12-31')
-      dueA.setHours(0, 0, 0, 0)
-      dueB.setHours(0, 0, 0, 0)
-
-      // 当筛选状态为"全部"时，已完成和已取消的订单放在最后，并按出荷日期降序排列
-      if (currentStatus.value === 'all') {
-        const isACompletedOrCancelled = a.status === '已完成' || a.status === '已取消'
-        const isBCompletedOrCancelled = b.status === '已完成' || b.status === '已取消'
-
-        // 如果一个是已完成/已取消，另一个不是
-        if (isACompletedOrCancelled && !isBCompletedOrCancelled) {
-          return 1 // a 排在后面
-        }
-        if (!isACompletedOrCancelled && isBCompletedOrCancelled) {
-          return -1 // b 排在后面
-        }
-
-        // 如果都是已完成/已取消，按出荷日期降序排列（最新的在前面）
-        if (isACompletedOrCancelled && isBCompletedOrCancelled) {
-          return dueB - dueA
-        }
-      }
-
-      // 已完成单独筛选时按出荷日期降序排序（最新完成排前面）
-      if (currentStatus.value === '已完成') {
-        return dueB - dueA
-      }
-
-      // 其他情况按出荷日期升序排序（即将出荷的排在前面）
-      return dueA - dueB
-    })
-  })
+  // 2026-08-06 翻页重构：totalOrders 改为取后端返回的 totalCount
+  const totalOrders = computed(() => orderStore.totalCount)
   
-  const paginatedOrders = computed(() => {
-    const startIndex = (currentPage.value - 1) * pageSize.value
-    const endIndex = startIndex + pageSize.value
-    return filteredOrders.value.slice(startIndex, endIndex)
-  })
-  
-  const totalOrders = computed(() => {
-    return filteredOrders.value.length
-  })
-  
-  const statusCounts = computed(() => {
-    // 【修复】使用搜索过滤后的订单计算状态数量
-    const orders = searchFilteredOrders.value
-    const counts = {
-      all: orders.length,
-      '未支付': 0,
-      '已支付': 0,
-      '已取消': 0,
-      '已完成': 0
-    }
-
-    orders.forEach(order => {
-      if (counts[order.status] !== undefined) {
-        counts[order.status]++
-      }
-    })
-
-    return counts
-  })
+  // 2026-08-06 翻页重构：statusCounts 改为取后端返回的 statusCounts
+  // 后端应用 figure_name / due_date_range 过滤但不应用 status 过滤，确保 4 个状态 Tab 计数一致
+  const statusCounts = computed(() => orderStore.statusCounts)
   
   // 【修复】基于搜索过滤后的订单计算待补款总额
   const totalUnpaidBalance = computed(() => {
@@ -242,28 +177,20 @@ export function useOrderManagement() {
       .reduce((sum, order) => sum + (order.balance || 0), 0)
   })
 
+  // 2026-08-06 翻页重构：availableFigures 改用 figure.order_count（手办列表本身已带），
+  // 不再从 orderStore.orders 聚合（受分页影响只拿到当前页数据，会误判手办可下单性）
   const availableFigures = computed(() => {
-    // 获取已有订单的手办ID列表及其订单数量
-    const figureOrderCounts = {}
-    orderStore.orders.forEach(order => {
-      if (!figureOrderCounts[order.figure_id]) {
-        figureOrderCounts[order.figure_id] = 0
-      }
-      figureOrderCounts[order.figure_id]++
-    })
-    
-    // 过滤出符合条件的手办
     return figureStore.figures.filter(figure => {
       // 如果是编辑模式且是当前订单的手办，则保留
       if (isEditing.value && newOrder.value.figure_id === figure.id) {
         return true
       }
-      
-      // 检查手办是否已有订单
-      const orderCount = figureOrderCounts[figure.id] || 0
+
+      // 检查手办是否已有订单（order_count 来自手办列表 API，与分页无关，是全量统计）
+      const orderCount = figure.order_count || 0
       // 检查手办数量限制
       const figureQuantity = figure.quantity || 1
-      
+
       // 只有当订单数量小于手办数量时才显示
       return orderCount < figureQuantity
     })
@@ -303,8 +230,20 @@ export function useOrderManagement() {
   const openAddForm = () => {
     // 重置表单
     resetForm()
+    // 懒加载手办列表（仅在打开表单时按需拉取，避免进入页面就预加载浪费请求）
+    ensureFiguresLoaded()
     // 显示表单
     showAddForm.value = true
+  }
+
+  /**
+   * 懒加载手办列表：仅在手办 store 为空时才请求 /api/figures/，避免重复请求
+   * 解决「尾款管理页进入即预加载全量手办」造成的冗余接口调用
+   */
+  const ensureFiguresLoaded = async () => {
+    if (figureStore.figures.length === 0) {
+      await figureStore.fetchFigures()
+    }
   }
   
   const validateForm = () => {
@@ -421,6 +360,8 @@ export function useOrderManagement() {
   const handleEditOrder = (order) => {
     // 先重置表单到初始状态,避免上次编辑/新增的数据残留
     resetForm()
+    // 懒加载手办列表（编辑表单同样需要 availableFigures，编辑时虽然不可改手办，但下拉框仍要展示）
+    ensureFiguresLoaded()
     // 打开编辑表单
     showAddForm.value = true
     isEditing.value = true
@@ -434,18 +375,57 @@ export function useOrderManagement() {
     }
   }
   
+  // 2026-08-06 翻页重构：统一的订单加载入口，构建所有过滤 + 分页参数，调用后端 store
+  // 任何状态变化（搜索 / 状态 Tab / 页码 / 每页条数 / 重置）都通过 loadOrders 触发后端请求
+  const loadOrders = async () => {
+    const params = {
+      skip: (currentPage.value - 1) * pageSize.value,
+      limit: pageSize.value
+    }
+    if (currentStatus.value && currentStatus.value !== 'all') {
+      params.status = currentStatus.value
+    }
+    if (searchFigureName.value && searchFigureName.value.trim()) {
+      params.figure_name = searchFigureName.value.trim()
+    }
+    if (searchDueDateRange.value && searchDueDateRange.value.length === 2) {
+      // 2026-08-06 修复：formatDate 必须存在或新增；这里直接读日期对象的 YYYY-MM-DD
+      const formatDate = (d) => {
+        if (!d) return null
+        const dt = new Date(d)
+        const yyyy = dt.getFullYear()
+        const mm = String(dt.getMonth() + 1).padStart(2, '0')
+        const dd = String(dt.getDate()).padStart(2, '0')
+        return `${yyyy}-${mm}-${dd}`
+      }
+      if (searchDueDateRange.value[0]) {
+        params.due_date_start = formatDate(searchDueDateRange.value[0])
+      }
+      if (searchDueDateRange.value[1]) {
+        params.due_date_end = formatDate(searchDueDateRange.value[1])
+      }
+    }
+    await orderStore.fetchOrders(params)
+  }
+
+  // 2026-08-06 翻页重构：handleSizeChange 走服务端，切换每页条数 → 重新查询后端
   const handleSizeChange = (val) => {
     pageSize.value = val
-    currentPage.value = 1 // 重置为第一页
+    currentPage.value = 1
+    loadOrders()
   }
-  
+
+  // 2026-08-06 翻页重构：handleCurrentChange 走服务端，页码切换 → 重新查询后端
   const handleCurrentChange = (val) => {
     currentPage.value = val
+    loadOrders()
   }
   
+  // 2026-08-06 翻页重构：handleStatusChange 切换状态时调后端（旧的纯改 ref 不发请求）
   const handleStatusChange = (status) => {
     currentStatus.value = status
     currentPage.value = 1 // 切换状态时重置页码
+    loadOrders()
   }
   
   const handleLogout = () => {
@@ -455,34 +435,33 @@ export function useOrderManagement() {
   
   // 生命周期
   const initializeData = () => {
-    orderStore.fetchOrders()
-    figureStore.fetchFigures()
+    // 2026-08-06 翻页重构：进入页面时走 loadOrders()，带上分页参数（默认 page 1, pageSize 10）
+    loadOrders()
+    // 2026-08-06 修复：移除 figureStore.fetchFigures() 预加载，
+    // 改为懒加载（在 openAddForm / handleEditOrder 时按需加载），避免进入页面就请求 /api/figures/
     // 如果有token但用户信息为空，获取用户信息
     if (localStorage.getItem('token') && !userStore.currentUser) {
       userStore.fetchUser()
     }
   }
-  
-  // 【新增】处理搜索 - 2026-08-06 修复：点击搜索时调用后端接口按条件查询
+
+  // 【新增】处理搜索 - 2026-08-06 翻页重构：走 loadOrders() 统一入口，自动带分页参数
   const handleSearch = async () => {
     currentPage.value = 1 // 搜索时重置到第一页
-    const params = {}
-    if (searchFigureName.value && searchFigureName.value.trim()) {
-      params.figure_name = searchFigureName.value.trim()
-    }
-    if (searchDueDateRange.value && searchDueDateRange.value.length === 2) {
-      params.due_date_start = searchDueDateRange.value[0]
-      params.due_date_end = searchDueDateRange.value[1]
-    }
-    await orderStore.fetchOrders(params)
+    await loadOrders()
   }
 
-  // 【新增】处理重置 - 2026-08-06 修复：清空搜索条件后重新拉取全量订单
+  // 【新增】处理回车键搜索 - 2026-08-06 新增：搜索输入框按 Enter 触发搜索（与点击搜索按钮等价）
+  const handleEnterSearch = () => {
+    return handleSearch()
+  }
+
+  // 【新增】处理重置 - 2026-08-06 翻页重构：清空搜索条件后走 loadOrders() 拉取全量订单
   const handleReset = async () => {
     searchFigureName.value = ''
     searchDueDateRange.value = []
-    currentPage.value = 1 // 重置时回到第一页
-    await orderStore.fetchOrders()
+    currentPage.value = 1
+    await loadOrders()
   }
   
   return {
@@ -513,7 +492,6 @@ export function useOrderManagement() {
     searchDueDateRange,
 
     // 计算属性
-    filteredOrders,
     paginatedOrders,
     totalOrders,
     statusCounts,
@@ -546,6 +524,7 @@ export function useOrderManagement() {
 
     // 【新增】搜索方法
     handleSearch,
+    handleEnterSearch,
     handleReset
   }
 }

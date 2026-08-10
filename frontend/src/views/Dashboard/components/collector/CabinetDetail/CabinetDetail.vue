@@ -46,7 +46,7 @@
       <!-- 网格视图 -->
       <FigureGrid
         v-if="viewMode === 'grid'"
-        :items="sortedItems"
+        :items="paginatedItems"
         :cabinet-key="cabinet.key"
         :cabinet-icon="cabinet.icon"
         :star-ratings="starRatings"
@@ -60,12 +60,22 @@
       <!-- 列表视图 -->
       <FigureList
         v-else
-        :items="sortedItems"
+        :items="paginatedItems"
         :cabinet-key="cabinet.key"
         :cabinet-icon="cabinet.icon"
         :star-ratings="starRatings"
         @view-detail="handleViewDetail"
         @sell="handleSell"
+      />
+
+      <!-- 2026-08-06 翻页组件：复用 FiguresPagination 通用组件（与手办库同款） -->
+      <FiguresPagination
+        :current-page="currentPage"
+        :page-size="pageSize"
+        :page-sizes="pageSizes"
+        :total="sortedItems.length"
+        @current-change="handleCurrentChange"
+        @size-change="handleSizeChange"
       />
     </template>
 
@@ -109,6 +119,8 @@ import SortBar from './components/SortBar.vue'
 import FigureGrid from './components/FigureGrid.vue'
 import FigureList from './components/FigureList.vue'
 import EmptyState from './components/EmptyState.vue'
+// 2026-08-06 翻页：复用 Figures 域下的 FiguresPagination 通用分页组件（与手办库同款）
+import FiguresPagination from '@/views/Figures/components/FiguresPagination.vue'
 import FigureDetailDrawer from './components/FigureDetailDrawer/FigureDetailDrawer.vue'
 import FigureOutDrawer from './components/FigureOutDrawer/index.vue'
 import useCabinetDetail from './composables/useCabinetDetail'
@@ -125,6 +137,7 @@ export default {
     FigureGrid,
     FigureList,
     EmptyState,
+    FiguresPagination,
     FigureDetailDrawer,
     FigureOutDrawer
   },

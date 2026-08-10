@@ -89,7 +89,7 @@ export default {
         const figureId = this.$route.params.id
         const [figureData, orders] = await Promise.all([
           fetchFigureDetail(figureId),
-          fetchOrders()
+          fetchOrders(figureId)
         ])
 
         this.figure = figureData || {}

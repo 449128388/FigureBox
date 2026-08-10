@@ -168,7 +168,6 @@ export default {
       setDimension,
       dimensions,
       fetchDimensions,
-      ensureSectors,
       expandedSector,
       detailLoading,
       toggleSector,
@@ -176,9 +175,9 @@ export default {
       getSectorDetail
     } = useSectorRanking(props)
 
-    // 拉取维度列表 + 兜底拉取首屏数据
+    // 拉取维度列表；首屏 sectors 数据由父组件 Dashboard.vue fetchMarketData 通过 props.marketData.sectors 注入
+    // （走 watch -> syncFromProps 路径），子组件不再调用 ensureSectors(10) 兜底拉取，避免与父组件 fetchMarketData 并发请求同一 URL
     fetchDimensions()
-    ensureSectors(10)
 
     // 图片加载失败兜底
     const onImgError = (e) => {

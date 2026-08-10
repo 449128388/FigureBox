@@ -264,3 +264,14 @@ class EmailTestRequest(BaseModel):
         if not __import__('re').match(pattern, v):
             raise ValueError('收件邮箱格式不正确')
         return v
+
+
+# ===== 许可管理 Schemas（2026-08-07 剥离至 app/schemas/license.py）=====
+# 5 个 Pydantic 类已迁移到独立文件，此处仅 re-export 保持向后兼容
+from app.schemas.license import (  # noqa: E402,F401
+    LicenseActivateRequest,
+    LicenseImportRequest,
+    LicenseResponse,
+    LicenseHistoryItem,
+    LicenseHistoryResponse,
+)

@@ -162,15 +162,6 @@ export function useSectorRanking(props) {
     return sectorDetailCache.value[key] || null
   }
 
-  /**
-   * 优先使用 props 已有数据，缺失时再请求接口
-   */
-  const ensureSectors = async (limit = 10) => {
-    syncFromProps()
-    if (sectors.value.length > 0) return
-    await fetchSectors(activeDimension.value, limit)
-  }
-
   // 监听 props.marketData.sectors 变化，自动同步
   watch(
     () => props?.marketData?.sectors,
@@ -187,7 +178,6 @@ export function useSectorRanking(props) {
     setDimension,
     dimensions,
     fetchDimensions,
-    ensureSectors,
     // 二级展开
     expandedSector,
     detailLoading,

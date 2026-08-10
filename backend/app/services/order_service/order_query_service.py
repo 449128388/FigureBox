@@ -3,7 +3,7 @@
 提供订单查询相关的业务逻辑，包括列表查询、统计等
 """
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -54,46 +54,46 @@ class OrderQueryService:
         return {"total_unpaid_balance": total_balance_cny}
 
     @staticmethod
-    def get_orders(
+    def _build_base_query(
         db: Session,
         current_user: User,
         figure_name: Optional[str] = None,
         due_date_start: Optional[date] = None,
-        due_date_end: Optional[date] = None
-    ) -> List[OrderListItem]:
+        due_date_end: Optional[date] = None,
+        figure_id: Optional[int] = None
+    ):
         """
-        获取订单列表
-
-        Args:
-            db: 数据库会话
-            current_user: 当前用户
-            figure_name: 手办名称模糊搜索
-            due_date_start: 出荷日期开始
-            due_date_end: 出荷日期结束
+        构建订单基础查询（2026-08-06 重构：get_orders 与 get_status_counts 共享过滤条件）
 
         Returns:
-            List[OrderListItem]: 订单列表
+            SQLAlchemy Query 对象
         """
-        # 构建基础查询
         query = db.query(Order).join(Figure).filter(Order.is_active == 1)
-        
+
         # 非管理员只能查看自己的订单
         if not current_user.is_admin:
             query = query.filter(Order.user_id == current_user.id)
-        
+
+        # 按手办ID精确过滤（手办详情页使用）
+        if figure_id is not None:
+            query = query.filter(Order.figure_id == figure_id)
+
         # 按手办名称模糊搜索
         if figure_name:
             query = query.filter(Figure.name.ilike(f"%{figure_name}%"))
-        
+
         # 按出荷日期范围筛选
         if due_date_start:
             query = query.filter(Order.due_date >= due_date_start)
         if due_date_end:
             query = query.filter(Order.due_date <= due_date_end)
-        
-        orders = query.all()
 
-        return [OrderListItem(
+        return query
+
+    @staticmethod
+    def _to_list_item(order) -> OrderListItem:
+        """Order ORM → OrderListItem 转换（2026-08-06 抽离：get_orders 与 get_orders_page 共享）"""
+        return OrderListItem(
             id=order.id,
             user_id=order.user_id,
             figure_id=order.figure_id,
@@ -118,7 +118,110 @@ class OrderQueryService:
             remarks=order.remarks,
             created_at=order.created_at,
             updated_at=order.updated_at
-        ) for order in orders]
+        )
+
+    @staticmethod
+    def get_orders(
+        db: Session,
+        current_user: User,
+        figure_name: Optional[str] = None,
+        due_date_start: Optional[date] = None,
+        due_date_end: Optional[date] = None,
+        figure_id: Optional[int] = None
+    ) -> List[OrderListItem]:
+        """
+        获取订单列表（无分页，兼容手办详情页等需要全量返回的场景）
+
+        Args:
+            db: 数据库会话
+            current_user: 当前用户
+            figure_name: 手办名称模糊搜索
+            due_date_start: 出荷日期开始
+            due_date_end: 出荷日期结束
+            figure_id: 手办ID精确过滤（用于手办详情页只取关联订单，避免拉全量数据）
+
+        Returns:
+            List[OrderListItem]: 订单列表
+        """
+        query = OrderQueryService._build_base_query(
+            db, current_user, figure_name, due_date_start, due_date_end, figure_id
+        )
+        orders = query.all()
+        return [OrderQueryService._to_list_item(order) for order in orders]
+
+    @staticmethod
+    def get_orders_page(
+        db: Session,
+        current_user: User,
+        figure_name: Optional[str] = None,
+        due_date_start: Optional[date] = None,
+        due_date_end: Optional[date] = None,
+        figure_id: Optional[int] = None,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 10
+    ) -> Dict[str, Any]:
+        """
+        获取订单分页列表 + 各状态计数（2026-08-06 新增：尾款管理翻页走服务端）
+
+        Args:
+            db: 数据库会话
+            current_user: 当前用户
+            figure_name: 手办名称模糊搜索
+            due_date_start: 出荷日期开始
+            due_date_end: 出荷日期结束
+            figure_id: 手办ID精确过滤
+            status: 订单状态过滤（'未支付' / '已支付' / '已取消' / '已完成' / None 表示不过滤）
+            skip: 跳过的记录数
+            limit: 返回的最大记录数
+
+        Returns:
+            Dict[str, Any]: {
+                'items': List[OrderListItem],   # 当前页订单
+                'total': int,                   # 符合当前过滤条件的总数
+                'status_counts': Dict[str, int] # 各状态计数（应用 figure_name/due_date 过滤但不应用 status 过滤）
+            }
+        """
+        # 构建基础查询（应用 figure_name / due_date / figure_id 过滤，不应用 status 过滤）
+        base_query = OrderQueryService._build_base_query(
+            db, current_user, figure_name, due_date_start, due_date_end, figure_id
+        )
+
+        # 计算各状态计数（在应用 status 过滤之前）
+        status_counts_rows = base_query.with_entities(
+            Order.status, func.count(Order.id)
+        ).group_by(Order.status).all()
+        status_counts = {row[0]: row[1] for row in status_counts_rows}
+        # 补齐所有状态（前端 Tab 完整显示）
+        for s in ('未支付', '已支付', '已取消', '已完成'):
+            status_counts.setdefault(s, 0)
+        status_counts['all'] = sum(v for k, v in status_counts.items() if k != 'all')
+
+        # 应用 status 过滤后分页
+        paged_query = base_query
+        if status:
+            paged_query = paged_query.filter(Order.status == status)
+
+        # 取总数（在分页前）
+        total = paged_query.count()
+
+        # 应用分页
+        # 2026-08-06 修复：原 .order_by(Order.due_date.asc().nullslast(), Order.id.desc()) 生成
+        # "ORDER BY ... ASC NULLS LAST" 语法，MySQL 8.0 不支持（NULLS LAST 是 PostgreSQL 扩展，MySQL 始终按
+        # ASC 默认 NULL 在前 / DESC 默认 NULL 在后处理），导致 /orders/?status=未支付 报 500
+        # 改用 MySQL 兼容写法：先按 IS NULL 排（NULL=1, 非 NULL=0, 升序），再按 due_date 升序
+        # 等价于 "NULL 排最后 + 非 NULL 按 due_date 升序" 的语义
+        orders = paged_query.order_by(
+            Order.due_date.is_(None),
+            Order.due_date.asc(),
+            Order.id.desc()
+        ).offset(skip).limit(limit).all()
+
+        return {
+            'items': [OrderQueryService._to_list_item(order) for order in orders],
+            'total': total,
+            'status_counts': status_counts
+        }
 
     @staticmethod
     def get_order_by_id(db: Session, order_id: int, current_user: User) -> Optional[Order]:

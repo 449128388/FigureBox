@@ -96,6 +96,10 @@ export function useWishlistForm() {
         result = await wishlistApi.create(payload)
         ElMessage.success('添加成功')
       }
+      // 2026-08-06 修复：保存成功后清空「厂商 / 比例」缓存，
+      // 下次任一组件（FilterBar / ManualModal）调用时会重新拉取，
+      // 确保用户新增的厂商或比例能立即出现在下拉列表中
+      wishlistApi.invalidateOptions()
       close()
       return result
     } catch (e) {

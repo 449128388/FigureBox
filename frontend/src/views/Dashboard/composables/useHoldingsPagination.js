@@ -21,9 +21,10 @@ import { ref, computed } from 'vue'
 
 /**
  * @param {import('vue').Ref|import('vue').ComputedRef} dataSource - 数据源（响应式）
+ * @param {import('vue').Ref|import('vue').ComputedRef|null} totalOverride - 可选：外部总条数（服务端分页时传入后端返回的 total）
  * @returns {Object} 分页状态和方法
  */
-export function useHoldingsPagination(dataSource) {
+export function useHoldingsPagination(dataSource, totalOverride = null) {
   // 当前页码（从1开始）
   const page = ref(1)
   // 每页条数
@@ -31,8 +32,12 @@ export function useHoldingsPagination(dataSource) {
   // 可选的每页条数
   const pageSizeOptions = [9, 18, 36]
 
-  // 总条数
+  // 2026-08-07 修复：支持外部覆盖总条数（服务端分页时，后端返回的 total 可能大于当前页数据条数，
+  // 不能再用 dataSource.length 计算，否则翻页器只会显示 1 页）
   const total = computed(() => {
+    if (totalOverride && typeof totalOverride.value === 'number') {
+      return totalOverride.value
+    }
     const data = dataSource.value
     return Array.isArray(data) ? data.length : 0
   })
@@ -47,6 +52,10 @@ export function useHoldingsPagination(dataSource) {
     const data = dataSource.value
     if (!Array.isArray(data) || data.length === 0) {
       return []
+    }
+    // 2026-08-07 修复：服务端分页模式下，数据源本身已是当前页数据，直接返回、不再二次切片
+    if (totalOverride && typeof totalOverride.value === 'number') {
+      return data
     }
     const start = (page.value - 1) * pageSize.value
     const end = start + pageSize.value

@@ -17,9 +17,10 @@
   <div class="search-section">
     <div class="search-form">
       <span style="margin-right: 5px; font-weight: 500;">手办名称:</span>
-      <el-input v-model="localSearchFigureName" placeholder="搜索手办名称" style="width: 200px; margin-right: 10px;"></el-input>
+      <!-- 2026-08-06 修复：el-input 加 @keyup.enter，搜索输入框按 Enter 触发搜索（与点击搜索按钮等价） -->
+      <el-input v-model="localSearchFigureName" placeholder="搜索手办名称" style="width: 200px; margin-right: 10px;" @keyup.enter="$emit('enter-search')"></el-input>
       <span style="margin-right: 5px; font-weight: 500;">订单编号:</span>
-      <el-input v-model="localSearchOrderNumber" placeholder="搜索订单编号" style="width: 200px; margin-right: 10px;"></el-input>
+      <el-input v-model="localSearchOrderNumber" placeholder="搜索订单编号" style="width: 200px; margin-right: 10px;" @keyup.enter="$emit('enter-search')"></el-input>
       <span style="margin-right: 5px; font-weight: 500;">卖出平台:</span>
       <el-select v-model="localSearchSellPlatform" placeholder="选择卖出平台" style="width: 200px; margin-right: 10px;" popper-class="sold-order-platform-popper">
         <el-option value="" label="全部" />
@@ -55,7 +56,7 @@ export default {
       default: ''
     }
   },
-  emits: ['update:searchFigureName', 'update:searchOrderNumber', 'update:searchSellPlatform', 'search', 'reset'],
+  emits: ['update:searchFigureName', 'update:searchOrderNumber', 'update:searchSellPlatform', 'search', 'reset', 'enter-search'],
   computed: {
     localSearchFigureName: {
       get() {

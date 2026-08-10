@@ -1,6 +1,7 @@
 import os
 
 from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, Date, Text
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.database import Base
 
@@ -15,6 +16,9 @@ class User(Base):
     - 支持用户状态控制（激活/禁用）
     - 合并 user_settings 表字段，统一管理用户配置
     - MinIO 配置字段默认从环境变量读取，确保新用户自动填充
+    - 许可管理数据已剥离至独立表 user_licenses（2026-08-07 演化至 v3 独立表）
+    - 通过 `User.license` 1:1 relationship 访问（lazy="selectin" 自动 JOIN）
+    - 详见 app/models/license.py
 
     安全说明：
     - 密码使用哈希存储，不保存明文
@@ -23,6 +27,7 @@ class User(Base):
 
     关联关系：
     - 被 Order、AssetTransaction 等模型关联
+    - 1:1 关联 UserLicense（许可记录）
     """
     __tablename__ = "users_info"
 
@@ -88,6 +93,18 @@ class User(Base):
     smtp_secure_mode = Column(String(16), default="ssl", comment="安全连接：ssl / starttls / none")
     smtp_last_test_at = Column(DateTime, nullable=True, comment="SMTP 连接测试成功时间")
     smtp_last_test_status = Column(String(20), default="", comment="SMTP 连接测试状态：success / failed（便于面板展示连接状态）")
+
+    # ===== 许可管理（2026-08-07 演化至 v3：独立表 user_licenses）=====
+    # 1:1 关系：lazy="selectin" 自动走单独 SELECT 加载许可记录，0 N+1
+    # 业务层访问：user.license.license_key / user.license.license_status 等
+    # 若 user.license 为 None 表示用户从未激活过许可，service 层会自动创建空记录
+    license = relationship(
+        "UserLicense",
+        uselist=False,
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
 
     def __init__(self, **kwargs):
         """自动将环境变量中的 MinIO 默认值注入新用户"""

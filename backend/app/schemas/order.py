@@ -95,3 +95,19 @@ class OrderListItem(OrderBase):
 
     class Config:
         from_attributes = True
+
+
+class OrderListResponse(BaseModel):
+    """订单分页列表响应（2026-08-06 新增：尾款管理翻页走服务端，与手办库分页响应结构一致）
+
+    - items: 当前页订单列表（OrderListItem 精简字段）
+    - total: 符合当前过滤条件的订单总数（用于前端分页器 total）
+    - status_counts: 各状态订单计数（应用 figure_name / due_date_range 过滤，但不应用 status 过滤），
+      用于前端状态 Tab 上的"未支付 (12)"等计数展示
+    """
+    items: list[OrderListItem]
+    total: int
+    status_counts: dict[str, int] = {}
+
+    class Config:
+        from_attributes = True

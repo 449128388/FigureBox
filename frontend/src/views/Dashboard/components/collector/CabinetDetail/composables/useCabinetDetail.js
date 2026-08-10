@@ -23,7 +23,12 @@ export default {
 
       // FLIP动画相关
       flipEnabled: true,      // 是否启用FLIP动画
-      isAnimating: false      // 是否正在执行动画
+      isAnimating: false,     // 是否正在执行动画
+
+      // 收藏柜 items 已全量加载到 cabinet.items，分页在客户端进行
+      currentPage: 1,         // 当前页
+      pageSize: 20,           // 每页条数（与手办库默认一致）
+      pageSizes: [15, 20, 30, 50]  // 每页条数可选项
     }
   },
 
@@ -68,11 +73,32 @@ export default {
       })
 
       return items
+    },
+
+    /**
+     * 2026-08-06 翻页后的藏品列表（基于 sortedItems 按 currentPage / pageSize 切片）
+     * 客户端分页：items 全量已在 cabinet.items 中，无须重新请求
+     */
+    paginatedItems() {
+      const sorted = this.sortedItems
+      if (!sorted || sorted.length === 0) return []
+      const start = (this.currentPage - 1) * this.pageSize
+      const end = start + this.pageSize
+      return sorted.slice(start, end)
     }
   },
 
   mounted() {
     this.fetchRatings()
+  },
+
+  watch: {
+    /**
+     * 2026-08-06 切换柜子时重置翻页到第 1 页，避免新柜子的 total 仍停留在旧柜子的状态导致越界
+     */
+    'cabinet.key'() {
+      this.currentPage = 1
+    }
   },
 
   methods: {
@@ -112,7 +138,9 @@ export default {
         this.starTempValue = 0
       } else {
         // 点击其他卡 → 打开编辑
-        const item = this.sortedItems[index]
+        // 2026-08-06 翻页修复：FigureGrid 传回的 index 是当前页（paginatedItems）的索引，必须用 paginatedItems 取 item，
+        // 否则会取到 sortedItems 的全量索引导致改错手办评分
+        const item = this.paginatedItems[index]
         this.starEditingIndex = index
         this.starTempValue = this.starRatings[item.id] || 0
       }
@@ -199,6 +227,23 @@ export default {
       const { sortBy, sortOrder } = this.getDefaultSortByCabinet(cabinetKey)
       this.sortBy = sortBy
       this.sortOrder = sortOrder
+    },
+
+    /**
+     * 2026-08-06 翻页事件：current-change（页码切换）
+     * 客户端分页：仅修改 currentPage，paginatedItems computed 自动响应
+     */
+    handleCurrentChange(val) {
+      this.currentPage = val
+    },
+
+    /**
+     * 2026-08-06 翻页事件：size-change（每页条数切换）
+     * 切换 pageSize 时重置回第 1 页，避免当前页码超出新的总页数
+     */
+    handleSizeChange(val) {
+      this.pageSize = val
+      this.currentPage = 1
     },
 
     /**

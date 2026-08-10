@@ -112,6 +112,30 @@
         @toggle-pwd="togglePasswordVisible"
       />
 
+      <PanelLicense
+        :active="activePanel === 'panel-license'"
+        :license-status="licenseStatus"
+        :history="history"
+        v-model:online-key="onlineKey"
+        :offline-filename="offlineFilename"
+        :activating="activating"
+        :importing="importing"
+        :revoking="revoking"
+        :deleting="deleting"
+        :exporting-req="exportingReq"
+        :status-card-text="statusCardText"
+        :status-card-class="statusCardClass"
+        :status-card-icon-color="statusCardIconColor"
+        :status-card-detail="statusCardDetail"
+        @activate="activateOnline"
+        @file-change="importOffline"
+        @revoke="revokeLicense"
+        @delete-history="deleteLicense"
+        @export-req="exportReqFile"
+        @export-lic="exportLicenseFile"
+        @save="onLicenseSave"
+      />
+
       <PanelDelete
         :active="activePanel === 'panel-delete'"
         @confirm="showDeleteConfirm"
@@ -122,6 +146,7 @@
 
 <script>
 import { onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import TopHeader from '../../components/TopHeader.vue'
 import ProfileSidebar from './components/ProfileSidebar.vue'
 import PanelBasic from './components/PanelBasic.vue'
@@ -133,11 +158,13 @@ import ChangePasswordDialog from './components/ChangePasswordDialog.vue'
 import PanelMinIO from './components/PanelMinIO.vue'
 import PanelTimeout from './components/PanelTimeout.vue'
 import PanelEmail from './components/PanelEmail.vue'
+import PanelLicense from './components/PanelLicense.vue'
 import PanelDelete from './components/PanelDelete.vue'
 import BackupPanel from './components/BackupPanel.vue'
 import { useProfile } from './composables/useProfile'
 import { useSecurity } from './composables/useSecurity'
 import { useEmailConfig } from './composables/useEmailConfig'
+import { useLicense } from './composables/useLicense'
 
 export default {
   name: 'Profile',
@@ -153,6 +180,7 @@ export default {
     PanelMinIO,
     PanelTimeout,
     PanelEmail,
+    PanelLicense,
     PanelDelete,
     BackupPanel
   },
@@ -238,6 +266,36 @@ export default {
       togglePasswordVisible
     } = useEmailConfig()
 
+    // 许可管理（2026-08-07 新增）业务逻辑
+    const {
+      licenseStatus,
+      history,
+      onlineKey,
+      offlineFilename,
+      activating,
+      importing,
+      revoking,
+      deleting,
+      exportingReq,
+      statusCardText,
+      statusCardClass,
+      statusCardIconColor,
+      statusCardDetail,
+      loadLicenseStatus,
+      loadHistory,
+      activateOnline,
+      importOffline,
+      revokeLicense,
+      deleteLicense,
+      exportReqFile,
+      exportLicenseFile
+    } = useLicense()
+
+    // 许可面板"保存设置"占位（保留与 HTML 原版 1:1 的按钮，不产生实际写操作）
+    const onLicenseSave = () => {
+      ElMessage.success('许可设置已保存')
+    }
+
     // ========== 面板按需加载（2026-08-05 新增） ==========
     // 进入个人中心不再全量请求所有模块，改为「点击哪个模块才加载哪个模块」：
     // 每个面板首次激活时拉取一次对应数据，切回时不重复请求（状态保留在 composable）
@@ -247,7 +305,8 @@ export default {
       'panel-privacy': loadPrivacySettings,
       'panel-minio': loadMinIOConfig,
       'panel-timeout': loadTimeoutConfig,
-      'panel-email': loadEmailConfig
+      'panel-email': loadEmailConfig,
+      'panel-license': () => Promise.all([loadLicenseStatus(), loadHistory()])
     }
     const handleSwitchPanel = (panelId) => {
       switchPanel(panelId)
@@ -262,7 +321,7 @@ export default {
       handleSwitchPanel('panel-basic')
     })
 
-    // 侧边栏导航配置（10 个面板）
+    // 侧边栏导航配置（11 个面板）
     const sidebarItems = [
       { id: 'panel-basic', label: '基本资料', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
       { id: 'panel-avatar', label: '头像设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' },
@@ -273,6 +332,7 @@ export default {
       { id: 'panel-timeout', label: '超时登出', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
       { id: 'panel-backup', label: '系统备份', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' },
       { id: 'panel-email', label: '邮箱设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>' },
+      { id: 'panel-license', label: '许可管理', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M9 12l2 2 4-4"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
       { id: 'panel-delete', label: '账号注销', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' }
     ]
 
@@ -344,6 +404,29 @@ export default {
       testEmailConnection,
       sendTestEmail,
       togglePasswordVisible,
+      // 许可管理
+      licenseStatus,
+      history,
+      onlineKey,
+      offlineFilename,
+      activating,
+      importing,
+      revoking,
+      deleting,
+      exportingReq,
+      statusCardText,
+      statusCardClass,
+      statusCardIconColor,
+      statusCardDetail,
+      loadLicenseStatus,
+      loadHistory,
+      activateOnline,
+      importOffline,
+      revokeLicense,
+      deleteLicense,
+      exportReqFile,
+      exportLicenseFile,
+      onLicenseSave,
       // sidebar config
       sidebarItems,
       // store

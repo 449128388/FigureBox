@@ -549,12 +549,30 @@ export default {
       return num?.toLocaleString() || '0'
     }
     
-    // 获取资产数据
+    // 获取资产数据（2026-08-06 拆分重构：原 /assets/dashboard 单接口拆为 5 个独立端点，并发拉取拼成同结构对象）
     const fetchDashboardData = async () => {
       loading.value = true
       try {
-        const res = await axios.get('/assets/dashboard')
-        dashboardData.value = res
+        const [summaryRes, profitRes, klineRes, rankingsRes, holdingsRes] = await Promise.all([
+          axios.get('/assets/dashboard/summary'),
+          axios.get('/assets/dashboard/profit'),
+          axios.get('/assets/dashboard/profit-curve', { params: { days: 30 } }),
+          axios.get('/assets/dashboard/rankings'),
+          axios.get('/assets/dashboard/holdings')
+        ])
+        // 拼装为与原 /dashboard 完全一致的对象结构，所有子组件（AssetOverview / IndexComparison /
+        // ChartSection / ProfitAnalysis / HoldingsList）0 改动
+        dashboardData.value = {
+          summary: summaryRes.summary,
+          profit: profitRes.profit,
+          kline_data: klineRes.kline_data,
+          rankings: rankingsRes.rankings,
+          holdings: holdingsRes.holdings,
+          risk_distribution: holdingsRes.risk_distribution,
+          manufacturer_distribution: holdingsRes.manufacturer_distribution,
+          holding_period_distribution: holdingsRes.holding_period_distribution,
+          tier_distribution: holdingsRes.tier_distribution
+        }
       } catch (error) {
         ElMessage.error('获取数据失败')
       } finally {
@@ -670,11 +688,22 @@ export default {
       }
     }
     
-    // 获取行情数据
+    // 获取行情数据（2026-08-06 拆分重构：原 /market/dashboard 单接口拆为 /dashboard/hpi + 复用既有 /sector-ranking）
     const fetchMarketData = async () => {
       try {
-        const res = await axios.get('/market/dashboard')
-        marketData.value = res
+        const [hpiRes, sectorRes] = await Promise.all([
+          axios.get('/market/dashboard/hpi'),
+          // 行情页首屏默认板块排行：复用既有 /market/sector-ranking 端点（dimension=work&limit=10），
+          // 不再调用专用的 /market/dashboard/sector-default（已删除）
+          axios.get('/market/sector-ranking', { params: { dimension: 'work', limit: 10 } })
+        ])
+        // 拼装为与原 /dashboard 完全一致的对象结构，所有子组件（HPIDetail / InvestmentReview / SectorRanking）0 改动
+        // 注：/sector-ranking 返回 {sectors, total, dimension}，需映射 total -> sector_total（兼容 useSectorRanking 内的 syncFromProps 路径）
+        marketData.value = {
+          index: hpiRes.index,
+          sectors: sectorRes.sectors,
+          sector_total: sectorRes.total
+        }
       } catch (error) {
         ElMessage.error('获取行情数据失败')
       }
